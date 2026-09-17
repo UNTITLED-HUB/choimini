@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" class="jcv2-locked">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -204,8 +204,26 @@ details > .field-group{margin-top:8px;}
   #msgInput{font-size:16px;} /* iOS 자동 확대 방지 */
 }
 </style>
+
+<style id="jcv2-gate-style">
+  html.jcv2-locked body > *:not(#jcv2-gate){ display:none !important; }
+  #jcv2-gate{ position:fixed; inset:0; z-index:99999; background:#0b0f19;
+    display:flex; align-items:center; justify-content:center; }
+</style>
 </head>
 <body>
+
+    <!-- jCAPTCHA V2 접속 게이트: 통과 전까지 페이지 콘텐츠를 가림 -->
+    <div id="jcv2-gate"><div data-jcaptcha-v2></div></div>
+    <script src="jcaptcha-v2.js"></script>
+    <script>
+      window.jcaptchaV2OnSuccess = function () {
+        document.documentElement.classList.remove('jcv2-locked');
+        var gate = document.getElementById('jcv2-gate');
+        if (gate) gate.remove();
+      };
+    </script>
+
 <div class="app">
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
   <aside class="sidebar" id="sidebar">
@@ -317,7 +335,7 @@ details > .field-group{margin-top:8px;}
       <button class="modal-close" data-close="captchaModal">✕</button>
     </div>
     <div class="modal-body">
-      <div data-jcaptcha id="jcaptchaMount"></div>
+      <div data-jcaptcha-v3 id="jcaptchaMount"></div>
     </div>
   </div>
 </div>
@@ -860,7 +878,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 });
 window.addEventListener("resize", ()=>{ if(captchaState) fitCaptchaToScreen(); });
 
-window.jcaptchaOnSuccess = function(data){
+window.jcaptchaV3OnSuccess = function(data){
   toast("✅ 인증 통과");
   closeModal("captchaModal");
   captchaVerifiedThisSession = true;
@@ -870,7 +888,7 @@ window.jcaptchaOnSuccess = function(data){
   if(st && st.onSuccess) st.onSuccess(data);
 };
 
-window.jcaptchaOnError = function(data){
+window.jcaptchaV3OnError = function(data){
   toast("❌ 인증 실패 · 문제 재시작");
   // jcaptcha.min.js가 자체적으로 문제를 재시작함 (모달은 열어둔 채로 대기)
 };
