@@ -74,6 +74,8 @@
       this._timer = setTimeout(() => this.runCheck(), delay);
     }
 
+    // V3(jcaptcha.min.js)의 #jcaptcha-v3-* 박스 스타일을 그대로 가져와 V2에 맞춘 버전.
+    // 셀렉터 이름만 v2로 바꿨을 뿐, 크기/여백/색/폰트는 V3와 동일합니다.
     injectStyles() {
       if (document.getElementById("jcaptcha-v2-styles")) return;
       const style = document.createElement("style");
@@ -81,34 +83,35 @@
       style.textContent = `
     #jcaptcha-v2-wrapper {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      width: 300px; margin: 0 auto; user-select: none;
+      width: 260px; margin: 0 auto; user-select: none;
     }
-    .jcv2-box {
-      border: 1px solid #d9d9d9; border-radius: 8px;
-      box-shadow: 0 1px 6px rgba(0,0,0,0.08); background: #fff;
-      display: flex; align-items: center; gap: 12px;
-      padding: 16px; box-sizing: border-box;
+    #jcaptcha-v2-main-box {
+      border: 2px solid #000; border-radius: 6px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.1); background: #fff;
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; box-sizing: border-box;
     }
-    .jcv2-badge {
-      width: 28px; height: 28px; flex-shrink: 0;
-      border: 2px solid #d9d9d9; border-radius: 5px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 15px; font-weight: 800; color: #fff;
-      transition: background .25s, border-color .25s;
+    #jcaptcha-v2-header { display:flex; gap:8px; align-items:center; width:100%; }
+    #jcaptcha-v2-checkbox {
+      width: 32px; height: 32px;
+      border:2px solid #000; border-radius:5px;
+      background:#fff; display:flex; align-items:center; justify-content:center;
+      font-size:15px; font-weight:800; flex-shrink:0;
+      transition:background .25s,border-color .25s;
       position: relative;
     }
-    .jcv2-badge .jcv2-spinner {
+    #jcaptcha-v2-checkbox .jcv2-spinner {
       width: 14px; height: 14px; border-radius: 50%;
       border: 2px solid #d9d9d9; border-top-color: #4285f4;
       animation: jcv2-spin .8s linear infinite;
     }
-    .jcv2-badge.success { background: #34a853; border-color: #34a853; }
-    .jcv2-badge.error { background: #ea4335; border-color: #ea4335; }
+    #jcaptcha-v2-checkbox.success { background:#34a853; border-color:#34a853; color:#fff; }
+    #jcaptcha-v2-checkbox.error   { background:#ea4335; border-color:#ea4335; color:#fff; }
     @keyframes jcv2-spin { to { transform: rotate(360deg); } }
-    .jcv2-text { flex: 1; min-width: 0; }
-    .jcv2-text strong { display: block; font-size: 13px; font-weight: 700; color: #222; }
-    .jcv2-text small { display: block; font-size: 11px; color: #888; margin-top: 3px; line-height: 1.4; }
-    .jcv2-footer { text-align: right; font-size: 9px; color: #bbb; margin-top: 8px; }
+    #jcaptcha-v2-header-text { flex:1; min-width:0; }
+    #jcaptcha-v2-header-text strong { display:block; font-size:12px; font-weight:800; color:#000; }
+    #jcaptcha-v2-header-text small { display:block; font-size:8.5px; color:#888; margin-top:1px; line-height:1.4; }
+    #jcaptcha-v2-emoji { font-size:16px; flex-shrink:0; }
       `;
       document.head.appendChild(style);
     }
@@ -116,18 +119,20 @@
     render() {
       this.container.innerHTML = `
         <div id="jcaptcha-v2-wrapper">
-          <div class="jcv2-box">
-            <div class="jcv2-badge" id="jcv2-badge"><div class="jcv2-spinner"></div></div>
-            <div class="jcv2-text">
-              <strong id="jcv2-title">${TEXT.checking_title}</strong>
-              <small id="jcv2-sub">${TEXT.checking_sub}</small>
+          <div id="jcaptcha-v2-main-box">
+            <div id="jcaptcha-v2-header">
+              <div id="jcaptcha-v2-checkbox"><div class="jcv2-spinner"></div></div>
+              <div id="jcaptcha-v2-header-text">
+                <strong id="jcv2-title">${TEXT.checking_title}</strong>
+                <small id="jcv2-sub">${TEXT.checking_sub}</small>
+              </div>
+              <div id="jcaptcha-v2-emoji">🛡️</div>
             </div>
           </div>
-          <div class="jcv2-footer">jCAPTCHA V2</div>
         </div>
       `;
       this.el = {
-        badge: this.container.querySelector("#jcv2-badge"),
+        badge: this.container.querySelector("#jcaptcha-v2-checkbox"),
         title: this.container.querySelector("#jcv2-title"),
         sub: this.container.querySelector("#jcv2-sub"),
       };
