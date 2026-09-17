@@ -213,15 +213,20 @@ details > .field-group{margin-top:8px;}
 </head>
 <body>
 
-    <!-- jCAPTCHA V2 접속 게이트: 통과 전까지 페이지 콘텐츠를 가림 -->
-    <div id="jcv2-gate"><div data-jcaptcha-v2></div></div>
-    <script src="jcaptcha-v2.js"></script>
+    <!-- Cloudflare Turnstile 접속 게이트: 통과 전까지 페이지 콘텐츠를 가림 -->
+    <div id="jcv2-gate">
+      <div class="cf-turnstile"
+           data-sitekey="0x4AAAAAAAE6QOBCCaei05aqw"
+           data-theme="light"
+           data-callback="onCfTurnstileSuccess"></div>
+    </div>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <script>
-      window.jcaptchaV2OnSuccess = function () {
+      function onCfTurnstileSuccess(token) {
         document.documentElement.classList.remove('jcv2-locked');
         var gate = document.getElementById('jcv2-gate');
         if (gate) gate.remove();
-      };
+      }
     </script>
 
 <div class="app">
