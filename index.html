@@ -349,6 +349,17 @@ details > .field-group{margin-top:8px;}
       <div class="model-grid" id="modelGrid"></div>
 
       <div class="field-group">
+        <label>기억력</label>
+        <button class="nobrain-toggle" type="button" id="memoryToggle" style="justify-content:center;width:100%;">
+          <span class="nb-dot"></span>
+          <span id="memoryLabel">기억력 ON</span>
+        </button>
+        <div style="font-size:11.5px;color:var(--text-dim);margin-top:6px;line-height:1.5;">
+          켜면 이번 대화 세션에서 있었던 내용을 전부 기억하고 답변에 반영하지만, 응답마다 토큰을 더 많이 씀(+5 토큰). 끄면 직전 대화 내용 없이 매번 새 대화처럼 답변하고 토큰을 덜 씀. (&lt;NO BRAIN&gt; OFF 상태의 기본값은 기억력 ON)
+        </div>
+      </div>
+
+      <div class="field-group">
         <label id="apiKeyLabel">API 키</label>
         <input type="password" id="apiKeyInput" placeholder="API 키를 입력하세요">
       </div>
@@ -531,7 +542,8 @@ function defaultSettings(){
     preset: "medium",
     apiKeys: { gemini:"", openai:"", anthropic:"" },
     models: JSON.parse(JSON.stringify(DEFAULT_MODELS)),
-    noBrain: true
+    noBrain: true,
+    memory: true
   };
 }
 
@@ -546,6 +558,7 @@ function init(){
     settings.models[p] = JSON.parse(JSON.stringify(DEFAULT_MODELS[p]));
   }
   if(typeof settings.noBrain !== "boolean") settings.noBrain = true;
+  if(typeof settings.memory !== "boolean") settings.memory = true;
   chats = loadJSON(LS.chats, {});
   activeChatId = localStorage.getItem(LS.activeChat) || null;
   tokensInternal = loadJSON(LS.tokens, DEFAULT_INTERNAL_TOKENS);
@@ -779,7 +792,24 @@ function syncSettingsUI(){
   document.getElementById("apiKeyInput").placeholder = settings.provider === "gemini"
     ? "API 키 입력[기본값 사용중]"
     : "API 키 입력";
+  updateMemoryUI();
 }
+
+/* 기억력 토글: 켜면 대화 맥락을 전부 전달(+5 토큰/응답), 끄면 맥락 없이 매번 새 대화처럼 응답 */
+function updateMemoryUI(){
+  const btn = document.getElementById("memoryToggle");
+  const label = document.getElementById("memoryLabel");
+  if(!btn || !label) return;
+  btn.classList.toggle("on", settings.memory);
+  btn.classList.toggle("off", !settings.memory);
+  label.textContent = settings.memory ? "기억력 ON" : "기억력 OFF";
+}
+document.getElementById("memoryToggle").addEventListener("click", ()=>{
+  settings.memory = !settings.memory;
+  saveJSON(LS.settings, settings);
+  updateMemoryUI();
+  toast(settings.memory ? "🧠 기억력 ON · 대화 맥락을 기억함 (토큰 더 소모)" : "💤 기억력 OFF · 맥락 없이 매번 새 대화처럼 응답함");
+});
 
 /* ---------------- file handling ---------------- */
 function fileToDataURL(file){
@@ -838,11 +868,15 @@ function storedFileCount(){
 }
 
 /* ---------------- token / command handling ---------------- */
+const MEMORY_EXTRA_COST = 50; // 기억력 ON일 때 매 응답마다 추가로 드는 내부 토큰 (표시상 +5 토큰)
+function effectivePresetCost(preset){
+  return PRESET_MIN[preset] + (settings.memory ? MEMORY_EXTRA_COST : 0);
+}
 function canAfford(preset){
-  return tokensInternal >= PRESET_MIN[preset];
+  return tokensInternal >= effectivePresetCost(preset);
 }
 function deductTokens(preset){
-  tokensInternal = Math.max(0, tokensInternal - PRESET_MIN[preset]);
+  tokensInternal = Math.max(0, tokensInternal - effectivePresetCost(preset));
   saveJSON(LS.tokens, tokensInternal);
   renderTokens();
 }
@@ -1147,7 +1181,11 @@ function needsPayment(preset){
   const hasAnyKey = !!resolveApiKey(provider) || hasDefaultProxy(provider);
   return !hasAnyKey || !canAfford(preset);
 }
-const NO_BRAIN_TOKEN_COST = 20; // 표시상 -2 토큰 (일반 preset보다 훨씬 적게 씀)
+// <NO BRAIN> 모드는 매 응답마다 무조건 2~5 토큰(내부 20~50) 사이의 랜덤 값을 소모함
+// (로컬 캔 답변이든 실제 API로 짧게 호출하든 상관없이 항상 차감됨)
+function randomNoBrainCost(){
+  return (2 + Math.floor(Math.random()*4)) * TOKEN_MULT; // 2,3,4,5 표시 토큰 중 랜덤
+}
 const NO_BRAIN_SYSTEM_SUFFIX = "\n\n지금은 <NO BRAIN> 모드임. 깊게 생각하지 말고 아주 짧게(1문장 이내), 성의없고 대충 캐주얼한 말투로만 대답해.";
 
 const NO_BRAIN_BANK = [
@@ -1160,10 +1198,11 @@ function noBrainReply(){
 
 async function generateReply(chat){
   if(settings.noBrain){
+    const cost = randomNoBrainCost(); // 이번 응답에 적용될 랜덤 2~5 토큰 비용 (항상 차감됨)
     const provider = settings.provider;
     const apiKey = resolveApiKey(provider);
-    // API 키가 있고 아주 조금의 토큰(NO_BRAIN_TOKEN_COST)만 있어도 실제 API를 짧게 호출함.
-    if((apiKey || hasDefaultProxy(provider)) && tokensInternal >= NO_BRAIN_TOKEN_COST){
+    // API 키(또는 기본 프록시)가 있고 이번 비용만큼 토큰이 남아있으면 실제 API를 짧게 호출함.
+    if((apiKey || hasDefaultProxy(provider)) && tokensInternal >= cost){
       const model = settings.models[provider]["lite"]; // NO BRAIN 모드는 항상 lite급 모델 사용
       const history = chat.messages.filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files}));
       const shortPrompt = SYSTEM_PROMPT + NO_BRAIN_SYSTEM_SUFFIX;
@@ -1172,15 +1211,16 @@ async function generateReply(chat){
         if(provider === "gemini") text = await callGemini(model, apiKey, shortPrompt, history, "lite", 60);
         else if(provider === "openai") text = await callOpenAI(model, apiKey, shortPrompt, history, 60);
         else if(provider === "anthropic") text = await callAnthropic(model, apiKey, shortPrompt, history, 60);
-        return { text, provider, usedLocal: false, noBrain: true, noBrainCost: NO_BRAIN_TOKEN_COST };
+        return { text, provider, usedLocal: false, noBrain: true, noBrainCost: cost };
       }catch(e){
-        // 실제 API 실패 시 원인을 콘솔/토스트로 보여주고 필러 문구로 대체
+        // 실제 API 실패 시 원인을 콘솔/토스트로 보여주고 필러 문구로 대체 (그래도 토큰은 차감됨)
         console.error("[NO BRAIN] API 호출 실패:", e);
         toast(`⚠️ NO BRAIN 중 API 실패: ${e.message || e}`);
       }
     }
     await sleep(200 + Math.random()*250);
-    return { text: noBrainReply(), provider: "local", usedLocal: true, skipDeduct: true, noBrain: true };
+    // 로컬 캔 답변으로 대체되는 경우에도 <NO BRAIN>은 항상 소량의 토큰(2~5)을 소모함
+    return { text: noBrainReply(), provider: "local", usedLocal: true, noBrain: true, noBrainCost: cost };
   }
 
   const provider = settings.provider;
@@ -1194,7 +1234,9 @@ async function generateReply(chat){
     return { text: "그전에 토큰 내놔", provider, usedLocal: true, skipDeduct: true };
   }
 
-  const history = chat.messages.filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files}));
+  const fullHistory = chat.messages.filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files}));
+  // 기억력 OFF면 이전 대화 내용 없이 이번 사용자 메시지만 전달함 (컨텍스트 없음 · 토큰도 덜 씀)
+  const history = settings.memory ? fullHistory : fullHistory.slice(-1);
 
   let text;
   if(provider === "gemini") text = await callGemini(model, apiKey, SYSTEM_PROMPT, history, preset);
@@ -1258,14 +1300,14 @@ async function appendAiReply(chat, preset){
     deductTokens(preset);
   }
   const meta = noBrain
-    ? (skipDeduct
-        ? `<NO BRAIN> 모드 · 차감 없음`
+    ? (usedLocal
+        ? `<NO BRAIN> 모드 · 오프라인 응답 · -${noBrainCost/TOKEN_MULT} 토큰`
         : `<NO BRAIN> 모드 · ${PROVIDER_LABEL[usedProvider]} 소량 사용 · -${noBrainCost/TOKEN_MULT} 토큰`)
     : (skipDeduct
         ? `키/토큰 부족 · 차감 없음`
         : (usedLocal
-            ? `기본 엔진(오프라인) · -${PRESET_MIN[preset]/TOKEN_MULT} 토큰`
-            : `${PROVIDER_LABEL[usedProvider]} · -${PRESET_MIN[preset]/TOKEN_MULT} 토큰`));
+            ? `기본 엔진(오프라인) · -${effectivePresetCost(preset)/TOKEN_MULT} 토큰${settings.memory ? " (기억력 ON)" : ""}`
+            : `${PROVIDER_LABEL[usedProvider]} · -${effectivePresetCost(preset)/TOKEN_MULT} 토큰${settings.memory ? " (기억력 ON)" : ""}`));
   const hasCode = containsCodeBlock(replyText);
   const aiMsg = { id: uid(), role:"ai", content: replyText, meta, ts: Date.now(), codeLocked: hasCode };
   chat.messages.push(aiMsg);
