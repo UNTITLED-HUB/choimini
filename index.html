@@ -868,17 +868,33 @@ function storedFileCount(){
 }
 
 /* ---------------- token / command handling ---------------- */
-const MEMORY_EXTRA_COST = 50; // 기억력 ON일 때 매 응답마다 추가로 드는 내부 토큰 (표시상 +5 토큰)
-function effectivePresetCost(preset){
-  return PRESET_MIN[preset] + (settings.memory ? MEMORY_EXTRA_COST : 0);
+// 일반 모드(브레인 ON) 토큰 비용: lite/medium/high/max 같은 프리셋 구분 없이
+// "답변 하나당 기본 15 토큰 + 그 답변을 만드는 데 실제로 사용된 양"으로 통일함.
+// 실제 API 응답이면 그 API가 보고하는 진짜 사용량(사고 과정 포함)을 반영하고,
+// 로컬 대체 응답이면 답변 길이로 대략 추정함.
+const NORMAL_BASE_COST = 15; // 표시 기준, 프리셋 무관 고정
+const MEMORY_EXTRA_COST = 5; // 기억력 ON일 때 매 응답마다 추가로 드는 표시 토�큰
+function estimateUsageAmount(replyText, usageAmount){
+  if(typeof usageAmount === "number" && usageAmount > 0) return Math.max(1, Math.round(usageAmount));
+  // 실사용 토큰 정보가 없으면(로컬 대체 응답 등) 답변 길이로 대략 추정
+  return Math.max(1, Math.round((replyText||"").length / 8));
 }
-function canAfford(preset){
-  return tokensInternal >= effectivePresetCost(preset);
+function computeNormalCost(replyText, usageAmount){
+  const used = estimateUsageAmount(replyText, usageAmount);
+  const display = NORMAL_BASE_COST + used + (settings.memory ? MEMORY_EXTRA_COST : 0);
+  return display * TOKEN_MULT; // 내부 단위로 변환
 }
-function deductTokens(preset){
-  tokensInternal = Math.max(0, tokensInternal - effectivePresetCost(preset));
+function canAffordNormal(){
+  // 실제 사용량은 응답을 받아봐야 알 수 있으니, 최소 기본 비용만큼은 남아있는지만 미리 확인함
+  const floor = (NORMAL_BASE_COST + (settings.memory ? MEMORY_EXTRA_COST : 0)) * TOKEN_MULT;
+  return tokensInternal >= floor;
+}
+function deductNormalCost(replyText, usageAmount){
+  const cost = computeNormalCost(replyText, usageAmount);
+  tokensInternal = Math.max(0, tokensInternal - cost);
   saveJSON(LS.tokens, tokensInternal);
   renderTokens();
+  return cost;
 }
 function grantTokens(amount){
   tokensInternal += amount;
@@ -1038,7 +1054,10 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
       if(!res.ok) throw new Error(data?.error?.message || `Gemini API 오류 (${res.status})`);
       const text = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("") || "";
       if(!text) throw new Error("Gemini 응답이 비어있음");
-      return text;
+      // 실제 API가 보고하는 사용량(사고 과정 포함)을 그대로 "사고 과정에서 사용된 양"으로 반영
+      const usage = data?.usageMetadata || {};
+      const rawTokens = (usage.candidatesTokenCount||0) + (usage.thoughtsTokenCount||0);
+      return { text, usageAmount: rawTokens > 0 ? rawTokens / 15 : null };
     }catch(err){
       lastErr = err;
       const isNetworkErr = err instanceof TypeError; // fetch 자체 실패(네트워크/구글 서버 다운 등)
@@ -1083,7 +1102,9 @@ async function callOpenAI(model, apiKey, systemPrompt, history, maxTokens){
   if(!res.ok) throw new Error(data?.error?.message || `OpenAI API 오류 (${res.status})`);
   const text = data?.choices?.[0]?.message?.content;
   if(!text) throw new Error("OpenAI 응답이 비어있음");
-  return text;
+  // 실제 API가 보고하는 사용량(completion_tokens)을 "사고 과정에서 사용된 양"으로 반영
+  const completionTokens = data?.usage?.completion_tokens || 0;
+  return { text, usageAmount: completionTokens > 0 ? completionTokens / 15 : null };
 }
 function buildOpenAIContent(m){
   const hasImg = (m.files||[]).some(f=>f.isImg);
@@ -1120,7 +1141,9 @@ async function callAnthropic(model, apiKey, systemPrompt, history, maxTokens){
   if(!res.ok) throw new Error(data?.error?.message || `Anthropic API 오류 (${res.status})`);
   const text = (data?.content||[]).map(p=>p.text||"").join("");
   if(!text) throw new Error("Anthropic 응답이 비어있음");
-  return text;
+  // 실제 API가 보고하는 사용량(output_tokens)을 "사고 과정에서 사용된 양"으로 반영
+  const outputTokens = data?.usage?.output_tokens || 0;
+  return { text, usageAmount: outputTokens > 0 ? outputTokens / 15 : null };
 }
 function buildAnthropicContent(m){
   const arr = [];
@@ -1176,10 +1199,10 @@ function localChoiminiReply(userText, preset){
 }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
-function needsPayment(preset){
+function needsPayment(){
   const provider = settings.provider;
   const hasAnyKey = !!resolveApiKey(provider) || hasDefaultProxy(provider);
-  return !hasAnyKey || !canAfford(preset);
+  return !hasAnyKey || !canAffordNormal();
 }
 // <NO BRAIN> 모드는 매 응답마다 무조건 2~5 토큰(내부 20~50) 사이의 랜덤 값을 소모함
 // (로컬 캔 답변이든 실제 API로 짧게 호출하든 상관없이 항상 차감됨)
@@ -1208,9 +1231,9 @@ async function generateReply(chat){
       const shortPrompt = SYSTEM_PROMPT + NO_BRAIN_SYSTEM_SUFFIX;
       try{
         let text;
-        if(provider === "gemini") text = await callGemini(model, apiKey, shortPrompt, history, "lite", 60);
-        else if(provider === "openai") text = await callOpenAI(model, apiKey, shortPrompt, history, 60);
-        else if(provider === "anthropic") text = await callAnthropic(model, apiKey, shortPrompt, history, 60);
+        if(provider === "gemini") ({ text } = await callGemini(model, apiKey, shortPrompt, history, "lite", 60));
+        else if(provider === "openai") ({ text } = await callOpenAI(model, apiKey, shortPrompt, history, 60));
+        else if(provider === "anthropic") ({ text } = await callAnthropic(model, apiKey, shortPrompt, history, 60));
         return { text, provider, usedLocal: false, noBrain: true, noBrainCost: cost };
       }catch(e){
         // 실제 API 실패 시 원인을 콘솔/토스트로 보여주고 필러 문구로 대체 (그래도 토큰은 차감됨)
@@ -1228,7 +1251,7 @@ async function generateReply(chat){
   const apiKey = resolveApiKey(provider);
   const model = settings.models[provider][preset];
 
-  if(needsPayment(preset)){
+  if(needsPayment()){
     // API 키가 없거나 토큰이 부족함: 실제 호출 없이 고정 문구로 응답 (토큰 차감 없음)
     await sleep(300 + Math.random()*300);
     return { text: "그전에 토큰 내놔", provider, usedLocal: true, skipDeduct: true };
@@ -1238,13 +1261,13 @@ async function generateReply(chat){
   // 기억력 OFF면 이전 대화 내용 없이 이번 사용자 메시지만 전달함 (컨텍스트 없음 · 토큰도 덜 씀)
   const history = settings.memory ? fullHistory : fullHistory.slice(-1);
 
-  let text;
-  if(provider === "gemini") text = await callGemini(model, apiKey, SYSTEM_PROMPT, history, preset);
-  else if(provider === "openai") text = await callOpenAI(model, apiKey, SYSTEM_PROMPT, history);
-  else if(provider === "anthropic") text = await callAnthropic(model, apiKey, SYSTEM_PROMPT, history);
+  let text, usageAmount = null;
+  if(provider === "gemini") ({ text, usageAmount } = await callGemini(model, apiKey, SYSTEM_PROMPT, history, preset));
+  else if(provider === "openai") ({ text, usageAmount } = await callOpenAI(model, apiKey, SYSTEM_PROMPT, history));
+  else if(provider === "anthropic") ({ text, usageAmount } = await callAnthropic(model, apiKey, SYSTEM_PROMPT, history));
   else throw new Error("알 수 없는 제공자");
 
-  return { text, provider, usedLocal: false };
+  return { text, provider, usedLocal: false, usageAmount };
 }
 
 /* ---------------- send flow ---------------- */
@@ -1291,13 +1314,15 @@ async function sendMessage(){
 
 /* AI 응답 생성 + 추가 (전송/재요청 공용) */
 async function appendAiReply(chat, preset){
-  const { text: replyText, provider: usedProvider, usedLocal, skipDeduct, noBrain, noBrainCost } = await generateReply(chat);
+  const { text: replyText, provider: usedProvider, usedLocal, skipDeduct, noBrain, noBrainCost, usageAmount } = await generateReply(chat);
+  let normalCost = 0;
   if(noBrain && !skipDeduct){
     tokensInternal = Math.max(0, tokensInternal - noBrainCost);
     saveJSON(LS.tokens, tokensInternal);
     renderTokens();
   } else if(!skipDeduct){
-    deductTokens(preset);
+    // 프리셋(lite/medium/high/max) 구분 없이: 기본 15 토큰 + 답변을 만드는 데 실제로 사용된 양
+    normalCost = deductNormalCost(replyText, usageAmount);
   }
   const meta = noBrain
     ? (usedLocal
@@ -1306,8 +1331,8 @@ async function appendAiReply(chat, preset){
     : (skipDeduct
         ? `키/토큰 부족 · 차감 없음`
         : (usedLocal
-            ? `기본 엔진(오프라인) · -${effectivePresetCost(preset)/TOKEN_MULT} 토큰${settings.memory ? " (기억력 ON)" : ""}`
-            : `${PROVIDER_LABEL[usedProvider]} · -${effectivePresetCost(preset)/TOKEN_MULT} 토큰${settings.memory ? " (기억력 ON)" : ""}`));
+            ? `기본 엔진(오프라인) · -${normalCost/TOKEN_MULT} 토큰${settings.memory ? " (기억력 ON)" : ""}`
+            : `${PROVIDER_LABEL[usedProvider]} · -${normalCost/TOKEN_MULT} 토큰${settings.memory ? " (기억력 ON)" : ""}`));
   const hasCode = containsCodeBlock(replyText);
   const aiMsg = { id: uid(), role:"ai", content: replyText, meta, ts: Date.now(), codeLocked: hasCode };
   chat.messages.push(aiMsg);
