@@ -464,6 +464,9 @@ const DEFAULT_API_KEYS = {
 };
 const DEFAULT_KEY_PROXY_URL = "https://cfozaatwytsitimvjkyz.supabase.co/functions/v1/gemini-default-proxy";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmb3phYXR3eXRzaXRpbXZqa3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1Njc5MjYsImV4cCI6MjEwNTE0MzkyNn0.HXpMHM9RyaP51m4hGP5DS8hlQHs1nMqmDDuea5W1Nnc";
+// 교환 코드 검증을 서버(Supabase Edge Function: redeem-code)에서 처리하도록 하는 엔드포인트.
+// 코드 목록은 서버 시크릿(REDEEM_CODES_JSON)에만 존재하고 브라우저로는 절대 내려가지 않음.
+const REDEEM_ENDPOINT = "https://cfozaatwytsitimvjkyz.supabase.co/functions/v1/redeem-code";
 function hasDefaultProxy(provider){
   return provider === "gemini"
     && !!DEFAULT_KEY_PROXY_URL && !DEFAULT_KEY_PROXY_URL.includes("YOUR-PROJECT-REF")
@@ -889,10 +892,14 @@ function grantTokens(amount){
   renderTokens();
 }
 
-function tryHandleCommand(raw){
-  const cmd = raw.trim().toUpperCase();
-  if(Object.prototype.hasOwnProperty.call(REDEEM_CODES, cmd)){
-    redeemCode(cmd);
+function looksLikeRedeemCode(raw){
+  const trimmed = (raw || "").trim();
+  return /^[A-Za-z0-9-]{3,40}$/.test(trimmed) && !/^\d+$/.test(trimmed);
+}
+async function tryHandleCommand(raw){
+  const trimmed = raw.trim();
+  if(looksLikeRedeemCode(trimmed)){
+    await redeemCode(trimmed);
     return true;
   }
   return false;
@@ -901,29 +908,37 @@ function tryHandleCommand(raw){
 /* ---------------- 코드 교환 (사이드바 "🎟️ 코드 교환"에서 사용) ----------------
    REDEEM_CODES에 "코드": { amount, unlimited } 형태로 등록해두면 교환창에서 사용 가능함.
    unlimited:true 인 코드는 몇 번이든 반복 교환 가능함. */
-// 교환 코드 표(관리자 무제한 코드 포함)도 페이지 소스 평문 노출을 피하려고 base64로 저장.
-// (진짜 보안이 필요하면 이 검증 자체를 서버(Supabase Edge Function)로 옮겨야 함)
-const REDEEM_CODES = JSON.parse(_b64d("eyJBRE1JTi1HRVQtMTAwMCI6IHsiYW1vdW50IjogMTAwMCwgInVubGltaXRlZCI6IHRydWV9LCAiSk9JTi1DSE9JTUlOSSI6IHsiYW1vdW50IjogMTAwLCAidW5saW1pdGVkIjogZmFsc2V9fQ=="));
 const redeemedCodes = new Set(loadJSON(LS.redeemed, []));
-function redeemCode(rawCode){
+async function redeemCode(rawCode){
   const code = (rawCode||"").trim().toUpperCase();
   if(!code){ toast("코드를 입력해줘"); return; }
-  const entry = REDEEM_CODES[code];
-  if(entry === undefined){
-    toast("❌ 존재하지 않는 코드임");
-    return;
-  }
-  if(!entry.unlimited && redeemedCodes.has(code)){
+  if(redeemedCodes.has(code)){
     toast("⚠️ 이미 사용한 코드임");
     return;
   }
+  let result;
+  try{
+    const res = await fetch(REDEEM_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({ code })
+    });
+    result = await res.json();
+  }catch(e){
+    toast("⚠️ 코드 확인 중 오류남 (네트워크 상태 확인)");
+    return;
+  }
+  if(!result || !result.valid){
+    toast("❌ 존재하지 않는 코드임");
+    return;
+  }
   startCaptcha(()=>{
-    grantTokens(entry.amount);
-    if(!entry.unlimited){
+    grantTokens(result.amount);
+    if(!result.unlimited){
       redeemedCodes.add(code);
       saveJSON(LS.redeemed, [...redeemedCodes]);
     }
-    toast(`🎟️ 코드 교환 성공: +${entry.amount} 토큰 (표시 +${entry.amount/TOKEN_MULT})`);
+    toast(`🎟️ 코드 교환 성공: +${result.amount} 토큰 (표시 +${result.amount/TOKEN_MULT})`);
     closeModal("redeemModal");
   }, ()=>{ toast("인증 취소됨 · 코드가 사용되지 않음"); });
 }
@@ -1262,7 +1277,7 @@ async function sendMessage(){
   const raw = input.value;
   if(!raw.trim() && pendingFiles.length===0) return;
 
-  if(tryHandleCommand(raw)){
+  if(await tryHandleCommand(raw)){
     input.value = "";
     autoGrow(input);
     return;
