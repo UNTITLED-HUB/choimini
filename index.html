@@ -451,7 +451,8 @@ const LS = {
   settings: "choimini.settings",
   tokens: "choimini.tokens",
   files: "choimini.files",
-  redeemed: "choimini.redeemed"
+  redeemed: "choimini.redeemed",
+  deviceId: "choimini.deviceId"
 };
 const TOKEN_MULT = 10; // internal = display * 10
 const DEFAULT_INTERNAL_TOKENS = 1000;
@@ -472,6 +473,18 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // 교환 코드 검증을 서버(Supabase Edge Function: redeem-code)에서 처리하도록 하는 엔드포인트.
 // 코드 목록은 서버 시크릿(REDEEM_CODES_JSON)에만 존재하고 브라우저로는 절대 내려가지 않음.
 const REDEEM_ENDPOINT = "https://cfozaatwytsitimvjkyz.supabase.co/functions/v1/redeem-code";
+// 기기별 토큰 잔액을 서버(Supabase)에서 관리하는 엔드포인트.
+const DEVICE_BALANCE_ENDPOINT = "https://cfozaatwytsitimvjkyz.supabase.co/functions/v1/device-balance";
+// 브라우저에 저장되는 임의의 기기 식별자. 로그인 없이도 '이 브라우저'를 서버가 구분할 수 있게 해줌.
+// (완벽한 HWID는 아니지만, 같은 브라우저/기기에서는 계속 같은 값이 유지됨)
+function getDeviceId(){
+  let id = localStorage.getItem(LS.deviceId);
+  if(!id){
+    id = (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36)+Math.random().toString(36).slice(2)));
+    localStorage.setItem(LS.deviceId, id);
+  }
+  return id;
+}
 function hasDefaultProxy(provider){
   return provider === "gemini"
     && !!DEFAULT_KEY_PROXY_URL && !DEFAULT_KEY_PROXY_URL.includes("YOUR-PROJECT-REF")
@@ -557,6 +570,7 @@ function init(){
   chats = loadJSON(LS.chats, {});
   activeChatId = localStorage.getItem(LS.activeChat) || null;
   tokensInternal = loadJSON(LS.tokens, DEFAULT_INTERNAL_TOKENS);
+  syncTokensFromServer();
 
   if(!activeChatId || !chats[activeChatId]){
     createChat();
@@ -884,17 +898,53 @@ function canAffordNormal(){
   const floor = (NORMAL_BASE_COST + (settings.memory ? MEMORY_EXTRA_COST : 0)) * TOKEN_MULT;
   return tokensInternal >= floor;
 }
-function deductNormalCost(replyText, usageAmount){
+async function deductNormalCost(replyText, usageAmount){
   const cost = computeNormalCost(replyText, usageAmount);
-  tokensInternal = Math.max(0, tokensInternal - cost);
-  saveJSON(LS.tokens, tokensInternal);
-  renderTokens();
+  await spendTokensServer(cost);
   return cost;
 }
 function grantTokens(amount){
   tokensInternal += amount;
   saveJSON(LS.tokens, tokensInternal);
   renderTokens();
+}
+// 서버(기기별) 잔액에서 amount만큼 차감 시도. 서버가 정상 응답하면 그 잔액으로 로컬을 맞추고,
+// 네트워크 오류 등으로 서버 호출이 실패하면 기존처럼 로컬 값만 깎아서 최소한 동작은 하게 함(오프라인 대비).
+async function spendTokensServer(amount){
+  if(!(amount > 0)) return;
+  try{
+    const res = await fetch(DEVICE_BALANCE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({ deviceId: getDeviceId(), action: "spend", amount })
+    });
+    const data = await res.json();
+    if(res.ok && typeof data.balance === "number"){
+      tokensInternal = data.balance;
+      saveJSON(LS.tokens, tokensInternal);
+      renderTokens();
+      return;
+    }
+  }catch(e){ /* 네트워크 오류 시 아래 로컬 폴백으로 진행 */ }
+  tokensInternal = Math.max(0, tokensInternal - amount);
+  saveJSON(LS.tokens, tokensInternal);
+  renderTokens();
+}
+// 페이지 로드 시, 이 기기의 로컬 캐시 잔액을 서버로 최초 1회 이전(init)하거나 기존 서버 잔액을 받아와 동기화함.
+async function syncTokensFromServer(){
+  try{
+    const res = await fetch(DEVICE_BALANCE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({ deviceId: getDeviceId(), action: "init", amount: tokensInternal })
+    });
+    const data = await res.json();
+    if(res.ok && typeof data.balance === "number"){
+      tokensInternal = data.balance;
+      saveJSON(LS.tokens, tokensInternal);
+      renderTokens();
+    }
+  }catch(e){ /* 조용히 무시, 로컬 캐시 값 그대로 사용 */ }
 }
 
 function looksLikeRedeemCode(raw){
@@ -939,7 +989,7 @@ async function redeemCode(rawCode){
     const res = await fetch(REDEEM_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
-      body: JSON.stringify({ code })
+      body: JSON.stringify({ code, deviceId: getDeviceId() })
     });
     result = await res.json();
     // 요청 제한(틀릴 때마다 10초, 5회 이상 틀리면 1시간)에 걸리면 서버가 429로 응답함
@@ -956,12 +1006,22 @@ async function redeemCode(rawCode){
     toast("⚠️ 코드 확인 중 오류남 (네트워크 상태 확인)");
     return;
   }
+  if(result && result.alreadyRedeemed){
+    toast("⚠️ 이미 이 기기에서 사용한 코드임");
+    return;
+  }
   if(!result || !result.valid){
     toast("❌ 존재하지 않는 코드임");
     return;
   }
   startCaptcha(()=>{
-    grantTokens(result.amount);
+    if(typeof result.balance === "number"){
+      tokensInternal = result.balance;
+      saveJSON(LS.tokens, tokensInternal);
+      renderTokens();
+    }else{
+      grantTokens(result.amount);
+    }
     if(!result.unlimited){
       redeemedCodes.add(code);
       saveJSON(LS.redeemed, [...redeemedCodes]);
@@ -1346,12 +1406,10 @@ async function appendAiReply(chat, preset){
   const { text: replyText, provider: usedProvider, usedLocal, skipDeduct, noBrain, noBrainCost, usageAmount } = await generateReply(chat);
   let normalCost = 0;
   if(noBrain && !skipDeduct){
-    tokensInternal = Math.max(0, tokensInternal - noBrainCost);
-    saveJSON(LS.tokens, tokensInternal);
-    renderTokens();
+    await spendTokensServer(noBrainCost);
   } else if(!skipDeduct){
     // 프리셋(lite/medium/high/max) 구분 없이: 기본 15 토큰 + 답변을 만드는 데 실제로 사용된 양
-    normalCost = deductNormalCost(replyText, usageAmount);
+    normalCost = await deductNormalCost(replyText, usageAmount);
   }
   const meta = noBrain
     ? (usedLocal
