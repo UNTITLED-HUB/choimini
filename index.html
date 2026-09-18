@@ -1093,6 +1093,23 @@ window.jcaptchaV3OnError = function(data){
 };
 
 // 캡차 모달을 닫기(✕)로 취소한 경우 onCancel 처리
+
+// jCAPTCHA V2(접속 시간대 기반 자동 검사)는 성공/차단 시 window.jcaptchaV2OnSuccess /
+// window.jcaptchaV2OnBlocked 콜백을 호출함. 이 콜백을 등록하지 않으면 위젯이
+// "확인 완료.. 연결중" 상태에서 멈춘 것처럼 보이고 모달이 절대 닫히지 않음.
+window.jcaptchaV2OnSuccess = function(data){
+  toast("✅ 인증 완료");
+  closeModal("captchaModal");
+  captchaVerifiedThisSession = true;
+  sessionStorage.setItem("choimini.captchaOk", "1");
+  const st = captchaState;
+  captchaState = null;
+  if(st && st.onSuccess) st.onSuccess(data);
+};
+window.jcaptchaV2OnBlocked = function(data){
+  toast("❌ 인증 실패 · 잠시 후 다시 시도해줘");
+  // jcaptcha-v2.js가 자체적으로 차단 화면을 보여줌 (모달은 열어둔 채로 대기)
+};
 document.querySelector('#captchaModal .modal-close').addEventListener("click", ()=>{
   const st = captchaState;
   captchaState = null;
