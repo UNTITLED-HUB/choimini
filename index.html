@@ -423,7 +423,7 @@ details > .field-group{margin-top:8px;}
     <div class="modal-body code-panel-body">
       <div class="field-group">
         <label>교환 코드</label>
-        <input type="text" id="redeemInput" placeholder="예: ADMIN-GET-1000" style="text-transform:uppercase;">
+        <input type="text" id="redeemInput" placeholder="교환 코드를 입력하세요" style="text-transform:uppercase;">
       </div>
       <div class="btn-row">
         <button class="ghost-btn" data-close="redeemModal">취소</button>
@@ -914,6 +914,19 @@ async function tryHandleCommand(raw){
    REDEEM_CODES에 "코드": { amount, unlimited } 형태로 등록해두면 교환창에서 사용 가능함.
    unlimited:true 인 코드는 몇 번이든 반복 교환 가능함. */
 const redeemedCodes = new Set(loadJSON(LS.redeemed, []));
+// 초 단위를 "1시간 3분", "42초" 같은 한글 표기로 바꿔줌 (요청 제한 안내용)
+function formatRetrySeconds(sec){
+  sec = Math.max(1, Math.round(sec));
+  if(sec >= 3600){
+    const h = Math.floor(sec/3600), m = Math.round((sec%3600)/60);
+    return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+  }
+  if(sec >= 60){
+    const m = Math.floor(sec/60), s = sec%60;
+    return s > 0 ? `${m}분 ${s}초` : `${m}분`;
+  }
+  return `${sec}초`;
+}
 async function redeemCode(rawCode){
   const code = (rawCode||"").trim().toUpperCase();
   if(!code){ toast("코드를 입력해줘"); return; }
@@ -929,6 +942,16 @@ async function redeemCode(rawCode){
       body: JSON.stringify({ code })
     });
     result = await res.json();
+    // 요청 제한(틀릴 때마다 10초, 5회 이상 틀리면 1시간)에 걸리면 서버가 429로 응답함
+    if(res.status === 429 && result && result.limited){
+      const wait = formatRetrySeconds(result.retryAfterSeconds || 0);
+      if(result.reason === "locked"){
+        toast(`🔒 너무 많이 틀렸음 · ${wait} 후 다시 시도해줘`);
+      }else{
+        toast(`⏳ 잠시만, ${wait} 후 다시 시도해줘`);
+      }
+      return;
+    }
   }catch(e){
     toast("⚠️ 코드 확인 중 오류남 (네트워크 상태 확인)");
     return;
