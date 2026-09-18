@@ -230,7 +230,8 @@ details > .field-group{margin-top:8px;}
   #jcv2-gate .jcv2-domain{ font-size:1.6rem; font-weight:800; color:#111827; word-break:break-all; }
   #jcv2-gate h1{ font-size:1.3rem; font-weight:800; margin:0 0 14px; color:#111827; }
   #jcv2-gate .jcv2-desc{ font-size:0.95rem; line-height:1.6; color:#444d5e; margin:0 0 24px; }
-  #jcv2-gate .jcv2-widget-box{ display:flex; }
+  #jcv2-gate .jcv2-widget-box{ display:flex; width:100%; max-width:100%; justify-content:center; overflow-x:hidden; }
+  #jcv2-gate .cf-turnstile{ width:100%; max-width:300px; }
   #jcv2-gate .jcv2-fallback{
     display:none; margin-top:16px; padding:14px 16px; background:#fff7ed;
     border:1px solid #fdba74; border-radius:8px; font-size:0.85rem; color:#7c2d12; line-height:1.6;
@@ -261,6 +262,7 @@ details > .field-group{margin-top:8px;}
           <div class="cf-turnstile"
                data-sitekey="0x4AAAAAAE6QOBCCaei05aqw"
                data-theme="light"
+               data-size="flexible"
                data-callback="onCfTurnstileSuccess"></div>
         </div>
         <div class="jcv2-fallback" id="jcv2-fallback">
