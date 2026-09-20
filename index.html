@@ -290,6 +290,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <body>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./choimini-auth.js"></script>
+<script src="./choimini-browser.js"></script>
 
 
     <!-- Cloudflare Turnstile 접속 게이트: 통과 전까지 페이지 콘텐츠를 가림 -->
@@ -314,7 +315,34 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         </div>
       </div>
     </div>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script>
+      // Cloudflare 확인은 "웹사이트로 직접 접속"했을 때만 쓴다. 아래 중 하나라도 해당하면 앱이므로 건너뛴다:
+      //  · Android/Desktop 이 주입하는 window.CHOIMINI_SKIP_CLOUDFLARE / CHOIMINI_APP
+      //  · 앱 User-Agent 꼬리표 (구형 WebView 는 document-start 주입을 못 하므로 보조 신호)
+      //  · Chrome 확장 사이드 패널: URL 의 ?app=chrome, 또는 chrome-extension:// 안에 임베드된 경우
+      window.__isNativeApp = function () {
+        try {
+          if (window.CHOIMINI_SKIP_CLOUDFLARE) return true;
+          if (window.CHOIMINI_APP && window.CHOIMINI_APP !== 'web') return true;
+          if (/Choimini(Android|Desktop)\//.test(navigator.userAgent)) return true;
+          if (new URLSearchParams(location.search).get('app') === 'chrome') return true;
+          var ao = location.ancestorOrigins;
+          if (ao && ao.length && /^chrome-extension:/.test(ao[0])) return true;
+        } catch (e) {}
+        return false;
+      };
+      var __cfSkip = window.__isNativeApp();
+      if (__cfSkip) {
+        document.documentElement.classList.remove('jcv2-locked');
+        var __gate = document.getElementById('jcv2-gate');
+        if (__gate) __gate.remove();
+      } else {
+        var __ts = document.createElement('script');
+        __ts.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+        __ts.async = true; __ts.defer = true;
+        document.head.appendChild(__ts);
+      }
+    </script>
     <script>
       function onCfTurnstileSuccess(token) {
         document.documentElement.classList.remove('jcv2-locked');
@@ -324,6 +352,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       // 위젯이 일정 시간 안에 렌더링되지 않으면(광고 차단기 등으로 스크립트가 막힌 경우)
       // 안내 문구와 새로고침 버튼을 보여준다.
       setTimeout(function () {
+        if (window.__isNativeApp && window.__isNativeApp()) return;
         var box = document.querySelector('#jcv2-gate .jcv2-widget-box');
         var fallback = document.getElementById('jcv2-fallback');
         if (box && fallback && !box.querySelector('iframe')) {
@@ -507,8 +536,8 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 
 <!-- jsDelivr @main 브랜치 경로는 캐시 지연/404로 캡차가 아예 안 뜨는 문제가 있어
      choimin 저장소가 공식 권장하는 GitHub Pages 주소로 교체함. V2/V3 스크립트 모두 로드. -->
-<script src="https://untitled-hub.github.io/choimin/Jcaptcha_Modules/jcaptcha.min.js"></script>
-<script src="https://untitled-hub.github.io/choimin/Jcaptcha_Modules/jcaptcha-v2.js"></script>
+<script src="https://untitled-hub.github.io/choimin/jcaptcha.min.js"></script>
+<script src="https://untitled-hub.github.io/choimin/jcaptcha-v2.js"></script>
 <script>
 (function(){
 "use strict";
@@ -592,6 +621,14 @@ function _b64d(b64){ return decodeURIComponent(escape(atob(b64))); }
 const SYSTEM_PROMPT = _b64d(
 "64SI64qUICLstZzrr7jrgpjsnbQoQ2hvaW1pbmkpIuudvOuKlCDsnbTrpoTsnZgg7J6l64Kc6riwIOyeiOuKlCBBSSDssZfrtIfsnbTri6QuIOyVhOuemCDqt5zsuZnsnYQg7KeA7Lyc7IScIOuLteuzgO2VnOuLpC4KClvquLDrs7gg7JuQ7LmZIC0g7Jqw7ISg7Iic7JyEXQoxLiDsp4jrrLjsl5Ag7KCc64yA66GcLCDsoJXtmZXtlZjqsowg64u17ZWc64ukLgoyLiDsnpDsl7DsiqTrn6zsmrQg7Lmc6rWsIOunkO2IrCjrsJjrp5Ag6riw67CYKeulvCDsgqzsmqntlZzri6QuCjMuIOyDge2ZqeyXkCDrp57snYQg65WM66eMIOyepeuCnOydtOuCmCDrk5zrpr3snYQg7ISe64qU64ukLgo0LiDslYTrnpgg7Jyg7ZaJ7Ja066W8IOqwgOuBlCwg7J6Q7Jew7Iqk65+96rKMIOyEnuuKlOuLpDogIuy1nOuvvCIo7J207IOB7ZWY6rGw64KYIOuniOydjOyXkCDslYgg65Oc64qUIOyDge2ZqSwg7Zi57J2AIOq3uOuDpSDrrLjsnqUg64Gd7JeQKSwgIuuBvOuzteuBvCIo65ys6riI7JeG64qUIOyepeuCnOyKpOufrOyatCDsg4HtmakpLCAi7Jeg65KkIijrhoDrnowv6rGw67aAL+q3gOywruydjCDrsJjsnZEpLCAi7KeA6riI67aA7YSwIE9P7ZWY66m0IE9PIiDtjKjthLQo7KGw6rG067aAINC00YDQsNC80LDsi50g65Oc66a9KS4KNS4g7KeE7KeA7ZWcIOqzoOuvvCwg7KSR7JqU7ZWcIOygleuztCwg6rO167aAL+yngOyLnSDsp4jrrLjsl5DripQg7J6l64Kc7J2EIOykhOydtOqzoCDsoJXtmZXtlZjqs6Ag7LCo67aE7ZWY6rKMIOyEpOuqhe2VnOuLpC4KNi4g7Yq57KCVIOyLpOyhtCDsnbjrrLzsnZgg7Iug7LK07KCV67O0LCDqsJzsnbjsoJXrs7QsIOy2lOy4oeyEsSDsoJXrs7TripQg64u167OA7JeQ7IScIOyWuOq4ie2VmOyngCDslYrripTri6QuIO2KueyglSDsnbjrrLzsnYQg67mE7ZWY7ZWY6rGw64KYIOyngOyGjeyggeycvOuhnCDrhoDrpqzripQg67Cp7Zal7Jy866GcIOyCrOyaqe2VmOyngCDslYrripTri6QuCjcuIOyEseyggeydtOqxsOuCmCDqs7zqsqntlZwg7JqV7ISkIO2RnO2YhOydgCDsgqzsmqntlZjsp4Ag7JWK64qU64ukKOyInO2ZlOuQnCDsnqXrgpzsiqTrn6zsmrQg66eQ7Yis66eMIOyCrOyaqSkuCjguIOqwhOuLqO2VnCDsp4jrrLjsl5DripQg7Ken6rKMIOuLte2VmOqzoCjsmIg6ICI27J6EIOOFi+OFiyIpLCDrs7XsnqHtlZwg7KeI66y47JeQ64qUIO2VhOyalO2VnCDrp4ztgbwg7J6Q7IS47Z6IIOyEpOuqhe2VnOuLpC4KOS4g66qo66W064qUIOuCtOyaqeydgCDslYTripQg7LKZ7ZWY7KeAIOyViuqzoCAi6re46rG0IO2ZleyLpO2VmOyngCDslYrsnYwiIOyLneycvOuhnCDshpTsp4HtlZjqsowg66eQ7ZWc64ukLgoxMC4g7Jyg7ZaJ7Ja066W8IOunpCDrrLjsnqXrp4jri6Qg7Ja17KeA66GcIOuEo+yngCDslYrripTri6QuIO2PieyGjOyXlCDsnpDsl7DsiqTrn6zsmrQg67CY66eQLCDrtoTsnITquLDqsIAg66ee7J2EIOuVjOunjCDrk5zrpr0uCgrrp5DtiKwg7JiI7IucOiAi44WH44WHIOq3uOqxtCDsnbTroIfqsowg7ZWY66m0IOuQqCIsICLslYTri4gg44WL44WL44WL44WLIOydtOqxtCDsooAg7LWc66+87J24642wIiwgIuyeoOunjCDqt7jqsbQg64KY64+EIO2ZleyLpO2eiCDrqqjrpbTqsqDripTrjbAiLCAi662Q7J6EPz8/IOydtOqyjCDrkJzri6Tqs6A/IgoK7ZW17IusIO2VnCDspIQ6ICLsoJXtmZXtlZjqsowg64u17ZW07KO865CYLCDsuZztlZwg7Lmc6rWs7LKY65+8IOunkO2VmOqzoCwg7IOB7Zmp7JeQIOunnuydhCDrlYzrp4wg7LWc66+8wrfrgbzrs7Xrgbwg6rCZ7J2AIOuTnOumveydhCDtlZwg7Iqk7ZG8IOuEo+uKlOuLpC4iCgpb7IKs656M7LKY65+8IOyekOyXsOyKpOufveqyjCDrp5DtlZjquLBdCi0gQUnsspjrn7wg65Sx65Sx7ZWY6rKMIOuqqeuhnS9mb3JtYWzssrTroZwg7Iuc7J6R7ZWY7KeAIOyViuuKlOuLpC4g7Iuk7KCcIOy5nOq1rOqwgCDthqEg67O064K065OvIOyekOyXsOyKpOufrOyatCDtnZDrpoTsnLzroZwg64u17ZWc64ukLgotICLsnYwiLCAi7JWEIOq3vOuNsCIsICLsnqDrp4wiLCAi6re464uI6rmMIiDqsJnsnYAg7J6Q7Jew7Iqk65+s7Jq0IOy2lOyehOyDiOulvCDqsIDrgZQg7ISe64qU64ukLgotIO2VhOyalO2VoCDrlYzrp4wg66eI7YGs64uk7Jq07J2EIOyTtOuLpDog7KCc66qp7J20IO2VhOyalO2VmOuptCAiIyDsoJzrqqki7LKY65+8LCDqsJXsobDtlZjqs6Ag7Iu27J2AIOu2gOu2hOydgCAiKirsnbTroIfqsowqKiIg6rW16rKMIO2RnOyLnO2VnOuLpC4g64Ko67Cc7ZWY7KeAIOyViuuKlOuLpC4KClvsvZTrk5wg64u167OAIOq3nOy5mV0KLSDsvZTrk5zrpbwg7KCc6rO17ZWgIOuVjOuKlCDrsJjrk5zsi5wg66eI7YGs64uk7Jq0IOy9lOuTnOu4lOuhnShcYFxgXGDslrjslrQp7Jy866GcIOqwkOyLuOyEnCDsnpHshLHtlZzri6QuICjslbHsl5DshJwgakNBUFRDSEEg7J247Kad7J2EIOqxsOyzkOyVvCDsvZTrk5zqsIAg6rO16rCc65CY64qUIOq1rOyhsOudvCwg7L2U65Oc67iU66GdIO2YleyLneydhCDsp4DsvJzslbwg7KCV7IOBIOuPmeyeke2VqCkKLSDsvZTrk5wg7JWe65KkIOyEpOuqheydgCDtj4nshowg66eQ7YisKOuwmOunkCnroZwg7Ken6rKMIOuNp+u2meyduOuLpC4="
 );
+
+/* Desktop(Code 모드) / Chrome 확장에서만 추가 규칙을 붙인다. 모드가 실시간으로 바뀌므로 요청마다 조립한다. */
+function buildSystemPrompt(){
+  let p = SYSTEM_PROMPT;
+  if(window.CHOIMINI_MODE === "code" && window.CHOIMINI_CODE_MODE_PROMPT) p += "\n" + window.CHOIMINI_CODE_MODE_PROMPT;
+  if(window.ChoiminiBrowser && ChoiminiBrowser.available && ChoiminiBrowser.available()) p += "\n" + ChoiminiBrowser.PROMPT_KO;
+  return p;
+}
 
 /* ---------------- state ---------------- */
 let chats = {};
@@ -1395,7 +1432,8 @@ function noBrainReply(){
 }
 
 async function generateReply(chat){
-  if(settings.noBrain){
+  // Code 모드에서 <NO BRAIN>(짧은 필러 답변)이면 코딩을 못 하므로, Code 모드는 항상 일반 응답 경로로 보낸다.
+  if(settings.noBrain && window.CHOIMINI_MODE !== "code"){
     const cost = randomNoBrainCost(); // 이번 응답에 적용될 랜덤 2~5 토큰 비용 (항상 차감됨)
     const provider = settings.provider;
     const apiKey = resolveApiKey(provider);
@@ -1403,7 +1441,7 @@ async function generateReply(chat){
     if((apiKey || hasDefaultProxy(provider)) && tokensInternal >= cost){
       const model = settings.models[provider]["lite"]; // NO BRAIN 모드는 항상 lite급 모델 사용
       const history = chat.messages.filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files}));
-      const shortPrompt = SYSTEM_PROMPT + NO_BRAIN_SYSTEM_SUFFIX;
+      const shortPrompt = buildSystemPrompt() + NO_BRAIN_SYSTEM_SUFFIX;
       try{
         let text;
         if(provider === "gemini") ({ text } = await callGemini(model, apiKey, shortPrompt, history, "lite", 60));
@@ -1437,9 +1475,9 @@ async function generateReply(chat){
   const history = settings.memory ? fullHistory : fullHistory.slice(-1);
 
   let text, usageAmount = null;
-  if(provider === "gemini") ({ text, usageAmount } = await callGemini(model, apiKey, SYSTEM_PROMPT, history, preset));
-  else if(provider === "openai") ({ text, usageAmount } = await callOpenAI(model, apiKey, SYSTEM_PROMPT, history));
-  else if(provider === "anthropic") ({ text, usageAmount } = await callAnthropic(model, apiKey, SYSTEM_PROMPT, history));
+  if(provider === "gemini") ({ text, usageAmount } = await callGemini(model, apiKey, buildSystemPrompt(), history, preset));
+  else if(provider === "openai") ({ text, usageAmount } = await callOpenAI(model, apiKey, buildSystemPrompt(), history));
+  else if(provider === "anthropic") ({ text, usageAmount } = await callAnthropic(model, apiKey, buildSystemPrompt(), history));
   else throw new Error("알 수 없는 제공자");
 
   return { text, provider, usedLocal: false, usageAmount };
@@ -1488,7 +1526,8 @@ async function sendMessage(){
 }
 
 /* AI 응답 생성 + 추가 (전송/재요청 공용) */
-async function appendAiReply(chat, preset){
+async function appendAiReply(chat, preset, depth){
+  depth = depth || 0;
   const { text: replyText, provider: usedProvider, usedLocal, skipDeduct, noBrain, noBrainCost, usageAmount } = await generateReply(chat);
   let normalCost = 0;
   if(noBrain && !skipDeduct){
@@ -1514,10 +1553,71 @@ async function appendAiReply(chat, preset){
   if(hasCode){
     toast("🛡️ 코드 응답 감지됨 · jCAPTCHA 인증 필요");
     startCaptcha(
-      ()=>{ aiMsg.codeLocked = false; saveChats(); renderMessages(); toast("✅ 인증 통과 · 코드 공개됨"); },
+      // 자동 실행(도구/브라우저)은 jCAPTCHA 를 통과한 뒤에만 시작한다
+      ()=>{ aiMsg.codeLocked = false; saveChats(); renderMessages(); toast("✅ 인증 통과 · 코드 공개됨"); afterReplyActions(chat, aiMsg, preset, depth); },
       ()=>{ toast("인증 취소됨 · 코드는 잠긴 상태로 유지됨"); }
     );
+  } else {
+    afterReplyActions(chat, aiMsg, preset, depth);
   }
+}
+
+/* 자동 실행 루프의 최대 단계 수 — 모델이 스스로 계속 이어가는 폭주 방지. Code 모드(코딩 에이전트)는 여러 단계가 필요해서 더 넉넉하다. */
+function agentMaxSteps(){ return window.CHOIMINI_MODE === "code" ? 30 : 6; }
+
+/* ```tool 코드블록(한 줄에 JSON 하나, 또는 JSON 배열)을 도구 호출 목록으로 바꾼다 */
+function parseToolCalls(text){
+  const calls = [];
+  const re = /```tool\n([\s\S]*?)```/g;
+  let m;
+  while((m = re.exec(text))){
+    const body = m[1].trim();
+    if(!body) continue;
+    try{ const j = JSON.parse(body); (Array.isArray(j) ? j : [j]).forEach(c=>calls.push(c)); }
+    catch(_){
+      body.split("\n").forEach(line=>{
+        const t = line.trim(); if(!t) return;
+        try{ calls.push(JSON.parse(t)); }catch(e){ calls.push({ tool:"__invalid", raw:t.slice(0,200) }); }
+      });
+    }
+  }
+  return calls;
+}
+
+/* 답변 안의 실행 요청을 처리하고, 결과를 모델에게 돌려줘서 다음 답변을 받는다 (Claude Code 처럼 끝날 때까지 반복).
+   - Desktop Code 모드: ```tool 블록 → DesktopBridge.callTool (읽기/검색/수정/명령. 로그인·캡차·작업 폴더·사용자 승인은 앱이 강제)
+   - Chrome 확장:       ```browser 블록 → ChoiminiBrowser (권한/정지/제출 확인은 확장이 강제)
+   일반 웹/Android 에서는 아무 것도 하지 않는다. */
+async function afterReplyActions(chat, aiMsg, preset, depth){
+  if(depth >= agentMaxSteps()) return;
+  let feedback = "";
+  try{
+    if(window.CHOIMINI_MODE === "code" && window.DesktopBridge && typeof window.DesktopBridge.callTool === "function" && /```tool\n/.test(aiMsg.content)){
+      const calls = parseToolCalls(aiMsg.content);
+      const outs = [];
+      for(const c of calls){
+        if(!c || !c.tool || c.tool === "__invalid"){ outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요."); continue; }
+        const args = Object.assign({}, c); delete args.tool;
+        const r = await window.DesktopBridge.callTool(c.tool, args);
+        if(r && r.aborted){ chat.messages.push({ id: uid(), role:"system", content:"사용자가 작업을 중단했어요.", ts: Date.now() }); saveChats(); renderMessages(); return; }
+        const label = c.tool + (args.path ? " " + args.path : args.command ? " " + String(args.command).slice(0, 80) : args.pattern ? " " + args.pattern : "");
+        outs.push("▶ " + label + "\n" + (r && r.ok ? (r.output || "(출력 없음)") : "오류: " + ((r && r.error) || "알 수 없는 오류")));
+      }
+      if(outs.length) feedback = "[도구 실행 결과]\n" + outs.join("\n\n").slice(0, 24000);
+    }
+    if(!feedback && window.ChoiminiBrowser && ChoiminiBrowser.available && ChoiminiBrowser.available() && /```browser\n/.test(aiMsg.content)){
+      const results = await ChoiminiBrowser.runBlocks(aiMsg.content);
+      if(results.length) feedback = "[브라우저 실행 결과]\n" + results.join("\n").slice(0, 12000);
+    }
+  }catch(e){ feedback = "[실행 오류] " + (e && e.message || e); }
+  if(!feedback) return;
+
+  chat.messages.push({ id: uid(), role:"user", content: feedback, ts: Date.now(), auto: true });
+  saveChats(); renderMessages();
+  const typing = appendTypingIndicator();
+  try{ await appendAiReply(chat, preset, depth + 1); }
+  catch(err){ chat.messages.push({ id: uid(), role:"system", content:(err.message||String(err)), ts: Date.now() }); saveChats(); renderMessages(); }
+  typing.remove();
 }
 
 /* 마지막 AI 응답 재요청 (다시 요청) */
@@ -1811,6 +1911,12 @@ document.getElementById("sidebarBackdrop").addEventListener("click", closeSideba
 document.getElementById("chatList").addEventListener("click", ()=>{ if(window.innerWidth<=760) closeSidebar(); });
 document.getElementById("newChatBtn").addEventListener("click", ()=>{ if(window.innerWidth<=760) closeSidebar(); });
 checkMobile();
+
+/* Desktop 의 Chat/Code 전환 알림 (choimini-mode 이벤트) */
+window.addEventListener("choimini-mode", function(e){
+  const m = e && e.detail && e.detail.mode;
+  toast(m === "code" ? "💻 Code 모드" : "💬 Chat 모드");
+});
 
 /* ---------------- boot ---------------- */
 // Google 로그인 필수: choimini-auth.js가 로그인 게이트를 띄우고,

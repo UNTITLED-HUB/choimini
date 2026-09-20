@@ -14,15 +14,11 @@
   const SUPABASE_ANON_KEY =
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmb3phYXR3eXRzaXRpbXZqa3l6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1Njc5MjYsImV4cCI6MjEwNTE0MzkyNn0.HXpMHM9RyaP51m4hGP5DS8hlQHs1nMqmDDuea5W1Nnc";
 
-  // 앱 종류 / 배수: 네이티브 래퍼(Android/Desktop)가 로드 전에 window에 주입한다.
-  //   window.CHOIMINI_APP            = "web" | "android" | "chrome" | "desktop"
-  //   window.CHOIMINI_TOKEN_MULTIPLIER = 1 (기본) | 5 (Desktop의 Code 모드; 모드 전환 시 실시간 변경)
-  //   window.CHOIMINI_SKIP_CLOUDFLARE  = true (Android/Desktop: Cloudflare 위젯 건너뛰기 신호)
+  // 앱 종류: 네이티브 래퍼(Android/Desktop)가 로드 전에 window에 주입한다.
+  //   window.CHOIMINI_APP = "web" | "android" | "chrome" | "desktop"
   // Chrome 확장은 iframe이라 window에 주입할 수 없어서 URL 파라미터(?app=chrome)로 알려준다.
   const _urlApp = new URLSearchParams(window.location.search).get("app");
   const APP = window.CHOIMINI_APP || (_urlApp === "chrome" ? "chrome" : "web");
-  // 배수는 "호출 시점"에 읽는다 — Desktop이 Chat↔Code를 오갈 때 값이 바뀌기 때문.
-  function currentMultiplier() { return Number(window.CHOIMINI_TOKEN_MULTIPLIER) || 1; }
 
   // WebView(Android/Desktop)에서는 구글이 임베디드 웹뷰 내 OAuth를 차단하므로,
   // OAuth URL을 네이티브가 "시스템 브라우저"로 열도록 위임한다.
@@ -31,15 +27,19 @@
   // 로그인 성공 후 네이티브가 딥링크(choimini://auth?...)를 받아
   // window.__choiminiHandleAuthCallback(fullUrl) 를 호출해준다.
   const isWebView = APP === "android" || APP === "desktop" || APP === "desktop-code";
+  // Chrome 확장 사이드 패널은 iframe 이라 구글이 로그인 화면을 막는다 → 부모(확장)에게 "실제 탭으로 열어 달라"고 요청하고,
+  // 로그인 후 돌아온 code 를 postMessage 로 받는다. (PKCE verifier 는 이 iframe 이 보관하므로 여기서만 세션으로 교환된다)
+  const isChromeExt = APP === "chrome";
+  const isExternalAuth = isWebView || isChromeExt;
 
   const REDIRECT_TO = isWebView
     ? "choimini://auth-callback"
-    : window.location.origin + window.location.pathname;
+    : window.location.origin + window.location.pathname;   // 확장은 웹과 같은 주소(Supabase 허용 목록에 이미 있음)
 
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
       flowType: "pkce",
-      detectSessionInUrl: !isWebView, // 일반 브라우저는 자동 감지, 웹뷰는 수동 처리
+      detectSessionInUrl: !isExternalAuth, // 일반 브라우저는 자동 감지, 웹뷰/확장은 수동 처리
       persistSession: true,
       autoRefreshToken: true,
       storageKey: "choimini.auth." + APP,
@@ -92,13 +92,16 @@
         provider: "google",
         options: {
           redirectTo: REDIRECT_TO,
-          skipBrowserRedirect: isWebView, // 웹뷰면 자동 리다이렉트 막고 URL만 받는다
+          skipBrowserRedirect: isExternalAuth, // 웹뷰/확장이면 자동 리다이렉트 막고 URL만 받는다
           queryParams: { prompt: "select_account" },
         },
       });
       if (error) throw error;
 
-      if (isWebView && data && data.url) {
+      if (isChromeExt && data && data.url) {
+        // 확장: 부모(사이드 패널)가 실제 탭으로 연다. (확장이 주소를 검증한다: Supabase authorize 만 허용)
+        window.parent.postMessage({ source: "choimini-web", type: "open-auth", url: data.url }, "*");
+      } else if (isWebView && data && data.url) {
         // 네이티브에게 시스템 브라우저로 열어달라고 위임
         if (window.AndroidBridge && window.AndroidBridge.openAuth) {
           window.AndroidBridge.openAuth(data.url);
@@ -130,10 +133,36 @@
     }
   };
 
+  // 확장이 로그인 탭에서 받아 온 code 전달 (choimini://auth-callback?code=...). 부모 창 + 확장 origin 에서 온 것만 처리.
+  if (isChromeExt) {
+    window.__choiminiChromeAuthListener = true;   // 확장이 주입한 스크립트(nocf.js)가 같은 메시지를 중복 처리하지 않게 표시
+    window.addEventListener("message", function (e) {
+      const d = e.data;
+      if (e.source !== window.parent || !/^chrome-extension:/.test(e.origin)) return;
+      if (!d || d.source !== "choimini-ext") return;
+      if (d.type === "auth-callback" && typeof d.url === "string") window.__choiminiHandleAuthCallback(d.url);
+      else if (d.type === "auth-error") gateError("로그인에 실패했습니다: " + String(d.message || "").slice(0, 120));
+    });
+  }
+
+  /* ---------------- 로그인 상태 알림 ----------------
+     앱/확장이 "로그인해야만" 코드 실행·페이지 제어를 켜도록, 상태가 바뀔 때마다 알려준다.
+     (사이트는 신뢰 대상이 아니라 "보고자"일 뿐이고, 실제 차단은 각 앱/확장이 한다.) */
+  const authListeners = [];
+  function announceAuth() {
+    const loggedIn = !!currentUser;
+    try { if (window.DesktopBridge && window.DesktopBridge.reportAuth) window.DesktopBridge.reportAuth(loggedIn); } catch (e) {}
+    try { if (window.AndroidBridge && window.AndroidBridge.reportAuth) window.AndroidBridge.reportAuth(loggedIn); } catch (e) {}
+    try { if (window.parent && window.parent !== window) window.parent.postMessage({ source: "choimini-web", type: "auth", loggedIn: loggedIn }, "*"); } catch (e) {}
+    authListeners.slice().forEach(function (cb) { try { cb(loggedIn); } catch (e) { console.error(e); } });
+    try { window.dispatchEvent(new CustomEvent("choimini-auth", { detail: { loggedIn: loggedIn } })); } catch (e) {}
+  }
+
   async function logout() {
     await supabase.auth.signOut();
     currentUser = null;
     showLoginGate();
+    announceAuth();
   }
 
   /* ---------------- 세션 부트스트랩 ---------------- */
@@ -143,10 +172,12 @@
     if (!session || !session.user) {
       currentUser = null;
       showLoginGate();
+      announceAuth();
       return false;
     }
     currentUser = session.user;
     hideLoginGate();
+    announceAuth();
 
     // 구버전 device 잔액 1회 이관 (있을 때만)
     try {
@@ -171,9 +202,9 @@
     return Number(data) || 0;
   }
 
-  // baseAmount = 이번 요청의 기본 비용. 데스크톱(5배)은 여기서 자동 곱셈.
+  // amount = 이번 요청의 비용 (배수 없음: 모든 앱에서 동일)
   async function spend(baseAmount) {
-    const amount = Math.round(Number(baseAmount) * currentMultiplier());
+    const amount = Math.round(Number(baseAmount));
     const { data, error } = await supabase.rpc("user_spend", { p_amount: amount });
     if (error) throw error;
     const row = Array.isArray(data) ? data[0] : data;
@@ -231,9 +262,10 @@
   /* ---------------- 공개 API ---------------- */
   window.ChoiminiAuth = {
     app: APP,
-    get tokenMultiplier() { return currentMultiplier(); },
-    // 네이티브 앱(Android/Desktop)이면 true → 사이트의 Cloudflare Turnstile 등을 렌더링하지 말 것
-    skipCloudflare: function () { return !!window.CHOIMINI_SKIP_CLOUDFLARE; },
+    // 모든 앱(Android / Desktop / Chrome 확장)에서 true → Cloudflare Turnstile 등을 렌더링하지 말 것
+    skipCloudflare: function () { return APP !== "web" || !!window.CHOIMINI_SKIP_CLOUDFLARE; },
+    // 로그인 상태가 바뀔 때마다 콜백 (즉시 1회 호출 포함). 반환값: 해제 함수
+    onAuthChange: function (cb) { authListeners.push(cb); try { cb(!!currentUser); } catch (e) {} return function () { const i = authListeners.indexOf(cb); if (i >= 0) authListeners.splice(i, 1); }; },
     supabase: supabase,
     login: login,
     logout: logout,
@@ -256,6 +288,7 @@
       currentUser = null;
       showLoginGate();
     }
+    announceAuth();
   });
 
   // 진입점: 로그인 안 되어 있으면 게이트, 되어 있으면 앱 시작
