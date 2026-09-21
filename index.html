@@ -190,7 +190,17 @@ details > .field-group{margin-top:8px;}
 .code-locked .lock-icon{font-size:18px;}
 .code-locked .verify-btn{margin-left:auto;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;}
 .code-locked .verify-btn:hover{opacity:.9;}
-.md-h{display:block;font-size:19px;font-weight:700;margin:6px 0 2px;color:var(--text);}
+.md-h{display:block;font-weight:700;margin:10px 0 4px;color:var(--text);line-height:1.35;}
+.md-h1{font-size:26px;}
+.md-h2{font-size:23px;}
+.md-h3{font-size:20px;}
+.md-h4{font-size:18px;}
+.md-h5{font-size:16px;}
+.md-h6{font-size:14px;color:var(--text-dim);}
+.md-list{margin:4px 0;padding-left:22px;}
+.md-list li{margin:2px 0;}
+.md-quote{margin:6px 0;padding:4px 12px;border-left:3px solid var(--border);color:var(--text-dim);}
+code.md-code{background:var(--panel-2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-family:"SFMono-Regular",Consolas,monospace;font-size:0.9em;}
 .msg-actions{display:flex;gap:6px;margin-top:8px;}
 .regen-btn{border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);border-radius:8px;padding:5px 10px;font-size:11.5px;display:inline-flex;align-items:center;gap:5px;}
 .regen-btn:hover{color:var(--text);border-color:var(--accent);}
@@ -549,7 +559,8 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <div class="btn-row" style="margin-top:14px;">
         <button class="primary-btn" id="adClaimCodeBtn" disabled style="width:100%;">무료 코드 받기</button>
       </div>
-      <div id="adCodeResultBox" style="display:none;margin-top:12px;padding:10px;border:1px solid var(--sidebar-border,#1c2030);border-radius:9px;">
+      <div id="adWatchCountdown" style="display:none;margin-top:2px;font-size:12px;color:var(--accent,#3b82f6);"></div>
+<div id="adCodeResultBox" style="display:none;margin-top:12px;padding:10px;border:1px solid var(--sidebar-border,#1c2030);border-radius:9px;">
         <div style="font-size:12.5px;color:var(--sidebar-dim,#8891a8);margin-bottom:6px;">무료 코드가 생성되었습니다</div>
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="text" id="adCodeResultInput" readonly style="flex:1;" />
@@ -574,8 +585,8 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 
 <!-- jsDelivr @main 브랜치 경로는 캐시 지연/404로 캡차가 아예 안 뜨는 문제가 있어
      choimin 저장소가 공식 권장하는 GitHub Pages 주소로 교체함. V2/V3 스크립트 모두 로드. -->
-<script src="https://untitled-hub.github.io/choimin/jcaptcha.min.js"></script>
-<script src="https://untitled-hub.github.io/choimin/jcaptcha-v2.js"></script>
+<script src="https://untitled-hub.github.io/choimin/Jcaptcha_Modules/jcaptcha.min.js"></script>
+<script src="https://untitled-hub.github.io/choimin/Jcaptcha_Modules/jcaptcha-v2.js"></script>
 <script>
 (function(){
 "use strict";
@@ -713,8 +724,9 @@ function init(){
   if(typeof settings.memory !== "boolean") settings.memory = true;
   chats = loadJSON(LS.chats, {});
   activeChatId = localStorage.getItem(LS.activeChat) || null;
-  tokensInternal = loadJSON(LS.tokens, DEFAULT_INTERNAL_TOKENS);
-  syncTokensFromServer();
+  tokensInternal = sanitizeTokens(loadJSON(LS.tokens, DEFAULT_INTERNAL_TOKENS));
+  renderTokens();
+  syncTokensFromAccount();
 
   if(!activeChatId || !chats[activeChatId]){
     createChat();
@@ -886,12 +898,57 @@ function renderContentWithCode(content){
   return html;
 }
 
-/* 아주 가벼운 마크다운: # 제목, **강조**, 줄바꿈 */
+/* 마크다운 렌더링: 헤더(#~######, 크기별), **굵게**, *기울임*, `인라인 코드`,
+   > 인용, - / 1. 목록, [텍스트](링크), 줄바꿈. escapeHtml()로 이미 이스케이프된 텍스트를 받아 처리함. */
 function mdInline(escapedText){
-  let out = escapedText.replace(/^#{1,6}\s+(.+)$/gm, '<span class="md-h">$1</span>');
-  out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  out = out.replace(/\n/g, '<br>');
-  return out;
+  const lines = escapedText.split('\n');
+  const out = [];
+  let listBuf = null; // {type:'ul'|'ol', items:[]}
+  function flushList(){
+    if(!listBuf) return;
+    const tag = listBuf.type;
+    out.push(`<${tag} class="md-list">` + listBuf.items.map(i=>`<li>${i}</li>`).join('') + `</${tag}>`);
+    listBuf = null;
+  }
+  function mdSpan(text){
+    let t = text;
+    t = t.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
+    t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    t = t.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+    t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    return t;
+  }
+  for(let raw of lines){
+    const h = raw.match(/^(#{1,6})\s+(.+)$/);
+    if(h){
+      flushList();
+      const level = h[1].length;
+      out.push(`<span class="md-h md-h${level}">${mdSpan(h[2])}</span>`);
+      continue;
+    }
+    const bq = raw.match(/^>\s?(.*)$/);
+    if(bq){
+      flushList();
+      out.push(`<blockquote class="md-quote">${mdSpan(bq[1])}</blockquote>`);
+      continue;
+    }
+    const ul = raw.match(/^[-*]\s+(.+)$/);
+    if(ul){
+      if(!listBuf || listBuf.type !== 'ul'){ flushList(); listBuf = {type:'ul', items:[]}; }
+      listBuf.items.push(mdSpan(ul[1]));
+      continue;
+    }
+    const ol = raw.match(/^\d+\.\s+(.+)$/);
+    if(ol){
+      if(!listBuf || listBuf.type !== 'ol'){ flushList(); listBuf = {type:'ol', items:[]}; }
+      listBuf.items.push(mdSpan(ol[1]));
+      continue;
+    }
+    flushList();
+    out.push(raw.length ? mdSpan(raw) : '');
+  }
+  flushList();
+  return out.join('<br>');
 }
 
 function scrollToBottom(){
@@ -900,6 +957,7 @@ function scrollToBottom(){
 }
 
 function renderTokens(){
+  tokensInternal = sanitizeTokens(tokensInternal);
   const displayVal = Math.floor(tokensInternal / TOKEN_MULT);
   document.getElementById("tokenDisplay").textContent = displayVal;
   const badge = document.getElementById("tokenBadge");
@@ -985,7 +1043,7 @@ function fileToText(file){
 async function handleFiles(fileList){
   const files = Array.from(fileList).slice(0, 5);
   for(const f of files){
-    if(f.size > 8*1024*1024){ toast(`${f.name}: 8MB 초과 파일은 첨부할 수 없음`); continue; }
+    if(f.size > 50*1024*1024){ toast(`${f.name}: 50MB 초과 파일은 첨부할 수 없음`); continue; }
     const isImg = f.type.startsWith("image/");
     const isText = f.type.startsWith("text/") || /\.(txt|md|csv|json|js|ts|py|html|css)$/i.test(f.name);
     let dataUrl = null, text = null;
@@ -1047,47 +1105,54 @@ async function deductNormalCost(replyText, usageAmount){
   await spendTokensServer(cost);
   return cost;
 }
+// 토큰 값 오염 방지: 숫자가 아니거나 음수, 혹은 비정상적으로 큰 값(예: 100000009 같은 폭주 버그)이
+// 들어오면 즉시 안전한 값으로 되돌린다. 표시 단위 기준 상한(1억)은 정상 사용으로는 절대 도달할 수 없는 값이라
+// 실제 한도를 제한하지 않으면서도 오염된 값만 걸러낸다.
+const TOKENS_SANITY_MAX = 100000000 * TOKEN_MULT;
+function sanitizeTokens(v){
+  const n = Math.round(Number(v));
+  if(!Number.isFinite(n) || n < 0) return DEFAULT_INTERNAL_TOKENS;
+  if(n > TOKENS_SANITY_MAX) return TOKENS_SANITY_MAX;
+  return n;
+}
 function grantTokens(amount){
-  tokensInternal += amount;
+  tokensInternal = sanitizeTokens(tokensInternal + amount);
   saveJSON(LS.tokens, tokensInternal);
   renderTokens();
 }
-// 서버(기기별) 잔액에서 amount만큼 차감 시도. 서버가 정상 응답하면 그 잔액으로 로컬을 맞추고,
-// 네트워크 오류 등으로 서버 호출이 실패하면 기존처럼 로컬 값만 깎아서 최소한 동작은 하게 함(오프라인 대비).
+// ⚠️ 예전엔 기기(device) 단위 잔액을 별도 Edge Function(DEVICE_BALANCE_ENDPOINT)으로 관리했었는데,
+// 그 경로가 계정(Google 로그인) 기반 잔액과 동시에 살아있으면서 매 실행마다 서로 다른 값을 로컬에 덮어써
+// "100000009"처럼 잔액이 튀는 오염 버그의 직접적인 원인이었음(특히 init 액션이 페이지를 열 때마다
+// 로컬 잔액을 서버로 다시 보내 누적되는 구조였음). 지금은 계정 기반 user_balances(Supabase RPC)만 유일한
+// 서버 진실 소스로 쓰고, 기기 단위 엔드포인트는 더 이상 호출하지 않는다.
 async function spendTokensServer(amount){
   if(!(amount > 0)) return;
+  const display = amount / TOKEN_MULT;
   try{
-    const res = await fetch(DEVICE_BALANCE_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
-      body: JSON.stringify({ deviceId: getDeviceId(), action: "spend", amount })
-    });
-    const data = await res.json();
-    if(res.ok && typeof data.balance === "number"){
-      tokensInternal = data.balance;
-      saveJSON(LS.tokens, tokensInternal);
-      renderTokens();
-      return;
+    if(window.ChoiminiAuth && ChoiminiAuth.isLoggedIn()){
+      const r = await ChoiminiAuth.spend(display);
+      if(r && typeof r.balance === "number"){
+        tokensInternal = sanitizeTokens(r.balance * TOKEN_MULT);
+        saveJSON(LS.tokens, tokensInternal);
+        renderTokens();
+        return;
+      }
     }
   }catch(e){ /* 네트워크 오류 시 아래 로컬 폴백으로 진행 */ }
-  tokensInternal = Math.max(0, tokensInternal - amount);
+  tokensInternal = sanitizeTokens(tokensInternal - amount);
   saveJSON(LS.tokens, tokensInternal);
   renderTokens();
 }
-// 페이지 로드 시, 이 기기의 로컬 캐시 잔액을 서버로 최초 1회 이전(init)하거나 기존 서버 잔액을 받아와 동기화함.
-async function syncTokensFromServer(){
+// 로그인 직후 + 페이지 로드 시, 계정(user_balances) 서버 잔액을 유일한 진실로 삼아 로컬 캐시를 맞춘다.
+// (매일 한국시간 00:00 기준 일일 100토큰 초기화는 서버의 ensure_user_daily_reset()이 처리하므로,
+//  클라이언트는 그 결과값을 그대로 받아오기만 하면 된다.)
+async function syncTokensFromAccount(){
   try{
-    const res = await fetch(DEVICE_BALANCE_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
-      body: JSON.stringify({ deviceId: getDeviceId(), action: "init", amount: tokensInternal })
-    });
-    const data = await res.json();
-    if(res.ok && typeof data.balance === "number"){
-      tokensInternal = data.balance;
-      saveJSON(LS.tokens, tokensInternal);
-      renderTokens();
-    }
+    if(!window.ChoiminiAuth || !ChoiminiAuth.isLoggedIn()) return;
+    const balance = await ChoiminiAuth.getBalance();
+    tokensInternal = sanitizeTokens(balance * TOKEN_MULT);
+    saveJSON(LS.tokens, tokensInternal);
+    renderTokens();
   }catch(e){ /* 조용히 무시, 로컬 캐시 값 그대로 사용 */ }
 }
 
@@ -1158,14 +1223,22 @@ async function redeemCode(rawCode){
     toast("❌ 존재하지 않는 코드임");
     return;
   }
-  startCaptcha(()=>{
-    if(typeof result.balance === "number"){
-      tokensInternal = result.balance;
-      saveJSON(LS.tokens, tokensInternal);
-      renderTokens();
-    }else{
-      grantTokens(result.amount);
+  startCaptcha(async ()=>{
+    // 코드 자체가 유효한지/이미 썼는지는 위 REDEEM_ENDPOINT(기기 단위 검증)가 확인해주지만,
+    // 실제 토큰 지급은 반드시 계정(user_redeem_grant) 서버로만 반영한다 — 기기 단위 응답값(result.balance)을
+    // 그대로 로컬에 덮어쓰면 계정 기반 잔액과 어긋나 값이 튀는 원인이 되므로 더 이상 쓰지 않는다.
+    try{
+      if(window.ChoiminiAuth && ChoiminiAuth.isLoggedIn()){
+        const r = await ChoiminiAuth.redeemGrant(code, Math.round((result.amount||0)/TOKEN_MULT), !!result.unlimited);
+        tokensInternal = sanitizeTokens(r.balance * TOKEN_MULT);
+      }else{
+        grantTokens(result.amount);
+      }
+    }catch(e){
+      grantTokens(result.amount); // 계정 서버 호출 실패 시에만 로컬 폴백
     }
+    saveJSON(LS.tokens, tokensInternal);
+    renderTokens();
     if(!result.unlimited){
       redeemedCodes.add(code);
       saveJSON(LS.redeemed, [...redeemedCodes]);
@@ -1185,8 +1258,7 @@ const GEUTRIX_VIDEOS = [
   { adId: "GEUTRIX_04", url: "https://www.youtube.com/watch?v=g9CNcng117I" },
   { adId: "GEUTRIX_05", url: "https://www.youtube.com/watch?v=n_VJ9Gbgzfk" },
 ];
-// TODO: GET GEUNG 원곡 공식 유튜브 링크로 교체 필요 (현재는 임시 검색 링크)
-const GET_GEUNG_VIDEO = { adId: "GET_GEUNG", url: "https://www.youtube.com/results?search_query=GET+GEUNG" };
+const GET_GEUNG_VIDEO = { adId: "GET_GEUNG", url: "https://youtu.be/0GnA8VYOfko?si=PO54ok7B_Npqv6vW" };
 const AD_MIN_WATCH_MS = 10000;
 
 let adSession = null;      // { sessionId, expiresAt }
@@ -1226,11 +1298,31 @@ async function adWatchVideo(video){
   if(!sess) return;
   if(adProgress[video.adId] === "completed"){ toast("이미 완료한 영상이에요"); return; }
   adBusyAdId = video.adId;
+  const countdownEl = document.getElementById("adWatchCountdown");
+  let countdownTimer = null;
   try{
     await ChoiminiAuth.ads.markStart(sess.sessionId, video.adId);
     window.open(video.url, "_blank", "noopener");
-    toast("영상을 10초 이상 시청한 뒤 자동으로 완료 처리돼요");
+    // 영상 시청 완료까지 남은 시간을 1초 단위로 표시함 ("15초 후 시청 완료 처리됩니다.")
+    if(countdownEl){
+      countdownEl.style.display = "";
+      let remainMs = AD_MIN_WATCH_MS;
+      const renderCountdown = ()=>{
+        const sec = Math.max(0, Math.ceil(remainMs/1000));
+        countdownEl.textContent = sec > 0
+          ? `⏱️ ${sec}초 후 시청 완료 처리됩니다. (영상 시청 완료까지 ${sec}초 남음)`
+          : "✅ 시청 완료 처리 중...";
+      };
+      renderCountdown();
+      countdownTimer = setInterval(()=>{
+        remainMs -= 1000;
+        renderCountdown();
+        if(remainMs <= 0) clearInterval(countdownTimer);
+      }, 1000);
+    }
     await sleep(AD_MIN_WATCH_MS + 300);
+    if(countdownTimer) clearInterval(countdownTimer);
+    if(countdownEl) countdownEl.style.display = "none";
     const r = await ChoiminiAuth.ads.markComplete(sess.sessionId, video.adId);
     if(r && r.ok){
       adProgress[video.adId] = "completed";
@@ -1241,6 +1333,8 @@ async function adWatchVideo(video){
   }catch(e){
     toast("⚠️ 오류: " + (e.message||e));
   }finally{
+    if(countdownTimer) clearInterval(countdownTimer);
+    if(countdownEl) countdownEl.style.display = "none";
     adBusyAdId = null;
     renderAdRewardUI();
   }
@@ -1270,7 +1364,7 @@ async function adRedeemCode(rawCode){
   try{
     const r = await ChoiminiAuth.redeemFreeCode(code);
     if(r && r.ok){
-      tokensInternal = Math.round(r.balance * TOKEN_MULT);
+      tokensInternal = sanitizeTokens(r.balance * TOKEN_MULT);
       saveJSON(LS.tokens, tokensInternal);
       renderTokens();
       toast("🎉 무료 20토큰이 지급되었습니다");
