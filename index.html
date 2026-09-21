@@ -375,6 +375,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <button class="footer-btn" id="openAccountBtn">👤 계정 관리</button>
       <button class="footer-btn" id="openSettingsBtn">⚙️ AI / 모델 설정</button>
       <button class="footer-btn" id="openRedeemBtn">🎟️ 코드 교환</button>
+      <button class="footer-btn" id="openAdRewardBtn">🎁 토큰 받기</button>
       <button class="footer-btn" id="openStorageBtn">🗂️ 저장공간 관리</button>
     </div>
   </aside>
@@ -507,7 +508,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <button class="modal-close" data-close="captchaModal">✕</button>
     </div>
     <div class="modal-body">
-      <div data-jcaptcha-v2 id="jcaptchaMount"></div>
+      <div data-jcaptcha-v3 id="jcaptchaMount"></div>
     </div>
   </div>
 </div>
@@ -526,6 +527,43 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <div class="btn-row">
         <button class="ghost-btn" data-close="redeemModal">취소</button>
         <button class="primary-btn" id="redeemSubmitBtn">교환하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AD REWARD MODAL (광고 시청 후 무료 토큰 코드 발급) -->
+<div class="modal-overlay" id="adRewardModal">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header"><h3>🎁 무료 토큰 받기</h3><button class="modal-close" data-close="adRewardModal">✕</button></div>
+    <div class="modal-body code-panel-body">
+      <p style="color:var(--sidebar-dim,#8891a8);font-size:13px;margin:0 0 10px;">아래 광고를 모두 시청하면 무료 토큰 코드를 받을 수 있어요 (+20 토큰).</p>
+      <div class="btn-row" style="flex-direction:column;gap:8px;align-items:stretch;">
+        <button class="ghost-btn" id="adGeutrixBtn" style="justify-content:space-between;display:flex;">
+          <span>귀트릭스 시청하기</span><span id="adGeutrixProgress">(0/5 완료)</span>
+        </button>
+        <button class="ghost-btn" id="adGetGeungBtn" style="justify-content:space-between;display:flex;">
+          <span>GET GEUNG 시청하기</span><span id="adGetGeungProgress"></span>
+        </button>
+      </div>
+      <div class="btn-row" style="margin-top:14px;">
+        <button class="primary-btn" id="adClaimCodeBtn" disabled style="width:100%;">무료 코드 받기</button>
+      </div>
+      <div id="adCodeResultBox" style="display:none;margin-top:12px;padding:10px;border:1px solid var(--sidebar-border,#1c2030);border-radius:9px;">
+        <div style="font-size:12.5px;color:var(--sidebar-dim,#8891a8);margin-bottom:6px;">무료 코드가 생성되었습니다</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="adCodeResultInput" readonly style="flex:1;" />
+          <button class="ghost-btn" id="adCodeCopyBtn">복사</button>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--sidebar-border,#1c2030);margin-top:16px;padding-top:14px;">
+        <div class="field-group">
+          <label>무료 토큰 코드 입력</label>
+          <input type="text" id="adCodeRedeemInput" placeholder="발급받은 코드를 입력하세요">
+        </div>
+        <div class="btn-row">
+          <button class="primary-btn" id="adCodeRedeemBtn" style="width:100%;">코드 사용</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1137,6 +1175,114 @@ async function redeemCode(rawCode){
   }, ()=>{ toast("인증 취소됨 · 코드가 사용되지 않음"); });
 }
 
+/* ---------------- 광고 보상 (토큰 받기: 귀트릭스 5개 + GET GEUNG) ----------------
+   서버(Supabase RPC, choimini-auth.js의 ChoiminiAuth.ads.*)가 시청 시작/완료·최소 10초·
+   세션 유효성·일일 지급 횟수를 모두 검증함. 클라이언트는 버튼 클릭과 진행 상태 표시만 담당. */
+const GEUTRIX_VIDEOS = [
+  { adId: "GEUTRIX_01", url: "https://www.youtube.com/watch?v=8k05ouQVk8A" },
+  { adId: "GEUTRIX_02", url: "https://www.youtube.com/watch?v=ZfsDVm5RDzQ" },
+  { adId: "GEUTRIX_03", url: "https://www.youtube.com/watch?v=NHl4spFuR6w" },
+  { adId: "GEUTRIX_04", url: "https://www.youtube.com/watch?v=g9CNcng117I" },
+  { adId: "GEUTRIX_05", url: "https://www.youtube.com/watch?v=n_VJ9Gbgzfk" },
+];
+// TODO: GET GEUNG 원곡 공식 유튜브 링크로 교체 필요 (현재는 임시 검색 링크)
+const GET_GEUNG_VIDEO = { adId: "GET_GEUNG", url: "https://www.youtube.com/results?search_query=GET+GEUNG" };
+const AD_MIN_WATCH_MS = 10000;
+
+let adSession = null;      // { sessionId, expiresAt }
+let adProgress = {};       // { [adId]: "pending"|"started"|"completed" }
+let adBusyAdId = null;     // 지금 시청 처리 중인 adId (중복 클릭 방지)
+
+function adCountGeutrixDone(){
+  return GEUTRIX_VIDEOS.filter(v => adProgress[v.adId] === "completed").length;
+}
+function adAllDone(){
+  return adCountGeutrixDone() === GEUTRIX_VIDEOS.length && adProgress[GET_GEUNG_VIDEO.adId] === "completed";
+}
+function renderAdRewardUI(){
+  const done = adCountGeutrixDone();
+  document.getElementById("adGeutrixProgress").textContent = done === GEUTRIX_VIDEOS.length ? `(${done}/5 완료) ✓` : `(${done}/5 완료)`;
+  document.getElementById("adGetGeungProgress").textContent = adProgress[GET_GEUNG_VIDEO.adId] === "completed" ? "완료 ✓" : "";
+  document.getElementById("adClaimCodeBtn").disabled = !adAllDone();
+}
+async function ensureAdSession(){
+  if(!window.ChoiminiAuth || !ChoiminiAuth.isLoggedIn()){ toast("로그인이 필요합니다"); return null; }
+  if(adSession) return adSession;
+  try{
+    const s = await ChoiminiAuth.ads.start();
+    adSession = { sessionId: s.sessionId, expiresAt: s.expiresAt };
+    adProgress = {};
+    (s.progress||[]).forEach(p => { adProgress[p.ad_id] = p.status; });
+    renderAdRewardUI();
+    return adSession;
+  }catch(e){
+    toast("⚠️ 광고 세션 시작 실패: " + (e.message||e));
+    return null;
+  }
+}
+async function adWatchVideo(video){
+  if(adBusyAdId) return; // 이미 진행 중인 영상이 있으면 무시
+  const sess = await ensureAdSession();
+  if(!sess) return;
+  if(adProgress[video.adId] === "completed"){ toast("이미 완료한 영상이에요"); return; }
+  adBusyAdId = video.adId;
+  try{
+    await ChoiminiAuth.ads.markStart(sess.sessionId, video.adId);
+    window.open(video.url, "_blank", "noopener");
+    toast("영상을 10초 이상 시청한 뒤 자동으로 완료 처리돼요");
+    await sleep(AD_MIN_WATCH_MS + 300);
+    const r = await ChoiminiAuth.ads.markComplete(sess.sessionId, video.adId);
+    if(r && r.ok){
+      adProgress[video.adId] = "completed";
+      toast(`✅ 완료 (${r.completed_count}/${r.total_count})`);
+    }else{
+      toast("❌ " + ((r && r.message) || "완료 처리 실패 · 다시 시도해줘"));
+    }
+  }catch(e){
+    toast("⚠️ 오류: " + (e.message||e));
+  }finally{
+    adBusyAdId = null;
+    renderAdRewardUI();
+  }
+}
+async function adClaimCode(){
+  const sess = await ensureAdSession();
+  if(!sess) return;
+  if(!adAllDone()){ toast("모든 광고를 시청해야 해요"); return; }
+  try{
+    const r = await ChoiminiAuth.ads.generateCode(sess.sessionId);
+    if(r && r.ok){
+      document.getElementById("adCodeResultBox").style.display = "";
+      document.getElementById("adCodeResultInput").value = r.code;
+      toast("🎉 무료 코드가 발급됐어요");
+      adSession = null; // 세션 소진 → 다음엔 새 세션
+    }else{
+      toast("❌ " + ((r && r.message) || "코드 발급 실패"));
+    }
+  }catch(e){
+    toast("⚠️ 오류: " + (e.message||e));
+  }
+}
+async function adRedeemCode(rawCode){
+  const code = (rawCode||"").trim();
+  if(!code){ toast("코드를 입력해줘"); return; }
+  if(!window.ChoiminiAuth || !ChoiminiAuth.isLoggedIn()){ toast("로그인이 필요합니다"); return; }
+  try{
+    const r = await ChoiminiAuth.redeemFreeCode(code);
+    if(r && r.ok){
+      tokensInternal = Math.round(r.balance * TOKEN_MULT);
+      saveJSON(LS.tokens, tokensInternal);
+      renderTokens();
+      toast("🎉 무료 20토큰이 지급되었습니다");
+      document.getElementById("adCodeRedeemInput").value = "";
+    }else{
+      toast("❌ " + ((r && r.message) || "유효하지 않은 코드입니다"));
+    }
+  }catch(e){
+    toast("⚠️ 오류: " + (e.message||e));
+  }
+}
+
 /* ---------------- jCAPTCHA (원본 jsDelivr 스크립트 사용) ----------------
    jcaptcha.min.js가 data-jcaptcha 요소를 자동 렌더링하고, 인증 성공/실패 시
    window.jcaptchaOnSuccess / window.jcaptchaOnError 를 호출해줌.
@@ -1703,6 +1849,43 @@ document.getElementById("redeemSubmitBtn").addEventListener("click", ()=>{
 });
 document.getElementById("redeemInput").addEventListener("keydown", (e)=>{
   if(e.key === "Enter") redeemCode(document.getElementById("redeemInput").value);
+});
+
+/* 🎁 광고 보상 패널 */
+document.getElementById("openAdRewardBtn").addEventListener("click", ()=>{
+  if(window.innerWidth<=760) closeSidebar();
+  document.getElementById("adCodeResultBox").style.display = "none";
+  document.getElementById("adCodeRedeemInput").value = "";
+  renderAdRewardUI();
+  ensureAdSession();
+  openModal("adRewardModal");
+});
+document.getElementById("adGeutrixBtn").addEventListener("click", ()=>{
+  const next = GEUTRIX_VIDEOS.find(v => adProgress[v.adId] !== "completed");
+  if(next) adWatchVideo(next);
+});
+document.getElementById("adGetGeungBtn").addEventListener("click", ()=>{
+  adWatchVideo(GET_GEUNG_VIDEO);
+});
+document.getElementById("adClaimCodeBtn").addEventListener("click", ()=>{
+  adClaimCode();
+});
+document.getElementById("adCodeCopyBtn").addEventListener("click", ()=>{
+  const val = document.getElementById("adCodeResultInput").value;
+  if(!val) return;
+  navigator.clipboard?.writeText(val).then(()=>{
+    toast("📋 코드가 복사되었습니다");
+  }).catch(()=>{
+    document.getElementById("adCodeResultInput").select();
+    document.execCommand("copy");
+    toast("📋 코드가 복사되었습니다");
+  });
+});
+document.getElementById("adCodeRedeemBtn").addEventListener("click", ()=>{
+  adRedeemCode(document.getElementById("adCodeRedeemInput").value);
+});
+document.getElementById("adCodeRedeemInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") adRedeemCode(document.getElementById("adCodeRedeemInput").value);
 });
 
 /* <NO BRAIN> 토글: ON은 자유(즉시 전환), OFF는 jCAPTCHA + 인증코드("ON-CHOIMINI") 필요 */
