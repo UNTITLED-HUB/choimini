@@ -27,6 +27,13 @@
 
   function available() { return window.parent !== window && (window.ChoiminiAuth ? ChoiminiAuth.app === "chrome" : false); }
 
+  // 확장이 "설치는 돼 있는지"만 확인 (사이드 패널 안이 아니라 일반 탭으로 사이트를 열었을 때도 동작).
+  // nocf.js(content script, world:MAIN)가 페이지에 window.__CHOIMINI_EXT__를 심어준다.
+  // available()은 "지금 사이드 패널 iframe 안에서 실제로 쓸 수 있는지"이고, installed()는 그냥
+  // "이 브라우저에 확장이 깔려 있는지"라 사용 목적이 다르다 (설치 안내 vs 기능 활성화 판단).
+  function installed() { try { return !!(window.__CHOIMINI_EXT__ && window.__CHOIMINI_EXT__.installed); } catch (e) { return false; } }
+  function installedInfo() { try { return window.__CHOIMINI_EXT__ || null; } catch (e) { return null; } }
+
   // action: navigate|new_tab|list_tabs|snapshot|read_text|click|type|select|check|submit|scroll|wait
   function request(action, args) {
     return new Promise(function (resolve) {
@@ -90,6 +97,8 @@
 
   window.ChoiminiBrowser = {
     available: available,
+    installed: installed,
+    installedInfo: installedInfo,
     isEnabled: function () { return extEnabled; },
     request: request,
     runBlocks: runBlocks,
