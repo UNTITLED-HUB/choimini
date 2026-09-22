@@ -118,6 +118,20 @@
     }
   }
 
+  // Android 네이티브가 "기기에 이미 로그인된 구글 계정"으로 바로 받아온 ID 토큰을 넘길 때 호출.
+  // (시스템 브라우저를 여는 기존 login() 흐름과 달리, Credential Manager로 기기 계정에서 바로 토큰을 받아오므로
+  //  브라우저 창 전환 없이 그대로 세션을 만든다.)
+  window.__choiminiHandleGoogleIdToken = async function (idToken) {
+    try {
+      const { error } = await supabase.auth.signInWithIdToken({ provider: "google", token: idToken });
+      if (error) throw error;
+      await bootstrapSession();
+    } catch (e) {
+      console.error("native google id token login error", e);
+      gateError("자동 로그인에 실패했습니다. 아래 버튼으로 다시 시도해주세요.");
+    }
+  };
+
   // 네이티브(Android/Desktop)가 딥링크 수신 시 호출: choimini://auth-callback?code=...
   window.__choiminiHandleAuthCallback = async function (fullUrl) {
     try {
