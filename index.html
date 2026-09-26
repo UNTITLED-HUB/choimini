@@ -1651,10 +1651,13 @@ function localChoiminiReply(userText, preset){
 }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
+// 주의: "API 키/프록시가 없음"과 "토큰이 부족함"은 서로 다른 상황임.
+// 키가 없으면 로컬 엔진(localChoiminiReply)으로 대체하고 토큰은 정상 차감해야 하고,
+// 진짜로 토큰이 모자랄 때만 "그전에 토큰 내놔"로 응답하고 차감하지 않아야 함.
+// (예전엔 이 둘을 하나로 묶어서 반환해버려 localChoiminiReply()가 아예 호출되지 않았고,
+//  그 결과 대부분의 사용자(자기 API 키 없음)는 채팅을 해도 토큰이 전혀 줄지 않는 버그가 있었음)
 function needsPayment(){
-  const provider = settings.provider;
-  const hasAnyKey = !!resolveApiKey(provider) || hasDefaultProxy(provider);
-  return !hasAnyKey || !canAffordNormal();
+  return !canAffordNormal();
 }
 // <NO BRAIN> 모드는 매 응답마다 무조건 2~5 토큰(내부 20~50) 사이의 랜덤 값을 소모함
 // (로컬 캔 답변이든 실제 API로 짧게 호출하든 상관없이 항상 차감됨)
@@ -1703,11 +1706,21 @@ async function generateReply(chat){
   const preset = settings.preset;
   const apiKey = resolveApiKey(provider);
   const model = settings.models[provider][preset];
+  const hasAnyKey = !!apiKey || hasDefaultProxy(provider);
 
   if(needsPayment()){
-    // API 키가 없거나 토큰이 부족함: 실제 호출 없이 고정 문구로 응답 (토큰 차감 없음)
+    // 진짜로 토큰이 부족한 경우에만: 실제 호출 없이 고정 문구로 응답 (토큰 차감 없음)
     await sleep(300 + Math.random()*300);
     return { text: "그전에 토큰 내놔", provider, usedLocal: true, skipDeduct: true };
+  }
+
+  if(!hasAnyKey){
+    // API 키/기본 프록시가 없음: 로컬 규칙 기반 엔진으로 대체 응답 생성 (네트워크 호출 없음).
+    // 이 경로도 정상적으로 기본 토큰을 소모해야 함 (deductNormalCost가 이후에 처리).
+    await sleep(300 + Math.random()*400);
+    const lastUserMsg = [...chat.messages].reverse().find(m => m.role === "user");
+    const text = localChoiminiReply(lastUserMsg ? lastUserMsg.content : "", preset);
+    return { text, provider: "local", usedLocal: true };
   }
 
   const fullHistory = chat.messages.filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files}));
