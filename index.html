@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko" class="jcv2-locked">
+<html lang="ko" class="cfgate-locked">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -246,9 +246,9 @@ code.md-code{background:var(--panel-2);border:1px solid var(--border);border-rad
 }
 </style>
 
-<style id="jcv2-gate-style">
-  html.jcv2-locked body > *:not(#jcv2-gate){ display:none !important; }
-  #jcv2-gate{
+<style id="cfgate-gate-style">
+  html.cfgate-locked body > *:not(#cfgate-gate){ display:none !important; }
+  #cfgate-gate{
     position:fixed; inset:0; z-index:99999;
     background:#ffffff; color:#1a1a1a;
     display:flex; align-items:flex-start; justify-content:center;
@@ -256,30 +256,30 @@ code.md-code{background:var(--panel-2);border:1px solid var(--border);border-rad
     padding:56px 16px calc(56px + env(safe-area-inset-bottom));
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Pretendard",sans-serif;
   }
-  #jcv2-gate .jcv2-panel{ width:100%; max-width:600px; }
-  #jcv2-gate .jcv2-brand{ display:flex; align-items:center; gap:10px; margin-bottom:22px; }
-  #jcv2-gate .jcv2-icon{
+  #cfgate-gate .cfgate-panel{ width:100%; max-width:600px; }
+  #cfgate-gate .cfgate-brand{ display:flex; align-items:center; gap:10px; margin-bottom:22px; }
+  #cfgate-gate .cfgate-icon{
     width:34px; height:34px; flex-shrink:0; border-radius:8px;
     background:#3b82f6; display:flex; align-items:center; justify-content:center;
     font-size:18px;
   }
-  #jcv2-gate .jcv2-domain{ font-size:1.6rem; font-weight:800; color:#111827; word-break:break-all; }
-  #jcv2-gate h1{ font-size:1.3rem; font-weight:800; margin:0 0 14px; color:#111827; }
-  #jcv2-gate .jcv2-desc{ font-size:0.95rem; line-height:1.6; color:#444d5e; margin:0 0 24px; }
-  #jcv2-gate .jcv2-widget-box{ display:flex; width:100%; max-width:100%; justify-content:center; overflow-x:hidden; }
-  #jcv2-gate .cf-turnstile{ width:100%; max-width:300px; }
-  #jcv2-gate .jcv2-fallback{
+  #cfgate-gate .cfgate-domain{ font-size:1.6rem; font-weight:800; color:#111827; word-break:break-all; }
+  #cfgate-gate h1{ font-size:1.3rem; font-weight:800; margin:0 0 14px; color:#111827; }
+  #cfgate-gate .cfgate-desc{ font-size:0.95rem; line-height:1.6; color:#444d5e; margin:0 0 24px; }
+  #cfgate-gate .cfgate-widget-box{ display:flex; width:100%; max-width:100%; justify-content:center; overflow-x:hidden; }
+  #cfgate-gate .cf-turnstile{ width:100%; max-width:300px; }
+  #cfgate-gate .cfgate-fallback{
     display:none; margin-top:16px; padding:14px 16px; background:#fff7ed;
     border:1px solid #fdba74; border-radius:8px; font-size:0.85rem; color:#7c2d12; line-height:1.6;
   }
-  #jcv2-gate .jcv2-fallback.show{ display:block; }
-  #jcv2-gate .jcv2-fallback button{
+  #cfgate-gate .cfgate-fallback.show{ display:block; }
+  #cfgate-gate .cfgate-fallback button{
     margin-top:10px; padding:8px 14px; background:#ea580c; color:#fff; border:none;
     border-radius:6px; font-weight:700; cursor:pointer; font-size:0.85rem;
   }
   @media (max-width:480px){
-    #jcv2-gate{ padding-top:40px; }
-    #jcv2-gate .jcv2-domain{ font-size:1.25rem; }
+    #cfgate-gate{ padding-top:40px; }
+    #cfgate-gate .cfgate-domain{ font-size:1.25rem; }
   }
 
 /* ===== Choimini 계정 로그인 게이트 스타일 (choimini-auth.js 연동) ===== */
@@ -323,25 +323,27 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <script src="./choimini-auth.js"></script>
 <script src="./choimini-browser.js"></script>
 <script src="./choimini-linuxfs.js"></script>
+<script src="./choimini-shell.js"></script>
+<script src="./choimini-shell-cmds.js"></script>
 
 
     <!-- Cloudflare Turnstile 접속 게이트: 통과 전까지 페이지 콘텐츠를 가림 -->
-    <div id="jcv2-gate">
-      <div class="jcv2-panel">
-        <div class="jcv2-brand">
-          <span class="jcv2-icon">🛡️</span>
-          <span class="jcv2-domain">untitled-hub.github.io/choimini</span>
+    <div id="cfgate-gate">
+      <div class="cfgate-panel">
+        <div class="cfgate-brand">
+          <span class="cfgate-icon">🛡️</span>
+          <span class="cfgate-domain">untitled-hub.github.io/choimini</span>
         </div>
         <h1>보안 확인 수행 중</h1>
-        <p class="jcv2-desc">이 웹 사이트는 보안 서비스를 사용하여 악의적인 봇으로부터 보호합니다. 이 페이지는 웹 사이트에서 사용자가 봇이 아님을 확인하는 동안에만 표시됩니다.</p>
-        <div class="jcv2-widget-box">
+        <p class="cfgate-desc">이 웹 사이트는 보안 서비스를 사용하여 악의적인 봇으로부터 보호합니다. 이 페이지는 웹 사이트에서 사용자가 봇이 아님을 확인하는 동안에만 표시됩니다.</p>
+        <div class="cfgate-widget-box">
           <div class="cf-turnstile"
                data-sitekey="0x4AAAAAAE6QOBCCaei05aqw"
                data-theme="light"
                data-size="flexible"
                data-callback="onCfTurnstileSuccess"></div>
         </div>
-        <div class="jcv2-fallback" id="jcv2-fallback">
+        <div class="cfgate-fallback" id="cfgate-fallback">
           인증 위젯이 표시되지 않나요? 브라우저의 광고 차단기나 보안/트래킹 방지 기능이 Cloudflare 인증을 막고 있을 수 있습니다. 해당 기능을 잠시 끄거나 다른 브라우저에서 시도한 뒤 새로고침 해주세요.
           <div><button onclick="location.reload()">새로고침</button></div>
         </div>
@@ -365,8 +367,8 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       };
       var __cfSkip = window.__isNativeApp();
       if (__cfSkip) {
-        document.documentElement.classList.remove('jcv2-locked');
-        var __gate = document.getElementById('jcv2-gate');
+        document.documentElement.classList.remove('cfgate-locked');
+        var __gate = document.getElementById('cfgate-gate');
         if (__gate) __gate.remove();
       } else {
         var __ts = document.createElement('script');
@@ -377,16 +379,16 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
     </script>
     <script>
       function onCfTurnstileSuccess(token) {
-        document.documentElement.classList.remove('jcv2-locked');
-        var gate = document.getElementById('jcv2-gate');
+        document.documentElement.classList.remove('cfgate-locked');
+        var gate = document.getElementById('cfgate-gate');
         if (gate) gate.remove();
       }
       // 위젯이 일정 시간 안에 렌더링되지 않으면(광고 차단기 등으로 스크립트가 막힌 경우)
       // 안내 문구와 새로고침 버튼을 보여준다.
       setTimeout(function () {
         if (window.__isNativeApp && window.__isNativeApp()) return;
-        var box = document.querySelector('#jcv2-gate .jcv2-widget-box');
-        var fallback = document.getElementById('jcv2-fallback');
+        var box = document.querySelector('#cfgate-gate .cfgate-widget-box');
+        var fallback = document.getElementById('cfgate-fallback');
         if (box && fallback && !box.querySelector('iframe')) {
           fallback.classList.add('show');
         }
@@ -637,9 +639,8 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 
 
 <!-- jsDelivr @main 브랜치 경로는 캐시 지연/404로 캡차가 아예 안 뜨는 문제가 있어
-     choimin 저장소가 공식 권장하는 GitHub Pages 주소로 교체함. V2/V3 스크립트 모두 로드. -->
+     choimin 저장소가 공식 권장하는 GitHub Pages 주소로 교체함. (jCAPTCHA V3 만 사용) -->
 <script src="https://untitled-hub.github.io/choimin/Jcaptcha_Modules/jcaptcha.min.js"></script>
-<script src="https://untitled-hub.github.io/choimin/Jcaptcha_Modules/jcaptcha-v2.js"></script>
 <script>
 (function(){
 "use strict";
@@ -729,26 +730,28 @@ const SYSTEM_PROMPT = _b64d(
    ```tool 코드블록 안에 한 줄짜리 JSON(또는 JSON 배열)으로 호출하면 브라우저 안의
    가상 파일시스템(Linux_Local)에 대해 실행되고, 결과가 다음 차례에 그대로 전달된다. */
 function fsToolPrompt(mode){
-  const cmds = (window.LinuxFS && LinuxFS.availableCmds) ? LinuxFS.availableCmds(mode).join(", ") : "";
+  // 하드코딩 목록이 아니라 셸의 "지금 실제로 사용 가능한 명령어"(내장 + /cmds 에 추가된 것)를 매번 읽어 온다.
+  const cmds = (window.LinuxFS && LinuxFS.availableCmds) ? LinuxFS.availableCmds(mode).join(" ") : "";
   let p = "\n\n[가상 Linux 작업 환경 · Linux_Local]\n"
-    + "너는 브라우저 저장공간 안에서만 동작하는 격리된 가상 Linux 파일시스템(user/download, user/documents, user/desktop, user/projects 등)에 접근할 수 있다.\n"
-    + "사용자가 업로드한 파일은 자동으로 user/download/ 에 저장되어 있다.\n"
-    + "파일 작업이 필요하면 아래처럼 ```tool 코드블록 안에 JSON 한 줄로 호출해라 (여러 개면 JSON 배열 또는 줄바꿈으로 나열):\n"
-    + '```tool\n{"tool":"fs_ls","path":"user/download"}\n```\n'
-    + "사용 가능한 도구: fs_ls(path), fs_pwd(), fs_cd(path), fs_mkdir(path), fs_touch(path), "
-    + "fs_write(path,content), fs_read(path), fs_rm(path,recursive), fs_mv(from,to), fs_cp(from,to), "
-    + "fs_find(path,pattern), fs_grep(pattern,path), fs_head(path,n), fs_tail(path,n), convert_image(path,format)"
-    + (mode === "code" ? ", pkg_install(name), pkg_list()" : "") + ".\n"
-    + "실제 시스템 명령을 실행하는 것이 아니라 이 구조화된 도구만 사용해야 한다. "
-    + "실제로 물리적으로 파일을 만들거나 고치지 않고 코드 예시만 보여주는 답변은 하지 마라 — "
-    + "파일 작업을 요청받으면 반드시 위 도구로 직접 실행해라.\n"
-    + (cmds ? `이 모드에서 흉내낼 수 있는 셸 명령 종류(개념 참고용): ${cmds}.\n` : "");
+    + "너는 브라우저 저장공간 안에서만 동작하는 격리된 가상 Linux 환경(Linux_Local)에서 작업한다. 실제 OS 는 건드리지 않는다.\n"
+    + "폴더: /user/download(업로드 파일 자동 저장), /user/documents, /user/desktop, /user/projects, /cmds(명령어), /package(설치된 패키지), /tmp.\n"
+    + "\n■ 기본 도구 runcmd — 리눅스 명령어를 그대로 실행한다. 특정 명령어 몇 개로 제한되지 않는다.\n"
+    + '```tool\n{"tool":"runcmd","command":"ls -la /user/download"}\n```\n'
+    + "· 파이프(|), 리다이렉션(> >> <), 체인(; && ||), 변수($VAR, export), 명령 치환($(...)), 글롭(*.txt), 히어독(<<'EOF')을 쓸 수 있다.\n"
+    + "· 한 번에 여러 줄/여러 명령을 효율적으로 묶어서 실행해라 (불필요하게 나눠 호출하지 마라). 파일을 만들 땐 cat > 파일 <<'EOF' … EOF 가 편하다.\n"
+    + "· 셸 제어문(if/for/while/함수)은 지원하지 않는다 → 필요하면 xargs, find -exec, 또는 python/node 스크립트를 써라.\n"
+    + "\n■ 지금 사용 가능한 명령어 (실시간 조회 결과):\n" + cmds + "\n"
+    + "· 이 목록은 예시일 뿐 고정이 아니다. 작업 전 필요하면 `which <명령>`, `type <명령>`, `cmds`, `cmds -l`(설명 포함), `compgen -c` 로 다시 확인해라. /cmds 에 새로 추가된 명령도 자동으로 인식된다.\n"
+    + "· 없는 명령이 필요하면: 존재 확인 → (없으면) 필요한 것만 pkg install / pip install / npm install → 실행. 모든 패키지를 미리 설치하지 마라.\n"
+    + "· 새 명령이 필요하면 /cmds/<이름> 에 스크립트를 만들거나 alias 이름='명령' 으로 등록할 수 있다.\n"
+    + "\n■ 작업 → 명령 선택 가이드: 목록 ls / 검색 find·grep / 내용 cat·head·tail / 수정 sed·awk·echo·printf·tee / 복사·이동·삭제 cp·mv·rm / 압축 tar·gzip·zip·unzip / 다운로드 curl·wget / 데이터 sort·uniq·cut·tr·wc·diff / 해시·인코딩 sha256sum·md5sum·base64 / Python python·pip / Node node·npm / 버전관리 git.\n"
+    + "\n■ 정직하게 알려야 할 한계: 이건 진짜 리눅스가 아니라 브라우저 안에서 JS 로 구현된 호환 환경이다. python 은 Pyodide(WebAssembly, 첫 실행 느림), node 는 격리 샌드박스(fs·path 만 require 가능), curl/wget 은 브라우저 CORS 제약을 받고, git 은 원격(clone/push/pull) 불가, ps/kill 은 가상이다. awk/sed 는 부분 구현이다. 안 되는 건 되는 척하지 말고 사용자에게 사실대로 말하고 대안을 제시해라.\n"
+    + "\n■ 보조 도구(구조화 JSON, runcmd 와 같은 환경): fs_ls, fs_read, fs_write(path,content), fs_rm, fs_mv, fs_cp, fs_find, fs_grep, fs_head, fs_tail, fs_mkdir, fs_touch, fs_cd, fs_pwd, convert_image(path,format), pkg_install(name), pkg_list(). 파일 통째 쓰기는 fs_write 가 안전하다.\n"
+    + "실제로 파일을 만들거나 고치지 않고 코드 예시만 보여주는 답변은 하지 마라 — 파일 작업을 요청받으면 반드시 도구로 직접 실행해라.\n";
   if(mode === "code"){
-    p += "pkg_install은 실제 바이너리를 내려받는 게 아니라 설치 여부를 기록하는 시뮬레이션이다 — 이걸로 실제 python/node를 실행할 순 없다는 걸 사용자에게 숨기지 말고 필요하면 알려줘라. "
-       + "반대로 convert_image는 Canvas API로 실제로 동작한다.\n"
-       + "CODE 모드 추론 수준은 약 80% — 실제 개발자가 가상의 개발 컴퓨터에서 작업하듯 프로젝트 구조, 빌드, 디버깅까지 적극적으로 이어가라.\n";
+    p += "CODE 모드 추론 수준은 약 80% — WORK 의 모든 기능 위에 프로젝트 구조, 대규모 코드 작성, 빌드, 테스트, 디버깅, 복잡한 자동화, git 작업까지 적극적으로 이어가라. convert_image 는 Canvas API 로 실제 동작한다.\n";
   } else {
-    p += "WORK 모드 추론 수준은 약 70% — 파일 읽기/편집/변환 등 실무형 작업에 집중하고, 패키지 설치나 프로젝트 빌드처럼 CODE 전용 작업은 CODE 모드로 전환하라고 안내해라.\n";
+    p += "WORK 모드 추론 수준은 약 70% — 파일/문서/데이터 처리, 간단한 변환·스크립트, 압축/해제, 텍스트·이미지 처리 등 일반 작업에 필요한 모든 명령어를 자유롭게 써라. 대규모 프로젝트 개발·빌드·테스트·개발 서버 같은 작업은 CODE 모드가 더 적합하다고 안내해라.\n";
   }
   return p;
 }
@@ -1604,22 +1607,6 @@ window.jcaptchaV3OnError = function(data){
 
 // 캡차 모달을 닫기(✕)로 취소한 경우 onCancel 처리
 
-// jCAPTCHA V2(접속 시간대 기반 자동 검사)는 성공/차단 시 window.jcaptchaV2OnSuccess /
-// window.jcaptchaV2OnBlocked 콜백을 호출함. 이 콜백을 등록하지 않으면 위젯이
-// "확인 완료.. 연결중" 상태에서 멈춘 것처럼 보이고 모달이 절대 닫히지 않음.
-window.jcaptchaV2OnSuccess = function(data){
-  toast("✅ 인증 완료");
-  closeModal("captchaModal");
-  captchaVerifiedThisSession = true;
-  sessionStorage.setItem("choimini.captchaOk", "1");
-  const st = captchaState;
-  captchaState = null;
-  if(st && st.onSuccess) st.onSuccess(data);
-};
-window.jcaptchaV2OnBlocked = function(data){
-  toast("❌ 인증 실패 · 잠시 후 다시 시도해줘");
-  // jcaptcha-v2.js가 자체적으로 차단 화면을 보여줌 (모달은 열어둔 채로 대기)
-};
 document.querySelector('#captchaModal .modal-close').addEventListener("click", ()=>{
   const st = captchaState;
   captchaState = null;
@@ -2246,7 +2233,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         if(!c || !c.tool || c.tool === "__invalid"){ outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요."); continue; }
         if(!ChoiminiToolRunner.isFsTool(c.tool)){ outs.push(`▶ ${c.tool}\n오류: 이 모드에서 사용할 수 없는 도구예요.`); continue; }
         const args = Object.assign({}, c); delete args.tool;
-        const label = c.tool + (args.path ? " " + args.path : args.from ? ` ${args.from} → ${args.to}` : args.name ? " " + args.name : "");
+        const label = c.tool + (args.command ? " " + String(args.command).split("\n")[0].slice(0, 80) : args.path ? " " + args.path : args.from ? ` ${args.from} → ${args.to}` : args.name ? " " + args.name : "");
         try{
           const out = await ChoiminiToolRunner.run(c, modeForTools);
           outs.push("▶ " + label + "\n" + out);

@@ -387,8 +387,46 @@
     persist();
   }
 
-  /* ---------------- 모드별 사용 가능 명령어 ---------------- */
+  /* ---------------- 셸(choimini-shell.js)용 저수준 API ---------------- */
+  function abs(p){ return normPath(joinPath(state.cwd, p)); }
+  function stat(p){
+    const k = abs(p), e = state.fs[k];
+    return e ? Object.assign({ path:k, name: baseName(k) }, e) : null;
+  }
+  function setMeta(p, meta){
+    const k = abs(p);
+    if(!state.fs[k]) throw new Error(`없음: ${k}`);
+    Object.assign(state.fs[k], meta); persist(); return k;
+  }
+  function mkdirp(p){
+    const k = abs(p);
+    if(isFile(k)) throw new Error(`파일이 이미 존재함: ${k}`);
+    if(isDir(k)) return k;
+    ensureParentDirs(k);
+    state.fs[k] = { type:"dir", createdAt: nowTs() };
+    persist(); return k;
+  }
+  function dirChildren(p){ return childrenOf(abs(p)).map(baseName); }
+  // 디렉터리에 (없을 때만) 항목을 한꺼번에 등록하고 저장은 한 번만 한다 (/cmds 동기화용)
+  function seedFiles(map){
+    let changed = false;
+    for(const k in map){
+      const p = normPath(k);
+      if(state.fs[p]) continue;
+      ensureParentDirs(p);
+      const content = map[k];
+      state.fs[p] = { type:"file", content, mime:"application/json", size: content.length, createdAt: nowTs(), updatedAt: nowTs() };
+      changed = true;
+    }
+    if(changed) persist();
+    return changed;
+  }
+
+  /* ---------------- 사용 가능한 명령어 (동적) ----------------
+     하드코딩 목록이 아니라 choimini-shell.js 의 명령어 레지스트리 + /cmds 폴더의 실제 항목을
+     합쳐서 돌려준다. /cmds 에 새 파일이 생기면 별도 업데이트 없이 바로 인식된다. */
   function availableCmds(mode){
+    if(global.ChoiminiShell && typeof global.ChoiminiShell.list === "function") return global.ChoiminiShell.list();
     return mode === "code" ? BUILTIN_CMDS.concat(CODE_EXTRA_CMDS) : BUILTIN_CMDS;
   }
 
@@ -396,7 +434,7 @@
     ls, pwd, cd, mkdir, touch, writeFile, readFile, rm, mv, cp, find, grep, head, tail,
     pkgInstall, pkgList, pkgIsInstalled,
     convertImage, saveUploaded, usageSummary, resetAll, availableCmds,
-    normPath, joinPath,
+    normPath, joinPath, abs, stat, setMeta, mkdirp, dirChildren, seedFiles, exists, isDir, isFile, baseName, parentOf,
     get cwd(){ return state.cwd; }
   };
 
@@ -408,7 +446,8 @@
      Desktop 앱(DesktopBridge)이 없는 순수 브라우저 WORK/CODE 모드 전용 실행기.
      ============================================================================ */
   const FS_TOOLS = new Set(["fs_ls","fs_pwd","fs_cd","fs_mkdir","fs_touch","fs_write","fs_read","fs_rm","fs_mv","fs_cp","fs_find","fs_grep","fs_head","fs_tail"]);
-  const CODE_ONLY_TOOLS = new Set(["pkg_install","pkg_list"]);
+  const CODE_ONLY_TOOLS = new Set([]); // WORK 에서도 pkg/pip/npm 을 쓸 수 있으므로 모드 제한 없음
+  const SHELL_TOOLS = new Set(["runcmd"]);
 
   async function runToolCall(call, mode){
     const tool = call && call.tool;
@@ -417,6 +456,13 @@
       throw new Error(`'${tool}'은 CODE 모드에서만 사용 가능함 (현재: ${mode})`);
     }
     switch(tool){
+      case "runcmd": {
+        if(!global.ChoiminiShell) throw new Error("셸 모듈(choimini-shell.js)이 로드되지 않음");
+        const cmd = call.command != null ? call.command : call.cmd;
+        if(cmd == null || !String(cmd).trim()) throw new Error("command 필드 없음");
+        const r = await global.ChoiminiShell.run(String(cmd));
+        return (r.output || "(출력 없음)") + (r.code ? `\n[종료 코드 ${r.code}]` : "");
+      }
       case "fs_ls": {
         const items = ls(call.path);
         if(!items.length) return "(비어있음)";
@@ -454,7 +500,7 @@
   }
 
   global.ChoiminiToolRunner = {
-    isFsTool(name){ return FS_TOOLS.has(name) || CODE_ONLY_TOOLS.has(name) || name === "convert_image"; },
+    isFsTool(name){ return SHELL_TOOLS.has(name) || FS_TOOLS.has(name) || CODE_ONLY_TOOLS.has(name) || name === "convert_image"; },
     run: runToolCall
   };
 
