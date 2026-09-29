@@ -406,6 +406,18 @@
     state.fs[k] = { type:"dir", createdAt: nowTs() };
     persist(); return k;
   }
+  // 변경 감지용 스냅샷 (에이전트 한 단계 전/후 비교 → "파일 생성됨/편집됨" 표시)
+  function snapshot(){
+    const o = {};
+    for(const k in state.fs){ const e = state.fs[k]; if(e.type === "file" && !k.startsWith("/cmds/") && !k.startsWith("/package/")) o[k] = (e.updatedAt || 0) + ":" + (e.size || 0) + ":" + (e.content && e.content.length || 0); }
+    return o;
+  }
+  function diffSnapshot(before){
+    const after = snapshot(), created = [], edited = [], deleted = [];
+    Object.keys(after).forEach(k => { if(!(k in before)) created.push(k); else if(before[k] !== after[k]) edited.push(k); });
+    Object.keys(before).forEach(k => { if(!(k in after)) deleted.push(k); });
+    return { created, edited, deleted };
+  }
   function dirChildren(p){ return childrenOf(abs(p)).map(baseName); }
   // 디렉터리에 (없을 때만) 항목을 한꺼번에 등록하고 저장은 한 번만 한다 (/cmds 동기화용)
   function seedFiles(map){
@@ -434,7 +446,7 @@
     ls, pwd, cd, mkdir, touch, writeFile, readFile, rm, mv, cp, find, grep, head, tail,
     pkgInstall, pkgList, pkgIsInstalled,
     convertImage, saveUploaded, usageSummary, resetAll, availableCmds,
-    normPath, joinPath, abs, stat, setMeta, mkdirp, dirChildren, seedFiles, exists, isDir, isFile, baseName, parentOf,
+    normPath, joinPath, abs, stat, setMeta, mkdirp, dirChildren, seedFiles, snapshot, diffSnapshot, exists, isDir, isFile, baseName, parentOf,
     get cwd(){ return state.cwd; }
   };
 
