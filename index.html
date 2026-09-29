@@ -91,6 +91,33 @@ input,textarea,select{font-family:inherit;color:inherit;}
 .typing span:nth-child(2){animation-delay:.2s;}
 .typing span:nth-child(3){animation-delay:.4s;}
 @keyframes blink{0%,80%,100%{opacity:.25;}40%{opacity:1;}}
+.row.ai.cont .avatar{visibility:hidden;}
+.row.ai.cont{margin-top:-14px;}
+.typing-label{font-size:12px;color:var(--text-dim);margin-left:8px;align-self:center;}
+.typing-wrap{display:flex;align-items:center;}
+.act-plan,.act-think,.act-test{font-size:12.5px;color:var(--text-dim);margin:8px 0 4px;line-height:1.5;}
+.act-think b,.act-test b{color:var(--accent);font-weight:700;}
+details.act,.act-line,.act-run{font-size:12.5px;margin:4px 0;padding:6px 10px;border-radius:8px;background:var(--panel-2);border:1px solid var(--border);color:var(--text-dim);}
+details.act summary{cursor:pointer;list-style:none;}
+details.act summary::-webkit-details-marker{display:none;}
+details.act pre{margin:6px 0 0;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;font-size:11.5px;color:var(--text);}
+details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
+.act-line.created b{color:#3ddc84;} .act-line.edited b{color:#ffb14a;} .act-line.deleted b{color:#ff6b6b;}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-1px;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.file-card{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 2px;padding:9px 12px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border);font-size:13px;}
+.file-card .fname{font-weight:700;flex:1;min-width:120px;word-break:break-all;}
+.file-card button{padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;font-size:12px;}
+.file-card button:hover{border-color:var(--accent);color:var(--accent);}
+.chat-item .unread{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-right:6px;}
+#previewOverlay{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:14px;}
+#previewOverlay.show{display:flex;}
+#previewOverlay .pv-box{background:var(--panel);border:1px solid var(--border);border-radius:14px;width:min(960px,100%);height:min(720px,100%);display:flex;flex-direction:column;overflow:hidden;}
+#previewOverlay .pv-head{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;}
+#previewOverlay .pv-head span{flex:1;word-break:break-all;}
+#previewOverlay .pv-head button{padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;}
+#previewOverlay iframe{flex:1;border:0;background:#fff;width:100%;}
+#previewOverlay pre{flex:1;margin:0;padding:12px;overflow:auto;font-size:12px;white-space:pre-wrap;}
 
 .composer{background:var(--bg);padding:10px 20px calc(22px + env(safe-area-inset-bottom));}
 .composer-inner{max-width:720px;margin:0 auto;}
@@ -475,6 +502,20 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       </div>
 
       <div class="field-group">
+        <label>사고 과정 강도 · <span id="thinkingLevelLabel">자동</span></label>
+        <select id="thinkingLevelSelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
+          <option value="auto">자동 (기본)</option>
+          <option value="off">끔 · 가장 빠르고 저렴</option>
+          <option value="low">낮음</option>
+          <option value="medium">보통</option>
+          <option value="high">높음 · 깊게 추론</option>
+        </select>
+        <div style="font-size:11.5px;color:var(--text-dim);margin-top:6px;line-height:1.5;">
+          AI가 답하기 전에 얼마나 깊게 생각할지 정함. 높을수록 복잡한 코딩/추론에 강하지만 느리고 토큰을 더 씀. 모델이 지원하는 경우에만 적용돼요 (Gemini 사고 예산 · OpenAI o시리즈/GPT-5 reasoning effort · Claude 확장 사고).
+        </div>
+      </div>
+
+      <div class="field-group">
         <label>대화 압축 요약</label>
         <select id="compressEverySelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
           <option value="0">안함</option>
@@ -747,7 +788,17 @@ function fsToolPrompt(mode){
     + "\n■ 작업 → 명령 선택 가이드: 목록 ls / 검색 find·grep / 내용 cat·head·tail / 수정 sed·awk·echo·printf·tee / 복사·이동·삭제 cp·mv·rm / 압축 tar·gzip·zip·unzip / 다운로드 curl·wget / 데이터 sort·uniq·cut·tr·wc·diff / 해시·인코딩 sha256sum·md5sum·base64 / Python python·pip / Node node·npm / 버전관리 git.\n"
     + "\n■ 정직하게 알려야 할 한계: 이건 진짜 리눅스가 아니라 브라우저 안에서 JS 로 구현된 호환 환경이다. python 은 Pyodide(WebAssembly, 첫 실행 느림), node 는 격리 샌드박스(fs·path 만 require 가능), curl/wget 은 브라우저 CORS 제약을 받고, git 은 원격(clone/push/pull) 불가, ps/kill 은 가상이다. awk/sed 는 부분 구현이다. 안 되는 건 되는 척하지 말고 사용자에게 사실대로 말하고 대안을 제시해라.\n"
     + "\n■ 보조 도구(구조화 JSON, runcmd 와 같은 환경): fs_ls, fs_read, fs_write(path,content), fs_rm, fs_mv, fs_cp, fs_find, fs_grep, fs_head, fs_tail, fs_mkdir, fs_touch, fs_cd, fs_pwd, convert_image(path,format), pkg_install(name), pkg_list(). 파일 통째 쓰기는 fs_write 가 안전하다.\n"
-    + "실제로 파일을 만들거나 고치지 않고 코드 예시만 보여주는 답변은 하지 마라 — 파일 작업을 요청받으면 반드시 도구로 직접 실행해라.\n";
+    + "실제로 파일을 만들거나 고치지 않고 코드 예시만 보여주는 답변은 하지 마라 — 파일 작업을 요청받으면 반드시 도구로 직접 실행해라.\n"
+    + "\n■ 테스트 도구: `htmltest 파일.html [-t 대기ms] [-k ArrowLeft,Space] [-e 'JS식']` 은 HTML 을 격리 브라우저에서 실제로 실행해 콘솔 에러·캔버스 그려짐·키 입력 후 상태를 보고한다. `jscheck 파일.js|.html` 은 JS 문법을 검사한다. 만든 결과물은 반드시 직접 테스트해서 통과를 확인한 뒤 완성이라고 말해라. (게임/앱은 htmltest -k 로 키 입력, -e 로 점수·상태 변수를 확인하고, localStorage/쿠키는 격리 환경에서 막혀 있으니 쓰려면 try/catch 로 감싸라. 외부 CDN 스크립트에 의존하지 마라.)\n"
+    + "\n■ 진행 표시 규칙 (사용자 화면에 단계가 그대로 표시되니 반드시 지켜라):\n"
+    + (mode === "code"
+      ? "· 첫 답변: 존댓말로 1~2문장, 무엇을 어떻게 만들지 짧게 알린다. 그 아래에 [[계획: ○○을(를) 어떻게 만들지 계획중...]] 한 줄을 쓰고 곧바로 ```tool 블록으로 작업을 시작한다.\n"
+      + "· 이후 각 단계: 맨 앞에 [[사고: 지금 하는 일 한 줄 (예: 타이머, 점수 로직을 만드는중...)]] 을 쓰고 ```tool 블록을 이어 쓴다. 도구 결과를 받으면 다음 단계를 진행한다. 한 단계에 관련 명령은 묶어서 실행해라.\n"
+      + "· 다 만든 뒤 반드시 [[테스트: 테스트중...]] 단계를 거쳐 htmltest/jscheck/실행으로 검증한다. 오류가 나면 [[사고: 오류 수정중...]] 후 고치고 다시 테스트한다.\n"
+      + "· 테스트 통과 후에는 ```tool 없이 최종 답변만: 완성했고 테스트까지 마쳤다고 짧게 알리고 파일명을 말한다. 코드 전문을 채팅에 다시 붙이지 마라 (파일 카드로 자동 표시됨).\n"
+      : "· 첫 답변: 존댓말로 1문장, 무엇을 만들지 짧게 알리고 곧바로 ```tool 블록으로 작업한다. [[...]] 상태 태그는 WORK 에서 쓰지 않는다.\n"
+      + "· 파일을 만든 뒤에는 htmltest/jscheck 등으로 한 번 검증하고, 통과하면 ```tool 없이 최종 답변 1~2문장만 쓴다 (파일 카드는 자동 표시됨, 코드 전문을 다시 붙이지 마라).\n")
+    + "· ```tool 블록 내용은 화면에서 '명령 실행함(n)' / '파일 생성됨(이름)' 으로 자동 정리되니, 명령어를 본문에 따로 설명하지 마라.\n";
   if(mode === "code"){
     p += "CODE 모드 추론 수준은 약 80% — WORK 의 모든 기능 위에 프로젝트 구조, 대규모 코드 작성, 빌드, 테스트, 디버깅, 복잡한 자동화, git 작업까지 적극적으로 이어가라. convert_image 는 Canvas API 로 실제 동작한다.\n";
   } else {
@@ -797,7 +848,8 @@ function defaultSettings(){
     mode: "nobrain", // "nobrain" | "work" | "code"
     memory: true,
     memoryLevel: 3,   // 1(매우낮음)~5(최대)
-    compressEvery: 8  // 0(안함) | 3 | 5 | 8 | 12
+    compressEvery: 8, // 0(안함) | 3 | 5 | 8 | 12
+    thinkingLevel: "auto" // 사고 과정 강도: auto | off | low | medium | high
   };
 }
 function isWorkMode(){ return (settings.mode||"") === "work"; }
@@ -819,6 +871,7 @@ function init(){
   if(typeof settings.memory !== "boolean") settings.memory = true;
   if(!Number.isInteger(settings.memoryLevel) || settings.memoryLevel<1 || settings.memoryLevel>5) settings.memoryLevel = settings.memory ? 3 : 1;
   if(![0,3,5,8,12].includes(settings.compressEvery)) settings.compressEvery = 8;
+  if(!["auto","off","low","medium","high"].includes(settings.thinkingLevel)) settings.thinkingLevel = "auto";
   chats = loadJSON(LS.chats, {});
   activeChatId = localStorage.getItem(LS.activeChat) || null;
   tokensInternal = sanitizeTokens(loadJSON(LS.tokens, DEFAULT_INTERNAL_TOKENS));
@@ -852,6 +905,7 @@ function saveChats(){ saveJSON(LS.chats, chats); }
 
 function switchChat(id){
   activeChatId = id;
+  if(chats[id]) chats[id].unread = false;
   localStorage.setItem(LS.activeChat, id);
   renderChatList();
   renderMessages();
@@ -874,6 +928,26 @@ function deleteChat(id, evt){
 
 function currentChat(){ return chats[activeChatId]; }
 
+/* 답변(또는 진행 단계)이 만들어질 때마다 채팅을 자동으로 저장하고 다시 불러와 화면에 반영한다.
+   - 지금 보고 있는 채팅이면 즉시 다시 그려서 새 메시지/진행 단계가 바로 보이고,
+   - 답변을 기다리는 사이 다른 채팅으로 옮겼다면 그 채팅에 "안 읽음" 점을 표시해 둔다. */
+function autoLoadChat(chat){
+  if(!chat) return;
+  saveChats();
+  if(chat.id === activeChatId){ chat.unread = false; renderChatList(); renderMessages(); renderTopbar(); }
+  else { chat.unread = true; saveChats(); renderChatList(); }
+}
+// 다른 탭/창에서 채팅이 바뀌었을 때도 자동으로 불러온다
+window.addEventListener("storage", (e)=>{
+  if(e.key !== LS.chats || isGenerating) return;
+  try{
+    chats = loadJSON(LS.chats, {});
+    if(!chats[activeChatId]){ const ids = Object.keys(chats); activeChatId = ids.length ? ids[ids.length-1] : createChat(); }
+    renderChatList(); renderMessages(); renderTopbar();
+  }catch(err){ console.warn("[자동 로드 실패]", err); }
+});
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !isGenerating){ renderChatList(); renderMessages(); } });
+
 /* ---------------- rendering ---------------- */
 function renderChatList(){
   const el = document.getElementById("chatList");
@@ -883,7 +957,7 @@ function renderChatList(){
     const c = chats[id];
     const div = document.createElement("div");
     div.className = "chat-item" + (id===activeChatId ? " active":"");
-    div.innerHTML = `<span class="title">${escapeHtml(c.title||"새 채팅")}</span><button class="del" title="삭제">✕</button>`;
+    div.innerHTML = `${c.unread ? '<span class="unread" title="새 답변"></span>' : ''}<span class="title">${escapeHtml(c.title||"새 채팅")}</span><button class="del" title="삭제">✕</button>`;
     div.querySelector(".title").addEventListener("click", ()=>switchChat(id));
     div.querySelector(".del").addEventListener("click", (e)=>deleteChat(id,e));
     el.appendChild(div);
@@ -907,12 +981,111 @@ function renderMessages(){
   }
   empty.style.display = "none";
   c.messages.forEach((m,idx)=>{
-    wrap.appendChild(renderMessageRow(m, idx===c.messages.length-1));
+    const r = renderMessageRow(m, idx===c.messages.length-1, idx);
+    if(r){
+      const prev = wrap.lastElementChild;
+      if(m.role === "ai" && prev && prev.classList.contains("ai") && !m.codeLocked) r.classList.add("cont");
+      wrap.appendChild(r);
+    }
   });
   scrollToBottom();
 }
 
-function renderMessageRow(m, isLast){
+/* ---- AI 응답 표시용 파싱: ```tool 블록과 [[계획/사고/테스트: …]] 태그는 본문에서 빼고 "진행 표시"로 보여준다 ---- */
+function parseAiDisplay(text){
+  let t = String(text||"");
+  const hasTools = /```tool\n/.test(t);
+  t = t.replace(/```tool\n[\s\S]*?(```|$)/g, "");
+  let status = null;
+  t = t.replace(/\[\[\s*(계획|사고|테스트)\s*[:：]?\s*([^\]]*?)\s*\]\]/g, (m,k,v)=>{ status = { kind:k, text:v }; return ""; });
+  t = t.replace(/\[\[[^\]]*$/, "");
+  t = t.replace(/\n{3,}/g, "\n\n").trim();
+  return { text:t, status, hasTools };
+}
+function baseName(p){ return String(p||"").split("/").pop(); }
+function renderActivityHtml(m){
+  let h = "";
+  const st = parseAiDisplay(m.content).status;
+  if(st){
+    const tx = escapeHtml(st.text || "");
+    if(st.kind === "계획") h += `<div class="act-plan">${tx || "계획중..."}</div>`;
+    else if(st.kind === "사고") h += `<div class="act-think">* <b>사고 과정 :</b> ${tx}</div>`;
+    else h += `<div class="act-test">* <b>${tx || "테스트중..."}</b></div>`;
+  }
+  const a = m.activity;
+  if(a && a.commands && a.commands.length){
+    h += `<details class="act"><summary>&gt; 명령 실행함(${a.commands.length})</summary><pre>` +
+      a.commands.map(c=>`<span class="${c.ok ? "cmd-ok" : "cmd-bad"}">$ ${escapeHtml(c.cmd)}</span>\n${escapeHtml(c.out||"")}`).join("\n\n") + `</pre></details>`;
+  }
+  if(a){
+    (a.created||[]).forEach(p=>{ h += `<div class="act-line created">&gt; <b>파일 생성됨</b>(${escapeHtml(baseName(p))})</div>`; });
+    (a.edited||[]).forEach(p=>{ h += `<div class="act-line edited">&gt; <b>파일 편집됨</b>(${escapeHtml(baseName(p))})</div>`; });
+    (a.deleted||[]).forEach(p=>{ h += `<div class="act-line deleted">&gt; <b>파일 삭제됨</b>(${escapeHtml(baseName(p))})</div>`; });
+  }
+  if(m.running) h += `<div class="act-run"><span class="spin"></span>${escapeHtml(m.running === true ? "명령 실행중..." : m.running)}</div>`;
+  return h;
+}
+// 이번 사용자 요청부터 지금까지 AI가 만들거나 고친 파일 (마지막 답변 아래 미리보기/다운로드 카드용)
+function collectTurnFiles(chat, idx){
+  const files = [], removed = new Set();
+  for(let i = idx; i >= 0; i--){
+    const x = chat.messages[i];
+    if(x.role === "user" && !x.auto) break;
+    if(x.role === "ai" && x.activity){
+      (x.activity.deleted||[]).forEach(p=>removed.add(p));
+      (x.activity.created||[]).concat(x.activity.edited||[]).forEach(p=>{ if(!files.includes(p)) files.push(p); });
+    }
+  }
+  return files.filter(p=>!removed.has(p)).reverse();
+}
+function fileCardHtml(p){
+  const ok = window.LinuxFS && LinuxFS.isFile(p);
+  if(!ok) return "";
+  return `<div class="file-card" data-path="${encodeURIComponent(p)}"><span class="fname">📄 ${escapeHtml(baseName(p))}</span><button data-act="preview">미리보기</button><button data-act="download">다운로드</button></div>`;
+}
+function ensurePreviewOverlay(){
+  let o = document.getElementById("previewOverlay");
+  if(o) return o;
+  o = document.createElement("div"); o.id = "previewOverlay";
+  o.innerHTML = `<div class="pv-box"><div class="pv-head"><span id="pvTitle"></span><button id="pvClose">닫기 ✕</button></div><div id="pvBody" style="flex:1;display:flex;min-height:0;"></div></div>`;
+  document.body.appendChild(o);
+  const close = ()=>{ o.classList.remove("show"); document.getElementById("pvBody").innerHTML = ""; };
+  o.addEventListener("click", e=>{ if(e.target === o) close(); });
+  o.querySelector("#pvClose").addEventListener("click", close);
+  return o;
+}
+function previewFile(p){
+  const o = ensurePreviewOverlay(), body = o.querySelector("#pvBody");
+  o.querySelector("#pvTitle").textContent = baseName(p);
+  body.innerHTML = "";
+  const st = LinuxFS.stat(p);
+  if(!st){ toast("파일을 찾을 수 없어요"); return; }
+  if(/\.(html?|svg)$/i.test(p)){
+    const f = document.createElement("iframe");
+    // same-origin 없는 샌드박스: 미리보기 안의 코드가 이 사이트의 저장소/API 키에 접근할 수 없다
+    f.setAttribute("sandbox", "allow-scripts allow-modals allow-pointer-lock allow-forms");
+    f.srcdoc = /\.svg$/i.test(p) ? `<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh">${st.content}</body>` : (window.ChoiminiShell && ChoiminiShell.buildPreviewHtml ? ChoiminiShell.buildPreviewHtml(p) : String(st.content||""));
+    body.appendChild(f);
+  } else if(/^data:image\//.test(st.content||"")){
+    const img = document.createElement("img"); img.src = st.content; img.style.cssText = "max-width:100%;max-height:100%;margin:auto;object-fit:contain;"; body.appendChild(img);
+  } else {
+    const pre = document.createElement("pre"); pre.textContent = /^data:/.test(st.content||"") ? "(바이너리 파일 — 다운로드해서 확인하세요)" : String(st.content||""); body.appendChild(pre);
+  }
+  o.classList.add("show");
+}
+function downloadFile(p){
+  try{
+    const bytes = ChoiminiShell.getBytes(p);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([bytes]));
+    a.download = baseName(p);
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }catch(e){ toast("다운로드 실패: " + e.message); }
+}
+
+function renderMessageRow(m, isLast, idx){
+  if(m.role === "user" && m.auto) return null; // 도구 실행 결과는 AI에게만 전달하고, 화면엔 "진행 표시"로 대신 보여준다
   if(m.role === "system-suggest"){
     // NO BRAIN에서 WORK/CODE가 더 적합해 보이는 요청에 대한 모드 전환 안내 (토큰을 쓰지 않고 먼저 물어봄)
     const row = document.createElement("div");
@@ -981,9 +1154,14 @@ function renderMessageRow(m, isLast){
       <button class="verify-btn" data-verify="${m.id||""}">인증하고 보기</button>
     </div>`;
   } else {
-    inner += m._streaming ? "" : renderContentWithCode(m.content); // 타자 효과 시작 직전엔 빈 말풍선으로 먼저 그림
+    inner += m._streaming ? "" : renderContentWithCode(m.role === "ai" ? parseAiDisplay(m.content).text : m.content); // 타자 효과 시작 직전엔 빈 말풍선으로 먼저 그림
   }
-  if(m.meta){
+  if(m.role === "ai") inner += renderActivityHtml(m);
+  if(m.role === "ai" && !m.running && !m._streaming && !parseAiDisplay(m.content).hasTools){
+    const chatNow = currentChat();
+    if(chatNow && typeof idx === "number") inner += collectTurnFiles(chatNow, idx).map(fileCardHtml).join("");
+  }
+  if(m.meta && !(m.role === "ai" && parseAiDisplay(m.content).hasTools)){
     inner += `<span class="meta">${escapeHtml(m.meta)}</span>`;
   }
   bubble.innerHTML = inner;
@@ -1013,6 +1191,11 @@ function renderMessageRow(m, isLast){
       });
     });
   }
+  row.querySelectorAll(".file-card").forEach(card=>{
+    const p = decodeURIComponent(card.dataset.path);
+    card.querySelector('[data-act="preview"]').addEventListener("click", ()=>previewFile(p));
+    card.querySelector('[data-act="download"]').addEventListener("click", ()=>downloadFile(p));
+  });
   row.querySelectorAll(".code-copy").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       const code = decodeURIComponent(btn.dataset.code||"");
@@ -1162,6 +1345,7 @@ function updateMemoryUI(){
   label.textContent = MEMORY_LEVEL_LABEL[settings.memoryLevel || 3];
   const sel = document.getElementById("compressEverySelect");
   if(sel) sel.value = String(settings.compressEvery ?? 8);
+  updateThinkingUI();
 }
 const memoryLevelSliderEl = document.getElementById("memoryLevelSlider");
 if(memoryLevelSliderEl){
@@ -1171,6 +1355,21 @@ if(memoryLevelSliderEl){
     settings.memory = level > 1;
     document.getElementById("memoryLevelLabel").textContent = MEMORY_LEVEL_LABEL[level];
     saveJSON(LS.settings, settings);
+  });
+}
+const THINKING_LABEL = { auto:"자동", off:"끔", low:"낮음", medium:"보통", high:"높음" };
+function updateThinkingUI(){
+  const sel = document.getElementById("thinkingLevelSelect"), lab = document.getElementById("thinkingLevelLabel");
+  if(sel) sel.value = settings.thinkingLevel || "auto";
+  if(lab) lab.textContent = THINKING_LABEL[settings.thinkingLevel || "auto"];
+}
+const thinkingLevelSelectEl = document.getElementById("thinkingLevelSelect");
+if(thinkingLevelSelectEl){
+  thinkingLevelSelectEl.addEventListener("change", ()=>{
+    settings.thinkingLevel = thinkingLevelSelectEl.value;
+    saveJSON(LS.settings, settings);
+    updateThinkingUI();
+    toast("🧠 사고 과정 강도: " + THINKING_LABEL[settings.thinkingLevel]);
   });
 }
 const compressEverySelectEl = document.getElementById("compressEverySelect");
@@ -1640,7 +1839,8 @@ function classifyStatus(status){
 }
 /* fetch + 자동 재시도(지수 백오프) + 오류 분류. signal이 전달되면 "답변 중지" 버튼으로 즉시 취소 가능함. */
 async function fetchJsonWithRetry(url, opts, retryOpts){
-  const maxRetries = (retryOpts && retryOpts.maxRetries) || 3;
+  // WORK/CODE 는 요청이 크고 단계가 많아 일시 오류(429/503)를 더 자주 만나므로 재시도를 넉넉하게
+  const maxRetries = (retryOpts && retryOpts.maxRetries) || ((isCodeMode() || isWorkMode()) ? 5 : 3);
   const baseDelay = (retryOpts && retryOpts.baseDelay) || 600;
   let lastErr;
   for(let attempt=0; attempt<maxRetries; attempt++){
@@ -1661,7 +1861,12 @@ async function fetchJsonWithRetry(url, opts, retryOpts){
       const devMsg = (data && (data.error?.message || data.message)) || `HTTP ${res.status}`;
       console.error(`[API 오류] status=${res.status}`, devMsg);
       lastErr = new ApiCallError(cls.friendly, { status: res.status, retryable: cls.retryable, dev: devMsg });
-      if(cls.retryable && attempt < maxRetries-1){ await sleep(baseDelay * Math.pow(2, attempt)); continue; }
+      if(cls.retryable && attempt < maxRetries-1){
+        const ra = parseFloat(res.headers && res.headers.get && res.headers.get("retry-after"));
+        await sleep(Math.min(20000, ra > 0 ? ra * 1000 : baseDelay * Math.pow(2, attempt)));
+        continue;
+      }
+      lastErr.status = res.status;
       throw lastErr;
     }
     if(parseFailed) throw new ApiCallError("AI 서버 응답을 이해할 수 없었어요.", { retryable:false, dev:"JSON parse failed" });
@@ -1670,6 +1875,12 @@ async function fetchJsonWithRetry(url, opts, retryOpts){
   throw lastErr || new ApiCallError("AI 서버 요청 실패");
 }
 
+function geminiThinkingBudget(model, level, preset){
+  const pro = /pro/i.test(model);
+  if(!level || level === "auto") return preset === "max" ? -1 : undefined;
+  if(level === "off") return pro ? 128 : 0; // Pro 계열은 사고를 완전히 끌 수 없어서 최소값
+  return { low:1024, medium:8192, high:24576 }[level];
+}
 async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutputTokens, signal){
   const contents = history.map(m=>({
     role: m.role==="user" ? "user" : "model",
@@ -1677,10 +1888,10 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   }));
   const generationConfig = { temperature: 0.9 };
   if(maxOutputTokens) generationConfig.maxOutputTokens = maxOutputTokens;
-  // Max 프리셋: Gemini의 extended thinking(확장 사고)을 활성화해 더 깊게 추론하게 함
-  if(preset === "max"){
-    generationConfig.thinkingConfig = { thinkingBudget: -1 }; // -1 = 동적/확장 사고 예산
-  }
+  // 사고 과정 강도 설정(자동/끔/낮음/보통/높음) → Gemini thinkingBudget.
+  // 자동일 땐 예전처럼 Max 프리셋만 확장 사고(-1 = 동적 예산)를 켠다.
+  const tb = geminiThinkingBudget(model, settings.thinkingLevel, preset);
+  if(tb !== undefined) generationConfig.thinkingConfig = { thinkingBudget: tb };
   const body = {
     systemInstruction: { parts:[{text:systemPrompt}] },
     contents,
@@ -1700,7 +1911,11 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
 
   const data = await fetchJsonWithRetry(url, { method:"POST", headers, body: JSON.stringify(payload), signal });
   const text = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("") || "";
-  if(!text) throw new ApiCallError("Gemini 응답이 비어있음", { retryable:false, dev:"empty candidates" });
+  if(!text){
+    const fr = data?.candidates?.[0]?.finishReason || data?.promptFeedback?.blockReason || "";
+    const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty candidates " + fr });
+    e.empty = true; throw e;
+  }
   // 실제 API가 보고하는 사용량(사고 과정 포함)을 그대로 "사고 과정에서 사용된 양"으로 반영
   const usage = data?.usageMetadata || {};
   const rawTokens = (usage.candidatesTokenCount||0) + (usage.thoughtsTokenCount||0);
@@ -1727,8 +1942,15 @@ async function callOpenAI(model, apiKey, systemPrompt, history, maxTokens, signa
     const content = buildOpenAIContent(m);
     messages.push({ role: m.role==="user"?"user":"assistant", content });
   });
-  const body = { model, messages, temperature:0.9 };
-  if(maxTokens) body.max_tokens = maxTokens;
+  // o시리즈/GPT-5 는 temperature·max_tokens 를 받지 않아 400 이 나므로 파라미터를 다르게 보낸다
+  const reasoning = /^(o\d|gpt-5)/i.test(model);
+  const body = { model, messages };
+  if(!reasoning) body.temperature = 0.9;
+  if(maxTokens) body[reasoning ? "max_completion_tokens" : "max_tokens"] = maxTokens;
+  if(reasoning){
+    const lv = settings.thinkingLevel;
+    if(lv && lv !== "auto") body.reasoning_effort = lv === "off" ? "low" : lv;
+  }
   const data = await fetchJsonWithRetry("https://api.openai.com/v1/chat/completions", {
     method:"POST",
     headers:{ "Content-Type":"application/json", "Authorization":`Bearer ${apiKey}` },
@@ -1736,7 +1958,7 @@ async function callOpenAI(model, apiKey, systemPrompt, history, maxTokens, signa
     signal
   });
   const text = data?.choices?.[0]?.message?.content;
-  if(!text) throw new ApiCallError("OpenAI 응답이 비어있음", { retryable:false, dev:"empty choices" });
+  if(!text){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty choices" }); e.empty = true; throw e; }
   // 실제 API가 보고하는 사용량(completion_tokens)을 "사고 과정에서 사용된 양"으로 반영
   const completionTokens = data?.usage?.completion_tokens || 0;
   return { text, usageAmount: completionTokens > 0 ? completionTokens / 15 : null };
@@ -1757,6 +1979,18 @@ function buildOpenAIContent(m){
   return arr;
 }
 
+function anthropicBody(model, system, messages, maxTokens){
+  // 예전엔 max_tokens 가 1024 로 고정돼 코드 파일을 쓰다 중간에 잘렸다 → WORK/CODE 는 넉넉하게
+  let max = maxTokens || ((isCodeMode() || isWorkMode()) ? 8192 : 2048);
+  const body = { model, system, messages };
+  const budget = { low:1024, medium:4096, high:12000 }[settings.thinkingLevel];
+  if(budget && /claude-(3-7|sonnet-4|opus-4|haiku-4)/.test(model) && !maxTokens){
+    body.thinking = { type:"enabled", budget_tokens: budget };   // 확장 사고: temperature 는 보내면 안 됨
+    max = Math.max(max, budget + 4096);
+  } else body.temperature = 0.9;
+  body.max_tokens = max;
+  return body;
+}
 async function callAnthropic(model, apiKey, systemPrompt, history, maxTokens, signal){
   const messages = history.map(m=>({
     role: m.role==="user" ? "user" : "assistant",
@@ -1770,11 +2004,11 @@ async function callAnthropic(model, apiKey, systemPrompt, history, maxTokens, si
       "anthropic-version":"2023-06-01",
       "anthropic-dangerous-direct-browser-access":"true"
     },
-    body: JSON.stringify({ model, system: systemPrompt, max_tokens: maxTokens || 1024, messages, temperature:0.9 }),
+    body: JSON.stringify(anthropicBody(model, systemPrompt, messages, maxTokens)),
     signal
   });
   const text = (data?.content||[]).map(p=>p.text||"").join("");
-  if(!text) throw new ApiCallError("Anthropic 응답이 비어있음", { retryable:false, dev:"empty content" });
+  if(!text){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty content" }); e.empty = true; throw e; }
   // 실제 API가 보고하는 사용량(output_tokens)을 "사고 과정에서 사용된 양"으로 반영
   const outputTokens = data?.usage?.output_tokens || 0;
   return { text, usageAmount: outputTokens > 0 ? outputTokens / 15 : null };
@@ -1909,13 +2143,37 @@ async function generateReply(chat, signal){
   // 기억력 단계(1~5)와 대화 압축 요약을 반영한 히스토리 구성 (buildHistoryForChat, 아래 참고)
   const history = buildHistoryForChat(chat);
 
-  let text, usageAmount = null;
-  if(provider === "gemini") ({ text, usageAmount } = await callGemini(model, apiKey, buildSystemPrompt(), history, preset, undefined, signal));
-  else if(provider === "openai") ({ text, usageAmount } = await callOpenAI(model, apiKey, buildSystemPrompt(), history, undefined, signal));
-  else if(provider === "anthropic") ({ text, usageAmount } = await callAnthropic(model, apiKey, buildSystemPrompt(), history, undefined, signal));
-  else throw new Error("알 수 없는 제공자");
-
-  return { text, provider, usedLocal: false, usageAmount };
+  // 일시 오류(429/503/빈 응답)나 존재하지 않는 모델(404)이면 같은 모델을 한 번 더, 그래도 안 되면 다른 프리셋 모델로 자동 전환한다.
+  // ("AI를 사용할 수 없음" 이 CODE 모드에서 가끔 뜨던 문제 — 긴 에이전트 작업 중 한 번의 일시 오류로 전체가 멈추던 것을 방지)
+  const sys = buildSystemPrompt();
+  const order = [preset].concat(["medium","lite","high","max"].filter(p=>p!==preset));
+  const tried = new Set(); let lastErr = null;
+  for(const pr of order){
+    const m = settings.models[provider][pr];
+    if(!m || tried.has(m)) continue;
+    tried.add(m);
+    if(tried.size > 3) break;
+    for(let attempt=0; attempt<2; attempt++){
+      try{
+        let out;
+        if(provider === "gemini") out = await callGemini(m, apiKey, sys, history, pr, undefined, signal);
+        else if(provider === "openai") out = await callOpenAI(m, apiKey, sys, history, undefined, signal);
+        else if(provider === "anthropic") out = await callAnthropic(m, apiKey, sys, history, undefined, signal);
+        else throw new Error("알 수 없는 제공자");
+        if(tried.size > 1) toast(`ℹ️ ${m} 모델로 전환해서 응답했어요`);
+        return { text: out.text, provider, usedLocal: false, usageAmount: out.usageAmount };
+      }catch(e){
+        if(e && e.name === "AbortError") throw e;
+        lastErr = e;
+        console.warn("[모델 호출 실패]", m, e && (e.dev || e.message));
+        const switchable = e && (e.retryable || e.status === 404 || e.empty);
+        if(!switchable) throw e;
+        if(e.empty && attempt === 0){ await sleep(600); continue; } // 빈 응답은 같은 모델로 한 번 더
+        break;                                                     // 그 외엔 다음 모델로
+      }
+    }
+  }
+  throw lastErr || new ApiCallError("AI 서버 요청 실패");
 }
 
 /* ---------------- 기억력 세부 단계 + 대화 압축 요약 ----------------
@@ -2071,7 +2329,7 @@ async function runGenerationTurn(chat, preset, depth){
   await maybeCompressChat(chat);
   setGeneratingUI(true);
   currentAbortController = new AbortController();
-  const typingRow = appendTypingIndicator();
+  const typingRow = appendTypingIndicator("생각하는 중...");
   try{
     await appendAiReply(chat, preset, depth, currentAbortController.signal);
   }catch(err){
@@ -2083,8 +2341,7 @@ async function runGenerationTurn(chat, preset, depth){
       console.error("[답변 생성 실패]", err && (err.dev || err.message) || err);
       chat.messages.push({ id: uid(), role:"system", content: (err && err.message) || String(err), ts: Date.now(), canRetry:true });
     }
-    saveChats();
-    renderMessages();
+    autoLoadChat(chat);
   }
   typingRow.remove();
   currentAbortController = null;
@@ -2097,6 +2354,11 @@ async function appendAiReply(chat, preset, depth, signal){
   depth = depth || 0;
   const result = await generateReply(chat, signal);
   if(result.tokenExhausted){
+    // 작업 도중(에이전트 단계 중간) 토큰이 떨어지면 예전엔 아무 안내 없이 멈춰서 "AI를 쓸 수 없는 것"처럼 보였다
+    if(depth > 0){
+      chat.messages.push({ id: uid(), role:"system", content:`🪙 토큰이 부족해서 작업이 중간(${depth}단계 완료)에 멈췄어요. 토큰을 충전하고 "계속해줘"라고 보내면 이어서 진행해요.`, ts: Date.now() });
+      autoLoadChat(chat);
+    }
     showTokenOutModal();
     return;
   }
@@ -2118,22 +2380,36 @@ async function appendAiReply(chat, preset, depth, signal){
         : (usedLocal
             ? `기본 엔진(오프라인) · -${normalCost/TOKEN_MULT} 토큰${memoryTag}`
             : `${PROVIDER_LABEL[usedProvider]} · -${normalCost/TOKEN_MULT} 토큰${memoryTag}`));
-  const hasCode = containsCodeBlock(replyText);
-  const aiMsg = { id: uid(), role:"ai", content: replyText, meta, ts: Date.now(), codeLocked: hasCode };
+  const disp = parseAiDisplay(replyText);
+  // ```tool 블록(자동 실행용)과 [[상태]] 태그는 "코드 공개" 잠금 대상이 아니다 — 사용자에게 보여줄 코드 블록만 잠근다
+  const hasCode = containsCodeBlock(disp.text);
+  const aiMsg = { id: uid(), role:"ai", content: replyText, meta, ts: Date.now(), codeLocked: hasCode, _chatId: chat.id };
   chat.messages.push(aiMsg);
-  saveChats();
+  autoLoadChat(chat); // 답변이 만들어질 때마다 채팅 자동 저장 + 불러오기
+  const autoRun = disp.hasTools && (isWorkMode() || isCodeMode());
   if(hasCode){
-    renderMessages();
     toast("🛡️ 코드 응답 감지됨 · jCAPTCHA 인증 필요");
-    startCaptcha(
-      // 자동 실행(도구/브라우저)은 jCAPTCHA 를 통과한 뒤에만 시작한다
-      ()=>{ aiMsg.codeLocked = false; saveChats(); renderMessages(); toast("✅ 인증 통과 · 코드 공개됨"); afterReplyActions(chat, aiMsg, preset, depth); },
-      ()=>{ toast("인증 취소됨 · 코드는 잠긴 상태로 유지됨"); }
-    );
+    // 자동 실행(도구/브라우저)은 jCAPTCHA 를 통과한 뒤에만 시작한다. 끝날 때까지 기다려서(await) 중지 버튼/생성 잠금이 유지되게 한다.
+    await new Promise(resolve=>{
+      startCaptcha(
+        async ()=>{ aiMsg.codeLocked = false; autoLoadChat(chat); toast("✅ 인증 통과 · 코드 공개됨"); try{ await afterReplyActions(chat, aiMsg, preset, depth); }finally{ resolve(); } },
+        ()=>{ toast("인증 취소됨 · 코드는 잠긴 상태로 유지됨"); resolve(); }
+      );
+    });
   } else {
     // 실제 AI 생성 속도처럼 조금씩 이어서 보여주는 타자 효과 (이미 완성된 응답을 점진적으로 공개함)
     await streamRevealMessage(aiMsg);
-    afterReplyActions(chat, aiMsg, preset, depth);
+    if(autoRun){
+      // 명령 실행은 세션당 한 번 jCAPTCHA 인증 후에만 (이미 통과했으면 바로 진행)
+      await new Promise(resolve=>{
+        startCaptcha(
+          async ()=>{ try{ await afterReplyActions(chat, aiMsg, preset, depth); }finally{ resolve(); } },
+          ()=>{ toast("인증 취소됨 · 작업을 실행하지 않았어요"); resolve(); }
+        );
+      });
+    } else {
+      await afterReplyActions(chat, aiMsg, preset, depth);
+    }
   }
 }
 
@@ -2143,8 +2419,8 @@ async function appendAiReply(chat, preset, depth, signal){
    즉시 전체 텍스트를 표시하고 종료한다. */
 function streamRevealMessage(aiMsg){
   return new Promise(resolve=>{
-    const full = aiMsg.content || "";
-    if(!full || full.length < 2){ renderMessages(); resolve(); return; }
+    const full = parseAiDisplay(aiMsg.content || "").text;
+    if(!full || full.length < 2 || aiMsg._chatId && aiMsg._chatId !== activeChatId){ renderMessages(); resolve(); return; }
     let shown = "";
     const chunkSize = Math.max(1, Math.round(full.length / 60)); // 총 ~60프레임 내로 끝남
     let idx = 0;
@@ -2208,53 +2484,84 @@ function parseToolCalls(text){
    - Chrome 확장:       ```browser 블록 → ChoiminiBrowser (권한/정지/제출 확인은 확장이 강제)
    일반 웹/Android 에서는 아무 것도 하지 않는다. */
 async function afterReplyActions(chat, aiMsg, preset, depth){
-  if(depth >= agentMaxSteps()) return;
+  if(depth >= agentMaxSteps()){
+    if(/```tool\n/.test(aiMsg.content||"")){
+      chat.messages.push({ id: uid(), role:"system", content:`⏸️ 자동 작업 단계 한도(${agentMaxSteps()}단계)에 도달해서 멈췄어요. "계속해줘"라고 보내면 이어서 진행해요.`, ts: Date.now() });
+      autoLoadChat(chat);
+    }
+    return;
+  }
   let feedback = "";
+  const signal = () => currentAbortController && currentAbortController.signal;
+  const setRunning = (v)=>{ aiMsg.running = v; if(chat.id === activeChatId) renderMessages(); };
+  const shortOut = (t)=>{ t = String(t==null?"":t); return t.length > 900 ? t.slice(0,900) + "\n…(생략)" : t; };
+  const cmdLabel = (c, args)=> args.command ? String(args.command) : (c.tool + (args.path ? " " + args.path : args.from ? ` ${args.from} → ${args.to}` : args.name ? " " + args.name : args.pattern ? " " + args.pattern : ""));
   try{
     if(window.CHOIMINI_MODE === "code" && window.DesktopBridge && typeof window.DesktopBridge.callTool === "function" && /```tool\n/.test(aiMsg.content)){
       const calls = parseToolCalls(aiMsg.content);
-      const outs = [];
+      const outs = [], commands = [];
+      setRunning("명령 실행중...");
       for(const c of calls){
         if(!c || !c.tool || c.tool === "__invalid"){ outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요."); continue; }
+        if(signal() && signal().aborted) throw Object.assign(new Error("aborted"), { name:"AbortError" });
         const args = Object.assign({}, c); delete args.tool;
         const r = await window.DesktopBridge.callTool(c.tool, args);
-        if(r && r.aborted){ chat.messages.push({ id: uid(), role:"system", content:"사용자가 작업을 중단했어요.", ts: Date.now() }); saveChats(); renderMessages(); return; }
+        if(r && r.aborted){ aiMsg.running = false; chat.messages.push({ id: uid(), role:"system", content:"사용자가 작업을 중단했어요.", ts: Date.now() }); autoLoadChat(chat); return; }
         const label = c.tool + (args.path ? " " + args.path : args.command ? " " + String(args.command).slice(0, 80) : args.pattern ? " " + args.pattern : "");
-        outs.push("▶ " + label + "\n" + (r && r.ok ? (r.output || "(출력 없음)") : "오류: " + ((r && r.error) || "알 수 없는 오류")));
+        const ok = !!(r && r.ok), out = ok ? (r.output || "(출력 없음)") : "오류: " + ((r && r.error) || "알 수 없는 오류");
+        commands.push({ cmd: cmdLabel(c, args), ok, out: shortOut(out) });
+        outs.push("▶ " + label + "\n" + out);
       }
+      aiMsg.activity = { commands, created:[], edited:[], deleted:[] };
       if(outs.length) feedback = "[도구 실행 결과]\n" + outs.join("\n\n").slice(0, 24000);
     }
     // Desktop 앱이 아닌 순수 브라우저에서도 WORK/CODE 모드면 가상 Linux_Local 파일작업 도구(```tool)를 실행한다.
     if(!feedback && (isWorkMode() || isCodeMode()) && window.ChoiminiToolRunner && /```tool\n/.test(aiMsg.content)){
       const calls = parseToolCalls(aiMsg.content);
-      const outs = [];
+      const outs = [], commands = [];
       const modeForTools = isCodeMode() ? "code" : "work";
+      const before = window.LinuxFS && LinuxFS.snapshot ? LinuxFS.snapshot() : null; // 실행 전 파일 상태 → 끝나고 비교해서 "생성/편집/삭제" 표시
+      setRunning("명령 실행중...");
       for(const c of calls){
         if(!c || !c.tool || c.tool === "__invalid"){ outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요."); continue; }
+        if(signal() && signal().aborted) throw Object.assign(new Error("aborted"), { name:"AbortError" });
         if(!ChoiminiToolRunner.isFsTool(c.tool)){ outs.push(`▶ ${c.tool}\n오류: 이 모드에서 사용할 수 없는 도구예요.`); continue; }
         const args = Object.assign({}, c); delete args.tool;
         const label = c.tool + (args.command ? " " + String(args.command).split("\n")[0].slice(0, 80) : args.path ? " " + args.path : args.from ? ` ${args.from} → ${args.to}` : args.name ? " " + args.name : "");
-        try{
-          const out = await ChoiminiToolRunner.run(c, modeForTools);
-          outs.push("▶ " + label + "\n" + out);
-        }catch(e){
-          outs.push("▶ " + label + "\n오류: " + (e && e.message || e));
-        }
+        let ok = true, out;
+        try{ out = await ChoiminiToolRunner.run(c, modeForTools); }
+        catch(e){ ok = false; out = "오류: " + (e && e.message || e); }
+        outs.push("▶ " + label + "\n" + out);
+        // 파일을 통째로 쓰는 fs_write 는 아래 "파일 생성됨/편집됨" 으로 표시하므로 "명령 실행" 개수엔 넣지 않는다
+        if(c.tool !== "fs_write") commands.push({ cmd: cmdLabel(c, args), ok: ok && !/\[종료 코드 [1-9]/.test(out), out: shortOut(out) });
       }
+      const d = before ? LinuxFS.diffSnapshot(before) : { created:[], edited:[], deleted:[] };
+      aiMsg.activity = { commands, created:d.created, edited:d.edited, deleted:d.deleted };
       if(outs.length) feedback = "[Linux_Local 실행 결과]\n" + outs.join("\n\n").slice(0, 24000);
     }
     if(!feedback && window.ChoiminiBrowser && ChoiminiBrowser.available && ChoiminiBrowser.available() && /```browser\n/.test(aiMsg.content)){
+      setRunning("브라우저 작업 중...");
       const results = await ChoiminiBrowser.runBlocks(aiMsg.content);
+      aiMsg.activity = { commands:[{ cmd:"브라우저 작업", ok:true, out: shortOut(results.join("\n")) }], created:[], edited:[], deleted:[] };
       if(results.length) feedback = "[브라우저 실행 결과]\n" + results.join("\n").slice(0, 12000);
     }
-  }catch(e){ feedback = "[실행 오류] " + (e && e.message || e); }
+  }catch(e){
+    if(e && e.name === "AbortError"){
+      aiMsg.running = false;
+      chat.messages.push({ id: uid(), role:"system", content:"⏹️ 사용자가 작업을 중지했어요.", ts: Date.now() });
+      autoLoadChat(chat); return;
+    }
+    feedback = "[실행 오류] " + (e && e.message || e);
+  }
+  aiMsg.running = false;
+  autoLoadChat(chat); // 실행 결과(명령/파일 변경)를 채팅에 즉시 반영
   if(!feedback) return;
 
   chat.messages.push({ id: uid(), role:"user", content: feedback, ts: Date.now(), auto: true });
-  saveChats(); renderMessages();
-  const typing = appendTypingIndicator();
+  saveChats();
+  const typing = appendTypingIndicator("다음 단계를 생각하는 중...");
   try{
-    await appendAiReply(chat, preset, depth + 1, currentAbortController && currentAbortController.signal);
+    await appendAiReply(chat, preset, depth + 1, signal());
   }catch(err){
     if(err && err.name === "AbortError"){
       chat.messages.push({ id: uid(), role:"system", content:"⏹️ 사용자가 답변 생성을 중지했어요.", ts: Date.now() });
@@ -2262,7 +2569,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
       console.error("[에이전트 루프 오류]", err && (err.dev || err.message) || err);
       chat.messages.push({ id: uid(), role:"system", content:(err && err.message)||String(err), ts: Date.now(), canRetry:true });
     }
-    saveChats(); renderMessages();
+    autoLoadChat(chat);
   }
   typing.remove();
 }
@@ -2300,12 +2607,12 @@ function editUserMessage(msgId){
   toast("✏️ 질문을 수정하고 다시 보내줘");
 }
 
-function appendTypingIndicator(){
+function appendTypingIndicator(label){
   const wrap = document.getElementById("msgWrap");
   document.getElementById("emptyState").style.display = "none";
   const row = document.createElement("div");
   row.className = "row ai";
-  row.innerHTML = `<div class="avatar">최</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  row.innerHTML = `<div class="avatar">최</div><div class="bubble"><div class="typing-wrap"><div class="typing"><span></span><span></span><span></span></div>${label ? `<span class="typing-label">${escapeHtml(label)}</span>` : ""}</div></div>`;
   wrap.appendChild(row);
   scrollToBottom();
   return row;
