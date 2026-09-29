@@ -28,13 +28,14 @@
       if(a === "--"){ done = true; continue; }
       if(a.startsWith("--")){
         const m = /^--([^=]+)(?:=(.*))?$/.exec(a);
-        if(m[2] != null) v[m[1]] = m[2]; else if(longVal.includes(m[1])) v[m[1]] = args[++i]; else f[m[1]] = true;
+        const put = (k, val) => { if(k in v){ v[k] = [].concat(v[k], val); } else v[k] = val; };
+        if(m[2] != null) put(m[1], m[2]); else if(longVal.includes(m[1])) put(m[1], args[++i]); else f[m[1]] = true;
         continue;
       }
       if(/^-\d+$/.test(a)){ v.num = +a.slice(1); continue; }
       for(let j = 1; j < a.length; j++){
         const c = a[j];
-        if(valFlags.includes(c)){ const r = a.slice(j + 1); v[c] = r !== "" ? r : args[++i]; break; }
+        if(valFlags.includes(c)){ const r = a.slice(j + 1), val = r !== "" ? r : args[++i]; v[c] = c in v ? [].concat(v[c], val) : val; break; }
         f[c] = true;
       }
     }
@@ -233,7 +234,7 @@
   function globToRe2(g, ci){ return new RegExp("^" + g.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$", ci ? "i" : ""); }
 
   def("grep", "텍스트 검색 (-i -n -v -c -r -E -F -l -w -o -h -e -q)", (a, io) => {
-    const { f, v, rest } = opts(a, "e"); const pats = []; if(v.e != null) pats.push(v.e);
+    const { f, v, rest } = opts(a, "e"); const pats = []; if(v.e != null) pats.push(...[].concat(v.e));
     if(!pats.length){ if(!rest.length) return E(io, "grep", "pattern 필요"); pats.push(rest.shift()); }
     let re; try{ re = toRe(pats.length > 1 ? pats.join("|") : pats[0], { E:f.E || pats.length > 1, F:f.F, i:f.i, w:f.w, x:f.x }); }catch(e){ return E(io, "grep", "잘못된 정규식: " + e.message); }
     const rec = f.r || f.R; const files = [];
@@ -707,6 +708,63 @@ const changed={};const walk=d=>{py.FS.readdir(d).forEach(n=>{if(n==="."||n==="..
   }
   def(["python", "python3"], "Python 실행 (Pyodide/WebAssembly, 격리 샌드박스)", (a, io) => runInterpreter("python", a, io));
   def(["node", "nodejs"], "JavaScript 실행 (격리 샌드박스, fs/path 지원)", (a, io) => runInterpreter("node", a, io));
+
+
+  /* ======================= HTML 미리보기 / 실제 테스트 (htmltest, jscheck) =======================
+     격리 iframe(sandbox="allow-scripts", same-origin 없음)에서 HTML 을 실제로 실행해 보고
+     콘솔 로그/에러, 캔버스 그려짐 여부, 키 입력 후 상태, 임의 JS 식 결과를 돌려준다. */
+  function buildPreviewHtml(path){
+    const st = statOf(path); if(!st || st.type !== "file") throw new Error(`${path}: ${NOFILE}`);
+    let html = String(st.content || ""); const dir = st.path.slice(0, st.path.lastIndexOf("/")) || "/";
+    const readRel = src => { if(/^(https?:)?\/\//.test(src) || /^data:/.test(src)) return null; const p = FS.normPath(src.startsWith("/") ? src : (dir === "/" ? "" : dir) + "/" + src); const s = statOf(p); return s && s.type === "file" ? String(s.content || "") : null; };
+    html = html.replace(/<script([^>]*?)\ssrc=["']([^"']+)["']([^>]*)>\s*<\/script>/gi, (m, a, src, b) => { const t = readRel(src); return t == null ? m : `<script${a}${b}>${t.replace(/<\/script/gi, "<\\/script")}<\/script>`; });
+    html = html.replace(/<link([^>]*?)href=["']([^"']+\.css)["']([^>]*)>/gi, (m, a, href, b) => { if(!/stylesheet/i.test(a + b)) return m; const t = readRel(href); return t == null ? m : `<style>${t}</style>`; });
+    return html;
+  }
+  function runHtmlTest(html, o){
+    return new Promise(resolve => {
+      const id = "ht" + Math.random().toString(36).slice(2);
+      const frame = document.createElement("iframe"); frame.setAttribute("sandbox", "allow-scripts"); frame.style.cssText = "position:fixed;left:-9999px;top:0;width:" + (o.w || 800) + "px;height:" + (o.h || 600) + "px;border:0;";
+      let done = false; const finish = r => { if(done) return; done = true; window.removeEventListener("message", onMsg); clearTimeout(timer); frame.remove(); resolve(r); };
+      const timer = setTimeout(() => finish({ timeout:true, logs:[], errors:["테스트 시간 초과"], evals:[], canvases:[], dom:{} }), (o.ms || 1500) + (o.keys.length * 350) + 6000);
+      const onMsg = ev => { if(ev.source !== frame.contentWindow || !ev.data || ev.data.id !== id) return; if(ev.data.type === "ready") frame.contentWindow.postMessage({ id, cmd:"run", keys:o.keys, evals:o.evals, ms:o.ms || 1500 }, "*"); else if(ev.data.type === "report") finish(ev.data.report); };
+      window.addEventListener("message", onMsg);
+      const probe = `<script>(function(){var ID=${JSON.stringify(id)},L=[],ER=[];function s(a){try{return typeof a==="string"?a:JSON.stringify(a)}catch(e){return String(a)}}
+["log","info","warn","error"].forEach(function(t){var o=console[t];console[t]=function(){var m=[].slice.call(arguments).map(s).join(" ");(t==="error"?ER:L).push((t==="log"?"":t+": ")+m);try{o.apply(console,arguments)}catch(e){}}});
+window.addEventListener("error",function(e){ER.push("에러: "+e.message+(e.lineno?" (줄 "+e.lineno+")":""))});window.addEventListener("unhandledrejection",function(e){ER.push("처리되지 않은 Promise 오류: "+s(e.reason&&e.reason.message||e.reason))});
+window.addEventListener("message",function(ev){var d=ev.data;if(!d||d.id!==ID||d.cmd!=="run")return;var sleep=function(t){return new Promise(function(r){setTimeout(r,t)})};
+(async function(){await sleep(d.ms);var tgt=[document.activeElement,document.body,document,window];
+for(var i=0;i<d.keys.length;i++){var k=d.keys[i];["keydown","keyup"].forEach(function(t){tgt.forEach(function(x){try{x.dispatchEvent(new KeyboardEvent(t,{key:k==="Space"?" ":k,code:k==="Space"?"Space":(k.length===1?"Key"+k.toUpperCase():k),bubbles:true}))}catch(e){}})});await sleep(300)}
+var ev2=[];for(var j=0;j<d.evals.length;j++){try{ev2.push({expr:d.evals[j],value:s((0,eval)(d.evals[j]))})}catch(e){ev2.push({expr:d.evals[j],error:String(e&&e.message||e)})}}
+var cv=[].slice.call(document.querySelectorAll("canvas")).map(function(c){var r={w:c.width,h:c.height,drawn:null};try{var x=c.getContext("2d");if(x&&c.width&&c.height){var im=x.getImageData(0,0,c.width,c.height).data,n=0,step=Math.max(1,Math.floor(im.length/4/4000))*4;for(var p=3;p<im.length;p+=step)if(im[p]>0)n++;r.drawn=Math.round(n/(im.length/step)*100)}}catch(e){r.drawn="?"}return r});
+var q=function(t){return document.querySelectorAll(t).length};
+parent.postMessage({id:ID,type:"report",report:{logs:L.slice(0,60),errors:ER.slice(0,30),evals:ev2,canvases:cv,dom:{title:document.title,canvas:q("canvas"),buttons:q("button"),inputs:q("input,textarea,select"),text:(document.body&&document.body.innerText||"").replace(/\\s+/g," ").trim().slice(0,240)}}},"*")})()});
+window.addEventListener("load",function(){parent.postMessage({id:ID,type:"ready"},"*")});})()<\/script>`;
+      let doc = html; doc = /<head[^>]*>/i.test(doc) ? doc.replace(/<head[^>]*>/i, m => m + probe) : probe + doc;
+      frame.srcdoc = doc; document.body.appendChild(frame);
+    });
+  }
+  def("htmltest", "HTML 실제 실행 테스트: htmltest 파일.html [-t 대기ms] [-k 키,키] [-e 'JS식'] — 에러/콘솔/캔버스/DOM 보고", async (a, io) => {
+    const { v, rest } = opts(a, "tke", ["time", "keys", "eval"]); if(!rest.length) return E(io, "htmltest", "usage: htmltest file.html [-t ms] [-k ArrowLeft,Space] [-e 'expr']");
+    let html; try{ html = buildPreviewHtml(rest[0]); }catch(e){ return E(io, "htmltest", e.message); }
+    const evals = [].concat(v.e || v.eval || []); const keys = String(v.k || v.keys || "").split(",").map(x => x.trim()).filter(Boolean);
+    const r = await runHtmlTest(html, { ms: Math.min(8000, +(v.t || v.time) || 1500), keys, evals });
+    const bad = r.errors.length > 0; io.out += `[htmltest] ${rest[0]} — ${bad ? "❌ 오류 " + r.errors.length + "건" : "✅ 실행 오류 없음"}${r.timeout ? " (시간 초과)" : ""}\n`;
+    if(r.dom) io.out += `제목: ${r.dom.title || "(없음)"} · canvas ${r.dom.canvas} · button ${r.dom.buttons} · input ${r.dom.inputs}\n`;
+    (r.canvases || []).forEach((c, i) => { io.out += `canvas#${i + 1} ${c.w}x${c.h} — ${c.drawn === null ? "2D 컨텍스트 아님" : c.drawn === "?" ? "확인 불가" : c.drawn + "% 픽셀에 그려짐" + (c.drawn === 0 ? " ⚠ 아무것도 안 그려짐" : "")}\n`; });
+    if(r.dom && r.dom.text) io.out += `화면 텍스트: ${r.dom.text}\n`;
+    r.evals.forEach(e => { io.out += `eval ${e.expr} → ${e.error ? "오류: " + e.error : e.value}\n`; });
+    if(r.logs.length) io.out += "콘솔:\n" + r.logs.map(l => "  " + l).join("\n") + "\n"; if(r.errors.length) io.out += "오류:\n" + r.errors.map(l => "  " + l).join("\n") + "\n";
+    return bad ? 1 : 0;
+  });
+  def("jscheck", "JS 문법 검사 (실행 안 함): jscheck 파일.js|파일.html", (a, io) => {
+    if(!a.length) return E(io, "jscheck", "파일 필요"); let bad = 0;
+    a.forEach(p => { const t = getText(io, "jscheck", p); if(t == null){ bad = 1; return; }
+      const chunks = /\.html?$/i.test(p) ? [...t.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi)].filter(m => !/type=["']?(module|application\/json|text\/template)/i.test(m[1])).map(m => m[2]) : [t];
+      chunks.forEach((c, i) => { try{ new Function(c); io.out += `${p}${chunks.length > 1 ? "#script" + (i + 1) : ""}: 문법 OK\n`; }catch(e){ bad = 1; io.out += `${p}${chunks.length > 1 ? "#script" + (i + 1) : ""}: ❌ ${e.message}\n`; } }); });
+    return bad;
+  });
+  S.buildPreviewHtml = buildPreviewHtml; S.getBytes = getBytes;
 
   /* ======================= git (최소 구현) ======================= */
   function repoRoot(){ let p = FS.pwd(); for(;;){ if(FS.isFile(joinP(p === "/" ? "" : p, ".git/choimini.json").replace(/^\/\//, "/"))) return p; if(p === "/") return null; p = FS.parentOf(p) || "/"; } }
