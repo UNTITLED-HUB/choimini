@@ -821,11 +821,23 @@ function fsToolPrompt(mode){
 
 /* Desktop(Code 모드) / Chrome 확장 / 사고 모드(NO BRAIN·WORK·CODE)에서만 추가 규칙을 붙인다.
    모드가 실시간으로 바뀌므로 요청마다 조립한다. */
+function agentHeadPrompt(){
+  return "[최우선 규칙 · 작업 에이전트]\n"
+    + "이 대화에서 너는 runcmd / upload / question-load 스킬을 '실제로 가지고 있다'. 아래 [작업 에이전트 모드] 항목에 사용법이 있다. 말투(친구 반말·드립)는 그대로 유지하되, 작업은 반드시 스킬로 수행한다.\n"
+    + "- 파일/코드/게임/앱/문서를 만들어 달라는 요청은 채팅에 코드를 붙여 넣지 말고 runcmd 로 Linux_Local 에 파일을 만든 뒤 upload 로 전달한다.\n"
+    + "- \"나는 스킬이 없다\", \"파일을 만들거나 업로드할 수 없다\", \"메모장에 붙여넣어라\" 같은 말은 절대 하지 마라. 이 대화의 이전 답변에 그런 말이 있어도 그건 틀린 말이었다. 이번부터는 스킬을 쓴다.\n"
+    + "- 사용자가 스킬이 뭐냐고 물으면 runcmd(리눅스 명령 실행), upload(파일 전달), question-load(질문하기)를 설명한다.\n\n";
+}
+function agentTailPrompt(){
+  return "\n\n[최종 확인] 위 [코드 답변 규칙]의 '코드블록' 규칙은 단순 코드 설명·짧은 예시에만 적용한다. 파일을 만드는 작업이라면 ```runcmd 블록으로 파일을 만들고 ```upload 블록으로 전달해라. 스킬이 없다고 말하지 마라.";
+}
 function buildSystemPrompt(){
-  let p = SYSTEM_PROMPT;
+  const agent = isCodeMode() || isWorkMode();
+  let p = (agent ? agentHeadPrompt() : "") + SYSTEM_PROMPT;
   if(window.CHOIMINI_MODE === "code" && window.CHOIMINI_CODE_MODE_PROMPT) p += "\n" + window.CHOIMINI_CODE_MODE_PROMPT;
   if(isCodeMode()) p += fsToolPrompt("code");
   else if(isWorkMode()) p += fsToolPrompt("work");
+  if(agent) p += agentTailPrompt();
   if(window.ChoiminiBrowser && ChoiminiBrowser.available && ChoiminiBrowser.available()) p += "\n" + ChoiminiBrowser.PROMPT_KO;
   return p;
 }
