@@ -1676,61 +1676,67 @@ async function redeemCode(rawCode){
   const code = (rawCode||"").trim().toUpperCase();
   if(!code){ toast("코드를 입력해줘"); return; }
   if(redeemedCodes.has(code)){ toast("⚠️ 이미 사용한 코드임"); return; }
-  let result;
-  try{
+  // 금액/지급은 전부 서버(redeem-code)가 결정함. 클라이언트는 code + (관리자 코드의 목표값)만 보냄.
+  const call = async (phase, extra)=>{
+    const tok = (window.ChoiminiAuth && ChoiminiAuth.isLoggedIn()) ? await ChoiminiAuth.getAccessToken() : null;
     const res = await fetch(REDEEM_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + SUPABASE_ANON_KEY },
-      body: JSON.stringify({ code, deviceId: getDeviceId() })
+      headers: { "Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + (tok || SUPABASE_ANON_KEY) },
+      body: JSON.stringify(Object.assign({ code, deviceId: getDeviceId(), phase }, extra || {}))
     });
-    result = await res.json();
-    if(res.status === 429 && result && result.limited){
-      const wait = formatRetrySeconds(result.retryAfterSeconds || 0);
-      toast(result.reason === "locked" ? "🔒 너무 많이 틀렸음 · " + wait + " 후 다시 시도해줘" : "⏳ " + wait + " 후 다시 시도해줘");
-      return;
+    return { res, data: await res.json() };
+  };
+  const limited = (r)=>{
+    if(r.res.status === 429 && r.data && r.data.limited){
+      const wait = formatRetrySeconds(r.data.retryAfterSeconds || 0);
+      toast(r.data.reason === "locked" ? "🔒 너무 많이 틀렸음 · " + wait + " 후 다시 시도해줘" : "⏳ " + wait + " 후 다시 시도해줘");
+      return true;
     }
+    return false;
+  };
+  let info;
+  try{
+    const r = await call("check");
+    if(limited(r)) return;
+    info = r.data;
   }catch(e){
     toast("⚠️ 코드 확인 중 오류남 (네트워크 확인)");
     return;
   }
-  if(result && result.alreadyRedeemed){
-    toast(result.daily ? "⚠️ 오늘은 이미 사용함" : "⚠️ 이미 사용한 코드임");
-    return;
-  }
-  if(!result || !result.valid){
-    toast("❌ 존재하지 않는 코드임");
-    return;
-  }
+  if(!info || !info.valid){ toast("❌ 존재하지 않는 코드임"); return; }
   startCaptcha(async ()=>{
-    const key = result.codeKey || code;
-    const curDisplay = Math.round(tokensInternal / TOKEN_MULT);
-    let target = null;
-    if(result.admin){
-      const v = prompt("설정할 토큰 값을 입력해줘", String(curDisplay));
+    let extra = {};
+    if(info.admin){
+      const v = prompt("설정할 토큰 값을 입력해줘", String(Math.round(tokensInternal / TOKEN_MULT)));
       const n = Math.floor(Number(v));
       if(v === null || v.trim() === "" || !isFinite(n) || n < 0){ toast("취소됨"); return; }
-      target = n;
+      extra.setTo = n;
     }
-    const applyLocal = ()=>{ if(result.admin) tokensInternal = sanitizeTokens(target * TOKEN_MULT); else grantTokens(result.amount); };
+    let d;
     try{
-      if(window.ChoiminiAuth && ChoiminiAuth.isLoggedIn()){
-        const delta = result.admin ? (target - curDisplay) : Math.round((result.amount||0) / TOKEN_MULT);
-        const r = await ChoiminiAuth.redeemGrant(key, delta, !!result.unlimited);
-        if(r.already){ toast(result.daily ? "⚠️ 오늘은 이미 사용함" : "⚠️ 이미 사용한 코드임"); return; }
-        tokensInternal = sanitizeTokens(r.balance * TOKEN_MULT);
-      }else{
-        applyLocal();
-      }
+      const r = await call("commit", extra);
+      if(limited(r)) return;
+      d = r.data;
     }catch(e){
-      applyLocal();
+      toast("⚠️ 교환 중 오류남 (네트워크 확인)");
+      return;
+    }
+    if(d && d.alreadyRedeemed){ toast(d.daily ? "⚠️ 오늘은 이미 사용함" : "⚠️ 이미 사용한 코드임"); return; }
+    if(!d || !d.valid){ toast("❌ 교환 실패"); return; }
+    if(d.account){
+      tokensInternal = sanitizeTokens(d.balance * TOKEN_MULT);
+    }else if(d.admin){
+      tokensInternal = sanitizeTokens(d.setTo * TOKEN_MULT);
+    }else{
+      grantTokens(d.amount);
     }
     saveJSON(LS.tokens, tokensInternal);
     renderTokens();
-    if(!result.unlimited && !result.daily){
+    if(!d.admin && !d.daily){
       redeemedCodes.add(code);
       saveJSON(LS.redeemed, [...redeemedCodes]);
     }
-    toast(result.admin ? "🔑 토큰 " + target + "개로 설정됨" : "🎟️ +" + (result.amount / TOKEN_MULT) + " 토큰");
+    toast(d.admin ? "🔑 토큰 " + d.setTo + "개로 설정됨" : "🎟️ +" + (d.amount / TOKEN_MULT) + " 토큰");
     closeModal("redeemModal");
   }, ()=>{ toast("인증 취소됨 · 코드 미사용"); });
 }
