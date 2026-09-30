@@ -225,13 +225,9 @@
     return { ok: !!row.ok, balance: Number(row.balance) || 0, charged: amount };
   }
 
-  async function redeemGrant(code, amount, unlimited) {
-    const { data, error } = await supabase.rpc("user_redeem_grant", {
-      p_code: code, p_amount: amount, p_unlimited: !!unlimited,
-    });
-    if (error) throw error;
-    const row = Array.isArray(data) ? data[0] : data;
-    return { already: !!row.already, balance: Number(row.balance) || 0 };
+  async function getAccessToken() {
+    const { data } = await supabase.auth.getSession();
+    return data && data.session ? data.session.access_token : null;
   }
 
   // 광고 보상용 무료 코드 사용 (고정 코드표에 없을 때 fallback으로 호출)
@@ -288,7 +284,7 @@
     onReady: function (cb) { if (currentUser) cb(currentUser); else readyCallbacks.push(cb); },
     getBalance: getBalance,
     spend: spend,
-    redeemGrant: redeemGrant,
+    getAccessToken: getAccessToken,
     redeemFreeCode: redeemFreeCode,
     ads: ads,
   };
