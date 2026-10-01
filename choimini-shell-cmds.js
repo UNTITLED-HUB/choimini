@@ -911,7 +911,7 @@ module.exports={Client,Collection,EmbedBuilder,SlashCommandBuilder,ActionRowBuil
       const common = `const P=${payload};const post=r=>parent.postMessage({id:P.id,result:r},"*");`;
       const nodeScript = common + NODE_SRC;
       const pyScript = `${common}
-(async()=>{let out="",err="";try{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js";await new Promise((r,j)=>{s.onload=r;s.onerror=()=>j(new Error("Pyodide 로드 실패 (네트워크 확인)"))});document.head.appendChild(s);
+(async()=>{let out="",err="";try{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js";await new Promise((r,j)=>{s.onload=r;s.onerror=()=>j(new Error("Pyodide 로드 실패 (네트워크 확인)"));document.head.appendChild(s)});
 const py=await loadPyodide();py.setStdout({batched:l=>{out+=l+"\\n"}});py.setStderr({batched:l=>{err+=l+"\\n"}});
 const ROOT="/vfs";const mk=d=>{let c="";d.split("/").filter(Boolean).forEach(s=>{c+="/"+s;try{py.FS.mkdir(c)}catch(e){}})};mk(ROOT);
 Object.keys(P.files).forEach(p=>{mk(ROOT+p.split("/").slice(0,-1).join("/"));py.FS.writeFile(ROOT+p,P.files[p])});mk(ROOT+P.cwd);py.FS.chdir(ROOT+P.cwd);
