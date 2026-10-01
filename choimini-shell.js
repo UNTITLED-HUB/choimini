@@ -297,6 +297,106 @@
     return { out, err, code };
   }
 
+
+  /* ---------- 제어문: if / for / while / until (한 줄·여러 줄 모두) ---------- */
+  const OPEN = /^(if|for|while|until)\b/;
+  function splitKw(line){
+    const res = []; let cur = "", q = null;
+    for(let i = 0; i < line.length; i++){
+      const c = line[i];
+      if(q){ cur += c; if(c === q) q = null; continue; }
+      if(c === "'" || c === '"'){ q = c; cur += c; continue; }
+      if(c === "#" && (i === 0 || /\s/.test(line[i - 1]))) break;
+      if(c === ";" && line[i + 1] !== ";" && line[i - 1] !== ";"){ res.push(cur.trim()); cur = ""; continue; }
+      cur += c;
+    }
+    res.push(cur.trim());
+    const out = [];
+    res.filter(Boolean).forEach(p => { let m; while((m = /^(then|do|else)\s+(\S[\s\S]*)$/.exec(p))){ out.push(m[1]); p = m[2]; } out.push(p); });
+    return out;
+  }
+  async function evalCond(list, depth){
+    let neg = false; list = list.slice();
+    if(list.length && /^!\s+/.test(list[0])){ neg = true; list[0] = list[0].replace(/^!\s+/, ""); }
+    const r = await execStmts(list, depth);
+    return { out: r.out, err: r.err, ok: neg ? r.code !== 0 : r.code === 0 };
+  }
+  async function execStmts(list, depth){
+    let out = "", err = "", code = 0, flow = null;
+    for(let i = 0; i < list.length; i++){
+      const s = list[i];
+      if(/^(break|continue)\b/.test(s)){ flow = s.split(/\s/)[0]; break; }
+      let r;
+      if(OPEN.test(s)){
+        let d = 0, j = i;
+        for(; j < list.length; j++){ if(OPEN.test(list[j])) d++; if(list[j] === "fi" || list[j] === "done"){ d--; if(d === 0) break; } }
+        r = await runBlock(list.slice(i, j + 1), depth); i = j;
+      } else r = await runLine(s, depth, null);
+      out += r.out; err += r.err; code = r.code;
+      if(r.flow){ flow = r.flow; break; }
+      if(out.length > MAX_OUT) break;
+    }
+    return { out, err, code, flow };
+  }
+  async function runBlock(st, depth){
+    if(st[st.length - 1] !== "fi" && st[st.length - 1] !== "done") return { out:"", err:"sh: 구문 오류: " + (OPEN.exec(st[0]) || ["블록"])[1] + " 블록이 fi/done 으로 닫히지 않았어요\n", code:2 };
+    return /^if\b/.test(st[0]) ? runIf(st, depth) : runLoop(st, depth);
+  }
+  async function runIf(st, depth){
+    const inner = st.slice(0, -1); let d = 0, branches = [], cur = { cond:[inner[0].replace(/^if\s+/, "")], body:[] }, mode = "cond", elseBody = null;
+    for(let i = 1; i < inner.length; i++){
+      const s = inner[i];
+      if(d === 0){
+        if(s === "then"){ mode = "body"; continue; }
+        if(/^elif\b/.test(s)){ branches.push(cur); cur = { cond:[s.replace(/^elif\s+/, "")], body:[] }; mode = "cond"; continue; }
+        if(s === "else"){ branches.push(cur); cur = null; elseBody = []; mode = "else"; continue; }
+      }
+      if(OPEN.test(s)) d++; if(s === "fi" || s === "done") d--;
+      (mode === "cond" ? cur.cond : mode === "body" ? cur.body : elseBody).push(s);
+    }
+    if(cur) branches.push(cur);
+    let out = "", err = "";
+    for(const b of branches){
+      const c = await evalCond(b.cond, depth); out += c.out; err += c.err;
+      if(c.ok){ const r = await execStmts(b.body, depth); return { out: out + r.out, err: err + r.err, code: r.code, flow: r.flow }; }
+    }
+    if(elseBody){ const r = await execStmts(elseBody, depth); return { out: out + r.out, err: err + r.err, code: r.code, flow: r.flow }; }
+    return { out, err, code: 0 };
+  }
+  async function runLoop(st, depth){
+    const inner = st.slice(0, -1), head = inner[0]; let di = -1, d = 0;
+    for(let i = 1; i < inner.length; i++){ if(d === 0 && inner[i] === "do"){ di = i; break; } if(OPEN.test(inner[i])) d++; if(inner[i] === "fi" || inner[i] === "done") d--; }
+    const pre = inner.slice(1, di < 0 ? inner.length : di), body = di < 0 ? [] : inner.slice(di + 1);
+    let out = "", err = "", code = 0;
+    const room = () => out.length < MAX_OUT;
+    const m = /^for\s+(\w+)(?:\s+in\s+([\s\S]*))?$/.exec(head);
+    if(m){
+      let listTxt = m[2] == null ? (ENV["@"] || "") : m[2];
+      listTxt = listTxt.replace(/\{(-?\d+)\.\.(-?\d+)\}/g, (x, a, b) => { a = +a; b = +b; const r = []; for(let k = a; a <= b ? k <= b : k >= b; k += a <= b ? 1 : -1) r.push(k); return r.join(" "); });
+      const r0 = await runLine("echo " + listTxt, depth, null); err += r0.err;
+      const items = r0.out.split(/\s+/).filter(Boolean).slice(0, 1000);
+      for(const it of items){
+        ENV[m[1]] = it;
+        const r = await execStmts(body, depth); out += r.out; err += r.err; code = r.code;
+        if(r.flow === "break" || !room()) break;
+      }
+      return { out, err, code };
+    }
+    const wm = /^(while|until)\s+([\s\S]*)$/.exec(head);
+    if(wm){
+      const until = wm[1] === "until"; const cond = [wm[2]].concat(pre);
+      for(let it = 0; it < 1000 && room(); it++){
+        const c = await evalCond(cond, depth); out += c.out; err += c.err;
+        if(until ? c.ok : !c.ok) break;
+        const r = await execStmts(body, depth); out += r.out; err += r.err; code = r.code;
+        if(r.flow === "break") break;
+        if(it === 999) err += "sh: 반복 1000회 제한으로 중단\n";
+      }
+      return { out, err, code };
+    }
+    return { out:"", err:"sh: 지원하지 않는 반복문이에요\n", code:2 };
+  }
+
   // 여러 줄(스크립트). 히어독 지원. 위치 인자 $1.. $@ $# 치환.
   async function runScript(text, args, depth, stdin){
     const saved = {};
@@ -321,6 +421,18 @@
         line = line.replace(hm[0], "");
       }
       if(!line.trim()) continue;
+      if(OPEN.test(line.trim())){
+        const stm = []; let d = 0, k = n;
+        for(; k < lines.length; k++){
+          for(const p of splitKw(lines[k])){ stm.push(p); if(OPEN.test(p)) d++; else if(p === "fi" || p === "done") d--; }
+          if(d <= 0) break;
+        }
+        n = k;
+        const rb = await runBlock(stm, depth);
+        out += rb.out; err += rb.err; code = rb.code;
+        if(out.length > MAX_OUT) break;
+        continue;
+      }
       const r = await runLine(line, depth, hereIn);
       out += r.out; err += r.err; code = r.code;
       if(out.length > MAX_OUT) break;

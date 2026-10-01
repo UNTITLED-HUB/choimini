@@ -87,6 +87,23 @@
   /* ---------------- 로그인 / 로그아웃 ---------------- */
   async function login() {
     gateError("");
+    // Android 앱: 기기에 등록된 구글 계정(Credential Manager)으로 바로 로그인 → 브라우저(삼성 인터넷 등)를 열지 않는다.
+    // 네이티브가 ID 토큰을 받아 window.__choiminiHandleGoogleIdToken(token) 을 호출한다.
+    if (APP === "android" && window.AndroidBridge) {
+      const fns = ["requestGoogleIdToken", "signInWithGoogle", "googleSignIn", "requestGoogleSignIn", "startGoogleSignIn", "nativeGoogleLogin"];
+      for (const fn of fns) {
+        if (typeof window.AndroidBridge[fn] === "function") {
+          // 네이티브가 실패/취소되면 __choiminiNativeGoogleFailed 를 호출해 브라우저 방식으로 대체한다.
+          window.__choiminiNativeGoogleFailed = function () { loginBrowser(); };
+          try { window.AndroidBridge[fn](); return; } catch (e) { console.warn("native google sign-in failed", fn, e); }
+        }
+      }
+    }
+    return loginBrowser();
+  }
+
+  async function loginBrowser() {
+    gateError("");
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",

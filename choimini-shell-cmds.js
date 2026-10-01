@@ -662,6 +662,142 @@
      iframe sandbox="allow-scripts" (same-origin 없음) → 사이트의 localStorage/API 키에 접근 불가.
      Linux_Local 의 텍스트 파일 스냅샷을 넘겨주고, 실행 중 만들거나 바꾼 파일만 되돌려 받는다. */
   function snapshotFiles(){ const files = {}; let total = 0; FS.find("/").forEach(p => { const st = statOf(p); if(!st || st.type !== "file" || p.startsWith("/cmds/") || p.startsWith("/package/")) return; const c = String(st.content == null ? "" : st.content); if(isBinContent(c) || total + c.length > 1500000) return; files[p] = c; total += c.length; }); return files; }
+  const NODE_SRC = String.raw`(async()=>{
+let out="",err="";const changed={};const fsx=Object.assign({},P.files);
+const note=(text,pct,done)=>{try{parent.postMessage({id:P.id,type:"progress",text:text,pct:pct,done:!!done},"*")}catch(e){}};
+const norm=p=>{p=String(p);if(!p.startsWith("/"))p=P.cwd+"/"+p;const o=[];p.split("/").forEach(s=>{if(!s||s===".")return;if(s==="..")o.pop();else o.push(s)});return "/"+o.join("/")};
+const fmt1=x=>{if(typeof x==="string")return x;if(x instanceof Error)return x.stack||String(x);try{return typeof x==="object"?JSON.stringify(x,(k,v)=>typeof v==="bigint"?String(v):v,2):String(x)}catch(e){return String(x)}};
+const fmt=a=>{if(typeof a[0]==="string"&&/%[sdifjoO%]/.test(a[0])){let i=1;const s=a[0].replace(/%([sdifjoO%])/g,(m,c)=>{if(c==="%")return "%";if(i>=a.length)return m;const v=a[i++];return c==="d"||c==="i"?String(parseInt(v)):c==="f"?String(parseFloat(v)):(c==="j"||c==="o"||c==="O")?fmt1(v):String(v)});return [s].concat(a.slice(i).map(fmt1)).join(" ")}return a.map(fmt1).join(" ")};
+const console={log:(...a)=>{out+=fmt(a)+"\n"},info:(...a)=>{out+=fmt(a)+"\n"},debug:(...a)=>{out+=fmt(a)+"\n"},warn:(...a)=>{err+=fmt(a)+"\n"},error:(...a)=>{err+=fmt(a)+"\n"},table:(d)=>{out+=fmt1(d)+"\n"},dir:(d)=>{out+=fmt1(d)+"\n"},trace:()=>{},time:()=>{},timeEnd:()=>{}};
+const fs={readFileSync:(p,enc)=>{const k=norm(p);if(!(k in fsx)){const e=new Error("ENOENT: no such file or directory, open '"+p+"'");e.code="ENOENT";throw e}return fsx[k]},writeFileSync:(p,d)=>{const k=norm(p);fsx[k]=String(d);changed[k]=fsx[k]},appendFileSync:(p,d)=>{const k=norm(p);fsx[k]=(fsx[k]||"")+String(d);changed[k]=fsx[k]},existsSync:p=>{const k=norm(p);return k in fsx||Object.keys(fsx).some(f=>f.startsWith(k+"/"))},readdirSync:p=>{const k=norm(p).replace(/\/$/,"");const s=new Set();Object.keys(fsx).forEach(f=>{if(f.startsWith(k+"/"))s.add(f.slice(k.length+1).split("/")[0])});return[...s]},mkdirSync:()=>{},unlinkSync:p=>{delete fsx[norm(p)]},rmSync:p=>{const k=norm(p);Object.keys(fsx).forEach(f=>{if(f===k||f.startsWith(k+"/"))delete fsx[f]})},statSync:p=>{const k=norm(p);const isF=k in fsx;const isD=!isF&&Object.keys(fsx).some(f=>f.startsWith(k+"/"));if(!isF&&!isD){const e=new Error("ENOENT: no such file or directory, stat '"+p+"'");e.code="ENOENT";throw e}return{isFile:()=>isF,isDirectory:()=>isD,size:isF?fsx[k].length:0,mtimeMs:Date.now()}}};
+fs.promises={readFile:async(p,e)=>fs.readFileSync(p,e),writeFile:async(p,d)=>fs.writeFileSync(p,d),appendFile:async(p,d)=>fs.appendFileSync(p,d),readdir:async p=>fs.readdirSync(p),mkdir:async()=>{},unlink:async p=>fs.unlinkSync(p),stat:async p=>fs.statSync(p)};
+fs.readFile=(p,e,cb)=>{if(typeof e==="function"){cb=e}try{const d=fs.readFileSync(p);setTimeout(()=>cb(null,d),0)}catch(x){setTimeout(()=>cb(x),0)}};
+fs.writeFile=(p,d,e,cb)=>{if(typeof e==="function"){cb=e}fs.writeFileSync(p,d);setTimeout(()=>cb&&cb(null),0)};
+const path={sep:"/",join:(...a)=>norm(a.join("/")).replace(/^\//,a[0]&&String(a[0]).startsWith("/")?"/":""),resolve:(...a)=>norm(a.join("/")),basename:(p,e)=>{let b=String(p).split("/").pop();if(e&&b.endsWith(e))b=b.slice(0,-e.length);return b},dirname:p=>String(p).split("/").slice(0,-1).join("/")||"/",extname:p=>{const m=/\.[^./]*$/.exec(p);return m?m[0]:""},relative:(a,b)=>{const x=norm(a).split("/").filter(Boolean),y=norm(b).split("/").filter(Boolean);while(x.length&&y.length&&x[0]===y[0]){x.shift();y.shift()}return x.map(()=>"..").concat(y).join("/")},isAbsolute:p=>String(p).startsWith("/"),parse:p=>{const b=String(p).split("/").pop();const m=/\.[^./]*$/.exec(b);return{root:"/",dir:String(p).split("/").slice(0,-1).join("/"),base:b,ext:m?m[0]:"",name:m?b.slice(0,-m[0].length):b}}};
+// ---- 타이머 추적 (프로세스가 "할 일이 끝나면" 자동 종료) ----
+const _st=setTimeout,_ct=clearTimeout,_si=setInterval,_ci=clearInterval;const active=new Map();let keepAlive=0;
+const setTimeoutT=(f,ms,...a)=>{const id=_st(()=>{active.delete(id);try{const r=f(...a);if(r&&r.catch)r.catch(onFail)}catch(e){onFail(e)}},ms);active.set(id,"t");return id};
+const setIntervalT=(f,ms,...a)=>{const id=_si(()=>{try{const r=f(...a);if(r&&r.catch)r.catch(onFail)}catch(e){onFail(e)}},ms);active.set(id,"i");return id};
+const clearT=id=>{active.delete(id);_ct(id);_ci(id)};
+const setImmediateT=(f,...a)=>setTimeoutT(f,0,...a);
+let failed=null;const onFail=e=>{if(e&&e.__exit)return;if(!failed)failed=e};
+// ---- 내장 모듈 ----
+class EventEmitter{constructor(){this._ev={}}on(n,f){(this._ev[n]=this._ev[n]||[]).push(f);return this}addListener(n,f){return this.on(n,f)}prependListener(n,f){(this._ev[n]=this._ev[n]||[]).unshift(f);return this}once(n,f){const w=(...a)=>{this.off(n,w);return f.apply(this,a)};w._o=f;return this.on(n,w)}off(n,f){const l=this._ev[n];if(l)this._ev[n]=l.filter(x=>x!==f&&x._o!==f);return this}removeListener(n,f){return this.off(n,f)}removeAllListeners(n){if(n)delete this._ev[n];else this._ev={};return this}emit(n,...a){const l=(this._ev[n]||[]).slice();if(!l.length){if(n==="error")throw a[0];return false}l.forEach(f=>{try{const r=f.apply(this,a);if(r&&r.catch)r.catch(e=>{if(n==="error")onFail(e);else this.emit("error",e)})}catch(e){onFail(e)}});return true}listenerCount(n){return(this._ev[n]||[]).length}listeners(n){return(this._ev[n]||[]).slice()}setMaxListeners(){return this}}
+EventEmitter.EventEmitter=EventEmitter;
+class BufferX extends Uint8Array{toString(enc){enc=enc||"utf8";if(enc==="hex")return[...this].map(b=>b.toString(16).padStart(2,"0")).join("");if(enc==="base64"){let s="";this.forEach(b=>s+=String.fromCharCode(b));return btoa(s)}return new TextDecoder().decode(this)}static from(d,enc){if(typeof d==="string"){if(enc==="hex"){const a=d.match(/../g)||[];return new BufferX(a.map(h=>parseInt(h,16)))}if(enc==="base64"){const s=atob(d);return new BufferX([...s].map(c=>c.charCodeAt(0)))}return new BufferX(new TextEncoder().encode(d))}return new BufferX(d)}static alloc(n){return new BufferX(n)}static byteLength(s){return new TextEncoder().encode(String(s)).length}static concat(l){const t=l.reduce((a,b)=>a+b.length,0),r=new BufferX(t);let o=0;l.forEach(b=>{r.set(b,o);o+=b.length});return r}static isBuffer(x){return x instanceof BufferX}}
+const util={format:(...a)=>fmt(a),inspect:x=>fmt1(x),promisify:f=>(...a)=>new Promise((res,rej)=>f(...a,(e,v)=>e?rej(e):res(v))),inherits:(c,s)=>{Object.setPrototypeOf(c.prototype,s.prototype)},isDeepStrictEqual:(a,b)=>JSON.stringify(a)===JSON.stringify(b),TextEncoder,TextDecoder,types:{isPromise:x=>!!x&&typeof x.then==="function"}};
+const assertM=(c,m)=>{if(!c)throw new Error(m||"Assertion failed")};Object.assign(assertM,{ok:assertM,equal:(a,b,m)=>assertM(a==b,m||a+" != "+b),strictEqual:(a,b,m)=>assertM(a===b,m||a+" !== "+b),notStrictEqual:(a,b,m)=>assertM(a!==b,m),deepStrictEqual:(a,b,m)=>assertM(JSON.stringify(a)===JSON.stringify(b),m||"not deep equal"),deepEqual:(a,b,m)=>assertM(JSON.stringify(a)===JSON.stringify(b),m||"not deep equal"),throws:(f,m)=>{let t=false;try{f()}catch(e){t=true}assertM(t,m||"Missing expected exception")}});
+const osM={EOL:"\n",platform:()=>"linux",type:()=>"Linux",arch:()=>"x64",homedir:()=>"/user",tmpdir:()=>"/tmp",hostname:()=>"choimini",cpus:()=>[{model:"virtual"}],totalmem:()=>4e9,freemem:()=>2e9,uptime:()=>1000};
+const cryptoM={randomUUID:()=>crypto.randomUUID(),randomBytes:n=>{const b=new BufferX(n);crypto.getRandomValues(b);return b},randomInt:(a,b)=>{if(b==null){b=a;a=0}return a+Math.floor(Math.random()*(b-a))},webcrypto:crypto,subtle:crypto.subtle,createHash:()=>{throw new Error("crypto.createHash 는 동기 API 라 격리 샌드박스에서 지원하지 않아요. await crypto.subtle.digest('SHA-256', data) 를 쓰세요")}};
+const readlineM={createInterface:()=>{const e=new EventEmitter();e.question=(q,cb)=>{out+=q;setTimeoutT(()=>cb(""),0)};e.close=()=>{};e.setPrompt=()=>{};e.prompt=()=>{};return e}};
+const httpM={request:(u,o,cb)=>{if(typeof o==="function"){cb=o;o={}}const e=new EventEmitter();const body=[];e.write=d=>body.push(d);e.end=d=>{if(d)body.push(d);keepAlive++;fetch(typeof u==="string"?u:u.href||String(u),Object.assign({method:(o&&o.method)||"GET",headers:o&&o.headers,body:body.length?body.join(""):undefined}))["then"](async r=>{const t=await r.text();const res=new EventEmitter();res.statusCode=r.status;res.headers=Object.fromEntries(r.headers.entries());cb&&cb(res);res.emit("data",t);res.emit("end");e.emit("response",res)}).catch(x=>e.emit("error",x)).finally(()=>{keepAlive--})};return e},get:(u,o,cb)=>{const r=httpM.request(u,o,cb);r.end();return r}};
+const childM=new Proxy({},{get:()=>()=>{throw new Error("child_process 는 격리 샌드박스에서 지원하지 않아요 (데스크톱 앱의 '실제 로컬 터미널' 모드를 쓰세요)")}});
+const builtin={fs,path,events:EventEmitter,util,assert:assertM,os:osM,crypto:cryptoM,readline:readlineM,http:httpM,https:httpM,child_process:childM,buffer:{Buffer:BufferX},url:{URL,URLSearchParams,fileURLToPath:u=>String(u).replace(/^file:\/\//,""),pathToFileURL:p=>new URL("file://"+p)},timers:{setTimeout:setTimeoutT,setInterval:setIntervalT,clearTimeout:clearT,clearInterval:clearT},"timers/promises":{setTimeout:(ms,v)=>new Promise(r=>setTimeoutT(()=>r(v),ms))},"fs/promises":fs.promises,string_decoder:{StringDecoder:class{write(b){return new TextDecoder().decode(b)}end(){return""}}},stream:{Readable:EventEmitter,Writable:EventEmitter,Transform:EventEmitter},zlib:{},net:{},tls:{},dns:{},worker_threads:{isMainThread:true}};
+const proc=new EventEmitter();Object.assign(proc,{argv:["node",...P.args],env:Object.assign({NODE_ENV:"development"},P.env||{}),cwd:()=>P.cwd,exit:c=>{throw{__exit:c||0}},stdout:{write:s=>{out+=s;return true},isTTY:false,columns:80},stderr:{write:s=>{err+=s;return true}},stdin:new EventEmitter(),platform:"linux",version:"v20.11.0",versions:{node:"20.11.0",choimini:"1"},pid:1,arch:"x64",nextTick:(f,...a)=>setTimeoutT(()=>f(...a),0),hrtime:Object.assign(()=>{const t=performance.now();return[Math.floor(t/1000),Math.floor((t%1000)*1e6)]},{bigint:()=>BigInt(Math.floor(performance.now()*1e6))}),uptime:()=>performance.now()/1000,memoryUsage:()=>({rss:5e7,heapUsed:2e7,heapTotal:3e7}),emitWarning:()=>{}});
+const ext={};const cache={};
+// ---- Discord 테스트용 모의 모듈 (실제 디스코드에는 연결하지 않음) ----
+const DISCORD_SRC=P.discordSrc;
+const needMock=(n)=>n==="discord.js";
+const loadFile=(k)=>{if(cache[k])return cache[k].exports;const src=fsx[k];if(src==null)throw new Error("Cannot find module '"+k+"'");const m={exports:{}};cache[k]=m;if(/\.json$/.test(k)){m.exports=JSON.parse(src);return m.exports}const dir=k.split("/").slice(0,-1).join("/")||"/";const rq=n=>requireFrom(dir,n);(new Function("module","exports","require","__filename","__dirname","process","console","setTimeout","setInterval","clearTimeout","clearInterval","setImmediate","Buffer",esm(src)))(m,m.exports,rq,k,dir,proc,console,setTimeoutT,setIntervalT,clearT,clearT,setImmediateT,BufferX);return m.exports};
+const resolveRel=(dir,n)=>{const base=norm(n.startsWith("/")?n:dir+"/"+n);for(const c of [base,base+".js",base+".json",base+".cjs",base+".mjs",base+"/index.js"])if(c in fsx)return c;return null};
+const requireFrom=(dir,n)=>{n=String(n).replace(/^node:/,"");if(n.startsWith(".")||n.startsWith("/")){const k=resolveRel(dir,n);if(!k)throw new Error("Cannot find module '"+n+"'");return loadFile(k)}if(n in builtin)return builtin[n];if(n==="dotenv"){return{config:()=>{const k=norm(P.cwd+"/.env");const parsed={};if(k in fsx)fsx[k].split("\n").forEach(l=>{const m=/^\s*([\w.-]+)\s*=\s*(.*)\s*$/.exec(l);if(m&&!l.trim().startsWith("#")){let v=m[2].replace(/^['"]|['"]$/g,"");parsed[m[1]]=v;if(!(m[1] in proc.env))proc.env[m[1]]=v}});return{parsed}}}}if(n==="node-fetch")return Object.assign(fetch.bind(globalThis),{default:fetch.bind(globalThis)});if(needMock(n)){if(!cache["__discord"]){const mm={exports:{}};(new Function("module","exports","require","EventEmitter","process","console","setTimeout","keepAliveInc","keepAliveDec","onFail",DISCORD_SRC))(mm,mm.exports,x=>requireFrom("/",x),EventEmitter,proc,console,setTimeoutT,()=>{keepAlive++},()=>{keepAlive--},onFail);cache["__discord"]=mm}return cache["__discord"].exports}if(n in ext)return ext[n];throw new Error("Cannot find module '"+n+"' (npm 패키지는 실행 전에 자동으로 내려받아요. 이름을 확인하세요)")};
+const require=n=>requireFrom(P.cwd,n);
+// ESM import 문을 require 로 바꿔서 실행 (import x from 'm' / import {a} from 'm' / import * as x from 'm' / export default)
+const esm=s=>s.replace(/^\s*import\s+([\w$]+)\s*,\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"];?/gm,"const $1=require('$3');const {$2}=require('$3');").replace(/^\s*import\s+\*\s+as\s+([\w$]+)\s+from\s*['"]([^'"]+)['"];?/gm,"const $1=require('$2');").replace(/^\s*import\s+\{([^}]*)\}\s*from\s*['"]([^'"]+)['"];?/gm,(m,a,b)=>"const {"+a.replace(/\s+as\s+/g,": ")+"}=require('"+b+"');").replace(/^\s*import\s+([\w$]+)\s+from\s*['"]([^'"]+)['"];?/gm,"const $1=(m=>m&&m.default!==undefined&&m.__esModule?m.default:m)(require('$2'));").replace(/^\s*import\s*['"]([^'"]+)['"];?/gm,"require('$1');").replace(/^\s*export\s+default\s+/gm,"module.exports.default=").replace(/^\s*export\s+(const|let|var|function|class|async function)\s+([\w$]+)/gm,(m,k,n)=>"module.exports."+n+"="+"(void 0);"+k+" "+n).replace(/^\s*export\s*\{([^}]*)\};?/gm,"");
+// ---- npm 패키지 미리 내려받기 (esm.sh) ----
+const scan=(s)=>{const r=new Set();let m;const re1=/require\(\s*['"]([^'"]+)['"]\s*\)/g,re2=/from\s*['"]([^'"]+)['"]/g,re3=/import\s*['"]([^'"]+)['"]/g;for(const re of [re1,re2,re3])while((m=re.exec(s)))r.add(m[1]);return[...r]};
+try{
+const names=new Set();scan(P.code).forEach(n=>names.add(n));Object.keys(fsx).filter(k=>/\.(m?js|cjs)$/.test(k)&&!k.startsWith("/cmds/")&&!k.startsWith("/package/")&&!k.includes("node_modules")).slice(0,60).forEach(k=>scan(fsx[k]).forEach(n=>names.add(n)));
+const todo=[...names].map(n=>String(n).replace(/^node:/,"")).filter(n=>!n.startsWith(".")&&!n.startsWith("/")&&!(n in builtin)&&n!=="dotenv"&&n!=="node-fetch"&&!needMock(n));
+let i=0;for(const n of todo){note("터미널 패키지 다운로드중... "+n,Math.round(i/todo.length*100));try{const ns=await import("https://esm.sh/"+n);ext[n]=(ns&&ns.default!==undefined&&Object.keys(ns).length<=2)?ns.default:ns}catch(e){err+="패키지 '"+n+"' 를 내려받지 못했어요 ("+(e&&e.message||e)+")\n"}i++}
+if(todo.length)note("터미널 패키지 다운로드 완료 ("+todo.length+"개)",100,true);
+const fp=P.code;
+(async()=>{})();
+const AF=Object.getPrototypeOf(async function(){}).constructor;
+const mainMod={exports:{}};
+await new AF("module","exports","console","require","process","fs","path","__filename","__dirname","Buffer","setTimeout","setInterval","clearTimeout","clearInterval","setImmediate",esm(P.code))(mainMod,mainMod.exports,console,require,proc,fs,path,P.args[0]||"main.js",P.cwd,BufferX,setTimeoutT,setIntervalT,clearT,clearT,setImmediateT);
+// 이벤트 루프: 남은 타이머/연결이 없으면 종료 (setInterval 만 남으면 제한 시간까지만)
+const t0=Date.now();
+while(!failed){const timeouts=[...active.values()].filter(v=>v==="t").length;const ints=[...active.values()].filter(v=>v==="i").length;if(!timeouts&&!keepAlive&&!ints)break;if(!timeouts&&!keepAlive&&ints&&Date.now()-t0>(P.intervalMs||3000)){out+="(setInterval 이 계속 실행 중이라 "+Math.round((P.intervalMs||3000)/1000)+"초 후 종료했어요)\n";break}if(Date.now()-t0>P.maxMs){err+="실행 제한 시간("+Math.round(P.maxMs/1000)+"초)에 도달해서 종료했어요\n";break}await new Promise(r=>_st(r,25))}
+active.forEach((v,id)=>{_ct(id);_ci(id)});
+if(failed){const e=failed;if(e&&e.__exit!==undefined){post({out,err,code:e.__exit,changed});return}err+=(e&&e.stack?String(e.stack).split("\n").slice(0,5).join("\n"):String(e))+"\n";post({out,err,code:1,changed});return}
+post({out,err,code:0,changed})
+}catch(e){active.forEach((v,id)=>{_ct(id);_ci(id)});if(e&&e.__exit!==undefined){post({out,err,code:e.__exit,changed});return}post({out,err:err+(e&&e.stack?String(e.stack).split("\n").slice(0,5).join("\n"):String(e))+"\n",code:1,changed})}
+})();
+`;
+  const DISCORD_SRC = String.raw`const E=EventEmitter;
+const log=(...a)=>console.log("[discord-mock]",...a);
+const Events={ClientReady:"ready",MessageCreate:"messageCreate",InteractionCreate:"interactionCreate",GuildMemberAdd:"guildMemberAdd",Error:"error",Warn:"warn",Debug:"debug"};
+const GatewayIntentBits=new Proxy({Guilds:1,GuildMembers:2,GuildMessages:512,MessageContent:32768,DirectMessages:4096,GuildMessageReactions:1024,GuildVoiceStates:128},{get:(t,k)=>k in t?t[k]:1});
+const Partials={Channel:0,Message:1,User:2,GuildMember:3,Reaction:4};
+class IntentsBitField{constructor(a){this.bits=a}}
+const toText=o=>typeof o==="string"?o:o==null?"":[o.content,...(o.embeds||[]).map(e=>{const d=e.data||e;return "[Embed"+(d.title?": "+d.title:"")+(d.description?" | "+d.description:"")+"]"}),...(o.files?["[첨부 "+o.files.length+"개]"]:[])].filter(Boolean).join(" ");
+class Collection extends Map{find(f){for(const [k,v] of this)if(f(v,k,this))return v}filter(f){const c=new Collection();for(const [k,v] of this)if(f(v,k,this))c.set(k,v);return c}map(f){return [...this].map(([k,v])=>f(v,k,this))}first(){return this.values().next().value}toJSON(){return [...this.values()]}}
+class Builder{constructor(d){this.data=Object.assign({},d)}toJSON(){return this.data}}
+class EmbedBuilder extends Builder{setTitle(v){this.data.title=v;return this}setDescription(v){this.data.description=v;return this}setColor(v){this.data.color=v;return this}addFields(...f){this.data.fields=(this.data.fields||[]).concat(f.flat());return this}setFooter(v){this.data.footer=v;return this}setTimestamp(){this.data.timestamp=Date.now();return this}setThumbnail(v){this.data.thumbnail=v;return this}setImage(v){this.data.image=v;return this}setAuthor(v){this.data.author=v;return this}setURL(v){this.data.url=v;return this}}
+class SlashCommandBuilder extends Builder{constructor(){super({options:[]})}setName(v){this.name=this.data.name=v;return this}setDescription(v){this.description=this.data.description=v;return this}setDefaultMemberPermissions(){return this}setDMPermission(){return this}_o(t,f){const o={type:t,required:false};f(new Builder(o).constructor===Builder?new OptB(o):0);this.data.options.push(o);return this}addStringOption(f){return this._o(3,f)}addIntegerOption(f){return this._o(4,f)}addBooleanOption(f){return this._o(5,f)}addUserOption(f){return this._o(6,f)}addChannelOption(f){return this._o(7,f)}addNumberOption(f){return this._o(10,f)}}
+class OptB{constructor(o){this.o=o}setName(v){this.o.name=v;return this}setDescription(v){this.o.description=v;return this}setRequired(v=true){this.o.required=v;return this}addChoices(...c){this.o.choices=c.flat();return this}setMinValue(v){this.o.min=v;return this}setMaxValue(v){this.o.max=v;return this}}
+class ActionRowBuilder extends Builder{constructor(){super({components:[]})}addComponents(...c){this.data.components.push(...c.flat());return this}}
+class ButtonBuilder extends Builder{setCustomId(v){this.data.custom_id=v;return this}setLabel(v){this.data.label=v;return this}setStyle(v){this.data.style=v;return this}setEmoji(v){this.data.emoji=v;return this}setURL(v){this.data.url=v;return this}setDisabled(v=true){this.data.disabled=v;return this}}
+const ButtonStyle={Primary:1,Secondary:2,Success:3,Danger:4,Link:5};
+const PermissionFlagsBits=new Proxy({},{get:(t,k)=>typeof k==="string"?1n:0n});
+const ActivityType={Playing:0,Streaming:1,Listening:2,Watching:3,Custom:4,Competing:5};
+const Colors=new Proxy({},{get:()=>0x5865f2});
+const MessageFlags={Ephemeral:64};
+const Routes={applicationCommands:id=>"/applications/"+id+"/commands",applicationGuildCommands:(a,g)=>"/applications/"+a+"/guilds/"+g+"/commands"};
+class REST{constructor(){}setToken(){return this}async put(r,o){const n=((o&&o.body)||[]).length;log("슬래시 명령 등록(모의): "+r+" — "+n+"개");return (o&&o.body)||[]}async post(){return {}}async delete(){return {}}}
+const mkUser=(n,bot)=>({id:"U"+(Math.abs(hash(n))%1e9),username:n,tag:n+"#0001",displayName:n,bot:!!bot,toString(){return "<@"+this.id+">"},displayAvatarURL(){return "https://cdn.example/avatar.png"},send:async o=>{log("DM → "+n+": "+toText(o));return mkMsg(o,mkChan("dm"),mkUser("봇",true))}});
+const hash=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;return h};
+const mkChan=(n)=>({id:"C"+n,name:n,type:0,isTextBased:()=>true,send:async o=>{log("#"+n+" ← 봇: "+toText(o));return mkMsg(o,mkChan(n),mkUser("봇",true))},sendTyping:async()=>{}});
+const mkGuild=()=>({id:"G1",name:"테스트 서버",memberCount:3,members:{cache:new Collection(),fetch:async()=>null},channels:{cache:new Collection()},roles:{cache:new Collection()}});
+const mkMsg=(o,ch,author)=>{const c=typeof o==="string"?o:(o&&o.content)||"";const g=mkGuild();const m={id:"M"+Math.random().toString(36).slice(2,8),content:c,author,member:{user:author,displayName:author.username,roles:{cache:new Collection(),add:async()=>{},remove:async()=>{}},permissions:{has:()=>true}},channel:ch,channelId:ch.id,guild:g,guildId:g.id,createdTimestamp:Date.now(),mentions:{users:new Collection(),members:new Collection(),has:()=>false},attachments:new Collection(),embeds:[]};
+ m.reply=async x=>{log("↩ 봇 답장: "+toText(x));return mkMsg(x,ch,mkUser("봇",true))};m.react=async e=>{log("반응 추가: "+e)};m.delete=async()=>{log("메시지 삭제")};m.edit=async x=>{log("메시지 수정: "+toText(x));return m};m.pin=async()=>{};return m};
+class Client extends E{constructor(o){super();this.options=o||{};this.user=null;this.guilds={cache:new Collection()};this.channels={cache:new Collection(),fetch:async id=>mkChan(String(id))};this.users={cache:new Collection(),fetch:async()=>mkUser("user")};this.application={commands:{set:async c=>{log("명령 등록(모의): "+(c||[]).length+"개");return c},create:async c=>c}};this.commands=new Collection();this.ws={ping:42}}
+ async login(token){
+  if(!token)console.warn("[discord-mock] 경고: 토큰이 비어 있어요 (실제 디스코드에선 TokenInvalid 에러). 모의 실행은 계속합니다.");
+  this.user=Object.assign(mkUser("테스트봇",true),{setActivity:a=>log("활동 상태: "+JSON.stringify(a)),setPresence:p=>log("상태 설정")});
+  log("※ 브라우저 샌드박스에서는 실제 디스코드에 접속할 수 없어, 모의 서버로 로직만 테스트합니다 (실제 접속은 PC 터미널에서).");
+  keepAliveInc();
+  const g=mkGuild();this.guilds.cache.set(g.id,g);
+  setTimeout(()=>{
+   try{this.emit("ready",this);this.emit("clientReady",this)}catch(e){onFail(e)}
+   log("ready 이벤트 발생 — 로그인: "+this.user.tag);
+   const argv=process.argv,says=[],slashes=[];
+   for(let i=0;i<argv.length;i++){if(argv[i]==="--say"&&argv[i+1])says.push(argv[++i]);else if(argv[i]==="--slash"&&argv[i+1]){const parts=[argv[++i]];while(argv[i+1]&&!argv[i+1].startsWith("--"))parts.push(argv[++i]);slashes.push(parts)}}
+   if(!says.length&&!slashes.length)log('시뮬레이션: node 파일.js --say "!ping"  /  --slash ping  /  --slash say text=안녕 (여러 번 가능)');
+   let d=150;const sched=f=>{setTimeout(()=>{try{const r=f();if(r&&r.catch)r.catch(onFail)}catch(e){onFail(e)}},d);d+=300};
+   const ch=mkChan("general"),user=mkUser("테스터",false);
+   says.forEach(t=>sched(()=>{log("#general ← 테스터: "+t);const m=mkMsg(t,ch,user);return this.emit("messageCreate",m)}));
+   slashes.forEach(parts=>sched(()=>{const name=parts[0],opts={};parts.slice(1).forEach(p=>{const i=p.indexOf("=");if(i>0)opts[p.slice(0,i)]=p.slice(i+1)});log("/"+name+" ← 테스터 "+JSON.stringify(opts));
+    const ia={id:"I1",commandName:name,user,member:{user,roles:{cache:new Collection()}},channel:ch,channelId:ch.id,guild:mkGuild(),client:this,replied:false,deferred:false,
+     isChatInputCommand:()=>true,isCommand:()=>true,isButton:()=>false,isAutocomplete:()=>false,isModalSubmit:()=>false,isStringSelectMenu:()=>false,
+     options:{getString:(k)=>opts[k]??null,getInteger:k=>opts[k]==null?null:parseInt(opts[k]),getNumber:k=>opts[k]==null?null:parseFloat(opts[k]),getBoolean:k=>opts[k]==null?null:opts[k]==="true",getUser:k=>opts[k]?mkUser(opts[k]):null,getChannel:()=>ch,getSubcommand:()=>opts.sub||null,get:k=>opts[k]==null?null:{value:opts[k]}},
+     reply:async x=>{ia.replied=true;log("↩ 응답: "+toText(x));return x},deferReply:async()=>{ia.deferred=true;log("(응답 지연 deferReply)")},editReply:async x=>{log("↩ 응답 수정: "+toText(x))},followUp:async x=>{log("↩ 추가 응답: "+toText(x))},deleteReply:async()=>{}};
+    return this.emit("interactionCreate",ia)}));
+   setTimeout(()=>{keepAliveDec()},d+1200);
+  },100);
+  return token||"mock-token"};
+ destroy(){this.emit("shardDisconnect");return Promise.resolve()}isReady(){return !!this.user}}
+Client.prototype.once=function(n,f){if(n==="clientReady")n="ready";return E.prototype.once.call(this,n,f)};
+Client.prototype.on=function(n,f){if(n==="clientReady")n="ready";return E.prototype.on.call(this,n,f)};
+module.exports={Client,Collection,EmbedBuilder,SlashCommandBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,GatewayIntentBits,IntentsBitField,Partials,Events,REST,Routes,PermissionFlagsBits,ActivityType,Colors,MessageFlags,Intents:GatewayIntentBits,version:"14-mock"};
+`;
+  function termProgress(text, pct, done){ try{ window.dispatchEvent(new CustomEvent("choimini-terminal-progress", { detail:{ text, pct, done:!!done } })); }catch(e){} }
+  /* 처음 터미널(python/node)을 쓸 때 한 번만: 필요한 패키지를 미리 내려받고 진행률을 알린다 */
+  let firstUseP = null;
+  function firstUse(kind){
+    let seen = false; try{ seen = localStorage.getItem("choimini_term_pkgs_v1") === "1"; }catch(e){}
+    if(seen) return Promise.resolve();
+    if(firstUseP) return firstUseP;
+    const urls = ["https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js", "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"];
+    firstUseP = (async () => {
+      termProgress("터미널 패키지 다운로드중...", 0);
+      let i = 0;
+      for(const u of urls){ try{ await fetch(u, { mode:"no-cors" }); }catch(e){} i++; termProgress("터미널 패키지 다운로드중...", Math.round(i / urls.length * 100), i === urls.length); }
+      try{ localStorage.setItem("choimini_term_pkgs_v1", "1"); }catch(e){}
+    })();
+    return firstUseP;
+  }
   function runSandbox(kind, code, args, timeoutMs){
     return new Promise(resolve => {
       const files = snapshotFiles(); const cwd = FS.pwd(); const id = "sb" + Math.random().toString(36).slice(2);
@@ -669,19 +805,11 @@
       const frame = document.createElement("iframe"); frame.setAttribute("sandbox", "allow-scripts"); frame.style.display = "none";
       let done = false; const finish = r => { if(done) return; done = true; window.removeEventListener("message", onMsg); clearTimeout(timer); frame.remove(); resolve(r); };
       const timer = setTimeout(() => finish({ out:"", err:`실행 시간 초과 (${Math.round(timeoutMs / 1000)}초)\n`, code:124, changed:{} }), timeoutMs);
-      const onMsg = ev => { if(ev.source !== frame.contentWindow || !ev.data || ev.data.id !== id) return; finish(ev.data.result); };
+      const onMsg = ev => { if(ev.source !== frame.contentWindow || !ev.data || ev.data.id !== id) return; if(ev.data.type === "progress"){ termProgress(ev.data.text, ev.data.pct, ev.data.done); return; } finish(ev.data.result); };
       window.addEventListener("message", onMsg);
-      const payload = JSON.stringify({ id, code, args, files, cwd, pipPkgs }).replace(/</g, "\\u003c");
+      const payload = JSON.stringify({ id, code, args, files, cwd, pipPkgs, discordSrc: DISCORD_SRC, env: Object.assign({}, S.env || {}), maxMs: timeoutMs - 5000, intervalMs: 4000 }).replace(/</g, "\\u003c");
       const common = `const P=${payload};const post=r=>parent.postMessage({id:P.id,result:r},"*");`;
-      const nodeScript = `${common}
-(async()=>{let out="",err="";const changed={};const fsx=Object.assign({},P.files);const norm=p=>{p=String(p);if(!p.startsWith("/"))p=P.cwd+"/"+p;const o=[];p.split("/").forEach(s=>{if(!s||s===".")return;if(s==="..")o.pop();else o.push(s)});return "/"+o.join("/")};
-const fmt=a=>a.map(x=>typeof x==="string"?x:(()=>{try{return typeof x==="object"?JSON.stringify(x,null,2):String(x)}catch(e){return String(x)}})()).join(" ");
-const console={log:(...a)=>{out+=fmt(a)+"\\n"},info:(...a)=>{out+=fmt(a)+"\\n"},warn:(...a)=>{err+=fmt(a)+"\\n"},error:(...a)=>{err+=fmt(a)+"\\n"}};
-const fs={readFileSync:(p)=>{const k=norm(p);if(!(k in fsx))throw new Error("ENOENT: no such file or directory, open '"+p+"'");return fsx[k]},writeFileSync:(p,d)=>{const k=norm(p);fsx[k]=String(d);changed[k]=fsx[k]},appendFileSync:(p,d)=>{const k=norm(p);fsx[k]=(fsx[k]||"")+String(d);changed[k]=fsx[k]},existsSync:p=>{const k=norm(p);return k in fsx||Object.keys(fsx).some(f=>f.startsWith(k+"/"))},readdirSync:p=>{const k=norm(p).replace(/\\/$/,"");const s=new Set();Object.keys(fsx).forEach(f=>{if(f.startsWith(k+"/"))s.add(f.slice(k.length+1).split("/")[0])});return[...s]},mkdirSync:()=>{},unlinkSync:p=>{delete fsx[norm(p)]}};
-const path={join:(...a)=>norm(a.join("/")).replace(/^\\//,a[0]&&a[0].startsWith("/")?"/":""),resolve:(...a)=>norm(a.join("/")),basename:(p,e)=>{let b=String(p).split("/").pop();if(e&&b.endsWith(e))b=b.slice(0,-e.length);return b},dirname:p=>String(p).split("/").slice(0,-1).join("/")||"/",extname:p=>{const m=/\\.[^./]*$/.exec(p);return m?m[0]:""}};
-const require=n=>{n=String(n).replace(/^node:/,"");if(n==="fs")return fs;if(n==="path")return path;throw new Error("Cannot find module '"+n+"' (격리 환경: fs, path 만 지원. 외부 모듈은 await import('https://esm.sh/이름') 사용)")};
-const process={argv:["node",...P.args],env:{},cwd:()=>P.cwd,exit:()=>{throw{__exit:1}},stdout:{write:s=>{out+=s}},platform:"linux"};
-try{const AF=Object.getPrototypeOf(async function(){}).constructor;await new AF("console","require","process","fs","path","__filename","__dirname",P.code)(console,require,process,fs,path,P.args[0]||"main.js",P.cwd);post({out,err,code:0,changed})}catch(e){if(e&&e.__exit){post({out,err,code:0,changed});return}post({out,err:err+(e&&e.stack?String(e.stack).split("\\n").slice(0,4).join("\\n"):String(e))+"\\n",code:1,changed})}})();`;
+      const nodeScript = common + NODE_SRC;
       const pyScript = `${common}
 (async()=>{let out="",err="";try{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js";await new Promise((r,j)=>{s.onload=r;s.onerror=()=>j(new Error("Pyodide 로드 실패 (네트워크 확인)"))});document.head.appendChild(s);
 const py=await loadPyodide();py.setStdout({batched:l=>{out+=l+"\\n"}});py.setStderr({batched:l=>{err+=l+"\\n"}});
@@ -696,12 +824,16 @@ const changed={};const walk=d=>{py.FS.readdir(d).forEach(n=>{if(n==="."||n==="..
     });
   }
   async function runInterpreter(kind, a, io){
-    const { v, rest } = opts(a, "ce"); let code, args;
-    if(v.c != null || v.e != null){ code = v.c != null ? v.c : v.e; args = [kind === "python" ? "-c" : "-e"]; }
+    let code, args, rest = a;
+    // 스크립트 이름 뒤의 옵션(--say 등)은 스크립트 인자이므로 해석하지 않는다
+    if(a.length && /^-[ce]$|^--eval$|^--command$/.test(a[0]) && a.length > 1){ code = a[1]; args = [a[0]].concat(a.slice(2)); }
+    else if(a.length && /^-[ce]./.test(a[0])){ code = a[0].slice(2); args = [a[0].slice(0, 2)].concat(a.slice(1)); }
+    else if(a.length && /^-/.test(a[0]) && a[0] !== "-"){ rest = a.slice(1); if(!rest.length) return E(io, kind, "실행할 스크립트 파일이 필요해요"); const t = getText(io, kind, rest[0]); if(t == null) return 2; code = t; args = rest; }
     else if(rest.length){ const t = getText(io, kind, rest[0]); if(t == null) return 2; code = t; args = rest; }
     else if(io.stdin){ code = io.stdin; args = ["-"]; }
     else return E(io, kind, "실행할 스크립트 파일이나 -c '코드' 가 필요해요");
-    const r = await runSandbox(kind, code, args, kind === "python" ? 90000 : 8000);
+    await firstUse(kind);
+    const r = await runSandbox(kind, code, args, kind === "python" ? 120000 : 60000);
     io.out += r.out; io.err += r.err;
     Object.keys(r.changed || {}).forEach(p => { try{ FS.writeFile(p, r.changed[p]); }catch(e){ io.err += `(파일 저장 실패 ${p}: ${e.message})\n`; } });
     return r.code;
