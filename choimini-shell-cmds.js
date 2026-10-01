@@ -814,7 +814,7 @@ const fp=P.code;
 (async()=>{})();
 const AF=Object.getPrototypeOf(async function(){}).constructor;
 const mainMod={exports:{}};
-await new AF("module","exports","console","require","process","fs","path","__filename","__dirname","Buffer","setTimeout","setInterval","clearTimeout","clearInterval","setImmediate",esm(P.code))(mainMod,mainMod.exports,console,require,proc,fs,path,P.args[0]||"main.js",P.cwd,BufferX,setTimeoutT,setIntervalT,clearT,clearT,setImmediateT);
+await new AF("module","exports","console","require","process","__filename","__dirname","Buffer","setTimeout","setInterval","clearTimeout","clearInterval","setImmediate",esm(P.code))(mainMod,mainMod.exports,console,require,proc,P.args[0]||"main.js",P.cwd,BufferX,setTimeoutT,setIntervalT,clearT,clearT,setImmediateT);
 // 이벤트 루프: 남은 타이머/연결이 없으면 종료 (setInterval 만 남으면 제한 시간까지만)
 const t0=Date.now();
 while(!failed){const timeouts=[...active.values()].filter(v=>v==="t").length;const ints=[...active.values()].filter(v=>v==="i").length;if(!timeouts&&!keepAlive&&!ints)break;if(!timeouts&&!keepAlive&&ints&&Date.now()-t0>(P.intervalMs||3000)){out+="(setInterval 이 계속 실행 중이라 "+Math.round((P.intervalMs||3000)/1000)+"초 후 종료했어요)\n";break}if(Date.now()-t0>P.maxMs){err+="실행 제한 시간("+Math.round(P.maxMs/1000)+"초)에 도달해서 종료했어요\n";break}await new Promise(r=>_st(r,25))}

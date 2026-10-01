@@ -428,7 +428,7 @@
           if(d <= 0) break;
         }
         n = k;
-        const rb = await runBlock(stm, depth);
+        const rb = await execStmts(stm, depth);
         out += rb.out; err += rb.err; code = rb.code;
         if(out.length > MAX_OUT) break;
         continue;
