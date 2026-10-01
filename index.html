@@ -290,6 +290,10 @@ code.md-code{background:var(--panel-2);border:1px solid var(--border);border-rad
   .msg-wrap{padding:0 14px;}
   #msgInput{font-size:16px;} /* iOS 자동 확대 방지 */
 }
+
+.ic{width:1.15em;height:1.15em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.2em;flex:none;display:inline-block}
+.ic-coin{color:#e9b44c}.ic-warn{color:#f0b13a}.ic-err{color:#ef6a6a}.ic-ok,.ic-check{color:#4cc38a}.ic-sparkle{color:#e9b44c}
+.cfgate-icon .ic,.lock-icon .ic{width:1.6em;height:1.6em}
 </style>
 
 <style id="cfgate-gate-style">
@@ -363,14 +367,45 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 #choiminiLoginGate .clg-error { margin-top: 12px; font-size: 12.5px; color: #f0575c; min-height: 16px; }
 
 </style>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27%23635bff%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-size=%2738%27 font-family=%27sans-serif%27 font-weight=%27700%27 text-anchor=%27middle%27 fill=%27white%27%3E%EC%B5%9C%3C/text%3E%3C/svg%3E">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol><symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M14 6v12" stroke-dasharray="2 2.5"/></symbol><symbol id="i-gift" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8"/><path d="M12 8c-1.5-3-5-3.5-5-1.2C7 8 9 8 12 8zM12 8c1.5-3 5-3.5 5-1.2C17 8 15 8 12 8z"/></symbol><symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol><symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/></symbol><symbol id="i-clip" viewBox="0 0 24 24"><path d="M20 11l-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7"/></symbol><symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor"/></symbol><symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12L20 4l-5 16-3.5-6.5z"/><path d="M11.5 13.5L20 4"/></symbol><symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5v5l4.5-2.5z"/></symbol><symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol><symbol id="i-file" viewBox="0 0 24 24"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/></symbol><symbol id="i-package" viewBox="0 0 24 24"><path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4M12 11v10"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-4L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4l2-2M20 20v-5h-5"/></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14 7l3 3"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2"/></symbol><symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol><symbol id="i-code" viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 6l-3 12"/></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></symbol><symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol><symbol id="i-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></symbol><symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.2v.1"/></symbol><symbol id="i-err" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol><symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol><symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol><symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17v.1"/></symbol><symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/></symbol><symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></symbol></defs></svg>
+<script>
+/* 이모지 → 통일된 선형 SVG 아이콘 (UI 문구만 변환, 채팅 본문(.uc)·코드·입력창은 그대로) */
+(function(){
+  const MAP = {"⚠️": "warn", "⚠": "warn", "❌": "err", "✅": "ok", "✓": "check", "🛡️": "shield", "🪙": "coin", "💻": "code", "🎟️": "ticket", "🎁": "gift", "🛠️": "wrench", "✏️": "pencil", "📋": "copy", "⏹️": "stop", "⏹": "stop", "👤": "user", "📎": "clip", "🔑": "key", "🌐": "globe", "📄": "file", "🔄": "refresh", "🧠": "bulb", "🗜️": "archive", "🎉": "sparkle", "⚙️": "sliders", "🗂️": "folder", "☰": "menu", "➤": "send", "🎬": "play", "❓": "help", "🖥️": "monitor", "🖼️": "image", "🔒": "lock", "⏸️": "pause", "💬": "chat", "📦": "package", "✕": "x", "⏳": "clock", "✨": "sparkle"};
+  const keys = Object.keys(MAP).sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
+  const RE = new RegExp(keys.join("|") + "|\uFE0F", "g");
+  const SKIP = ".uc,pre,code,textarea,input,script,style,.title,[data-noicon],[contenteditable='true']";
+  function svg(n){ const s = document.createElementNS("http://www.w3.org/2000/svg","svg"); s.setAttribute("class","ic ic-"+n); s.setAttribute("aria-hidden","true"); const u = document.createElementNS("http://www.w3.org/2000/svg","use"); u.setAttribute("href","#i-"+n); s.appendChild(u); return s; }
+  function conv(t){
+    const p = t.parentElement; if(!p || p.closest(SKIP)) return;
+    const v = t.nodeValue; RE.lastIndex = 0; if(!RE.test(v)) return; RE.lastIndex = 0;
+    const frag = document.createDocumentFragment(); let last = 0, m;
+    while((m = RE.exec(v))){ if(m.index > last) frag.appendChild(document.createTextNode(v.slice(last, m.index))); const n = MAP[m[0]]; if(n){ frag.appendChild(svg(n)); } last = m.index + m[0].length; }
+    if(last < v.length) frag.appendChild(document.createTextNode(v.slice(last)));
+    p.replaceChild(frag, t);
+  }
+  function scan(root){
+    if(root.nodeType === 3){ conv(root); return; }
+    if(root.nodeType !== 1 || (root.closest && root.closest(SKIP))) return;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); const list = []; let n; while((n = w.nextNode())) list.push(n); list.forEach(conv);
+  }
+  function start(){
+    scan(document.body);
+    new MutationObserver(ms=>{ for(const m of ms){ if(m.type === "characterData") conv(m.target); else m.addedNodes.forEach(scan); } }).observe(document.body, { childList:true, subtree:true, characterData:true });
+  }
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./choimini-auth.js?v=20261001"></script>
 <script src="./choimini-browser.js?v=20261001"></script>
-<script src="./choimini-linuxfs.js?v=20261001"></script>
+<script src="./choimini-linuxfs.js?v=20261003"></script>
 <script src="./choimini-shell.js?v=20261002"></script>
-<script src="./choimini-shell-cmds.js?v=20261002"></script>
+<script src="./choimini-shell-cmds.js?v=20261003"></script>
+<script src="./choimini-apk.js?v=20261004"></script>
 
 
     <!-- Cloudflare Turnstile 접속 게이트: 통과 전까지 페이지 콘텐츠를 가림 -->
@@ -816,7 +851,7 @@ function fsToolPrompt(mode){
     + "\n■ 스킬 1 — runcmd : 리눅스 명령어를 실행한다 (특정 명령어 몇 개로 제한되지 않는다). 코드블록 언어를 runcmd 로 쓰고 그 안에 셸 명령을 그대로 쓴다(JSON 아님, 여러 줄 가능):\n"
     + F + "runcmd\nmkdir -p /user/projects/game\ncat > /user/projects/game/game.html <<'EOF'\n<!DOCTYPE html>\n<html>…전체 코드…</html>\nEOF\nls -la /user/projects/game\n" + F + "\n"
     + "  · 파일은 cat > 경로 <<'EOF' … EOF (히어독) 로 만든다. 파이프(|), 리다이렉션(> >> <), 체인(; && ||), 변수($VAR), 명령 치환($(...)), 글롭(*.txt)을 쓸 수 있다. 관련 명령은 한 블록에 묶어서 효율적으로 실행해라.\n"
-    + "  · 셸 제어문 if/then/else/fi, for, while, until, break/continue 와 test·[ ] 를 쓸 수 있다(함수 정의는 미지원). 복잡하면 python/node 스크립트를 써라. 디스코드 봇 테스트: npm install discord.js 후 node bot.js --say \"!ping\" / --slash 명령 옵션=값 → 모의 디스코드(실제 접속 아님)로 메시지·슬래시 명령 로직과 봇 응답을 확인한다.\n"
+    + "  · pip install / npm install 로 거의 모든 패키지를 쓸 수 있다(python: numpy·pandas·scipy·matplotlib·scikit-learn·requests 등 Pyodide 지원 패키지와 PyPI 순수 파이썬 휠, node: npm 패키지를 esm.sh 로 로드; 네이티브 확장은 불가). 50MB 이상 패키지는 사용자 동의창이 뜨고 취소하면 설치되지 않는다. APK 빌드: 웹앱(HTML/JS/CSS) 폴더를 apk build <폴더> -n 이름 -p com.example.app 으로 설치 가능한 서명된 APK 로 만들 수 있다(Java/Kotlin·Gradle 빌드는 불가, WebView 래퍼 방식, 결과는 파일 패널에서 다운로드, 안드로이드 7.0+). exe build <폴더> -n 이름 으로 Windows 실행 파일(.exe, Edge/Chrome 앱 창 방식, Windows 10/11)도 만들 수 있다. apk info <파일.apk> 로 APK 내용·매니페스트를 볼 수 있다. 셸 제어문 if/then/else/fi, for, while, until, break/continue 와 test·[ ] 를 쓸 수 있다(함수 정의는 미지원). 복잡하면 python/node 스크립트를 써라. 디스코드 봇 테스트: npm install discord.js 후 node bot.js --say \"!ping\" / --slash 명령 옵션=값 → 모의 디스코드(실제 접속 아님)로 메시지·슬래시 명령 로직과 봇 응답을 확인한다.\n"
     + "\n■ 스킬 2 — upload : 다 만든 파일을 사용자에게 전달한다. 업로드해야 사용자가 [미리보기]/[다운로드]를 할 수 있다. 업로드할 경로를 한 줄에 하나씩:\n"
     + F + "upload\n/user/projects/game/game.html\n" + F + "\n"
     + "  · 결과물(파일)을 만들었다면 테스트를 마친 뒤 반드시 upload 로 마무리해라. upload 하지 않은 파일은 사용자가 받을 수 없다.\n"
@@ -975,8 +1010,11 @@ function init(){
   renderTokens();
   syncTokensFromAccount();
 
-  if(!activeChatId || !chats[activeChatId]){
-    createChat();
+  {
+    // 접속 시 항상 새(빈) 대화창에서 시작: 기존 빈 대화가 있으면 재사용
+    const emptyId = Object.keys(chats).find(id=>!((chats[id]&&chats[id].messages)||[]).length);
+    if(emptyId){ activeChatId = emptyId; try{ localStorage.setItem(LS.activeChat, emptyId); }catch(e){} }
+    else createChat();
   }
   renderChatList();
   renderMessages();
@@ -998,7 +1036,10 @@ function createChat(){
   return id;
 }
 
-function saveChats(){ saveJSON(LS.chats, chats); }
+function saveChats(){
+  try{ localStorage.setItem(LS.chats, JSON.stringify(chats, (k, v)=> (k === "dataUrl" || k === "binUrl" || k === "fullText") && typeof v === "string" && v.length > 1500000 ? undefined : v)); }
+  catch(e){ toast("저장 실패: 브라우저 저장공간이 가득 찼을 수 있음"); }
+}
 
 function switchChat(id){
   activeChatId = id;
@@ -1173,8 +1214,11 @@ function previewFile(p){
     body.appendChild(f);
   } else if(/^data:image\//.test(st.content||"")){
     const img = document.createElement("img"); img.src = st.content; img.style.cssText = "max-width:100%;max-height:100%;margin:auto;object-fit:contain;"; body.appendChild(img);
+  } else if(/\.apk$/i.test(p) && /^data:/.test(st.content||"") && window.ChoiminiApk){
+    const pre = document.createElement("pre"); pre.textContent = "APK 분석 중..."; body.appendChild(pre);
+    ChoiminiShell.getBytes && ChoiminiApk.info(ChoiminiShell.getBytes(p)).then(i=>{ pre.textContent = baseName(p) + " — 서명: " + (i.signedV2 ? "v2" : i.signedV1 ? "v1" : "없음") + "\n" + i.entries.slice(0, 80).map(e=>e.name + " (" + e.size + ")").join("\n") + (i.manifest ? "\n\n[AndroidManifest.xml]\n" + i.manifest : ""); }).catch(e=>{ pre.textContent = "APK 를 읽지 못했어요: " + e.message; });
   } else if(/\.zip$/i.test(p) && /^data:/.test(st.content||"")){
-    const pre = document.createElement("pre"); try{ pre.textContent = "📦 " + baseName(p) + "\n" + zipTreeFromDataUrl(st.content); }catch(e){ pre.textContent = "(ZIP 내용을 읽지 못했어요: " + e.message + ")"; } body.appendChild(pre);
+    const pre = document.createElement("pre"); try{ pre.textContent = baseName(p) + "\n" + zipTreeFromDataUrl(st.content); }catch(e){ pre.textContent = "(ZIP 내용을 읽지 못했어요: " + e.message + ")"; } body.appendChild(pre);
   } else {
     const pre = document.createElement("pre"); pre.textContent = /^data:/.test(st.content||"") ? "(바이너리 파일 — 다운로드해서 확인하세요)" : String(st.content||""); body.appendChild(pre);
   }
@@ -1330,7 +1374,7 @@ function renderContentWithCode(content){
   let html = "";
   for(let i=0; i<parts.length; i+=3){
     const plain = parts[i] || "";
-    if(plain) html += mdInline(escapeHtml(plain));
+    if(plain) html += '<span class="uc">' + mdInline(escapeHtml(plain)) + '</span>';
     const lang = parts[i+1];
     const code = parts[i+2];
     if(code !== undefined){
@@ -1560,24 +1604,34 @@ function zipTreeText(buf){
   return lines.join("\n") || "(비어 있음)";
 }
 function zipTreeFromDataUrl(u){ const b = atob(String(u).split(",")[1] || ""); const a = new Uint8Array(b.length); for(let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return zipTreeText(a.buffer); }
+const MAX_ATTACH_BYTES = 300 * 1024 * 1024;
+/* 5MB 초과분 1MB(올림)당 5토큰 (표시 토큰 기준) */
+function attachFee(bytes){ const over = bytes / 1048576 - 5; return over > 0 ? Math.ceil(over) * 5 : 0; }
 async function handleFiles(fileList){
   const files = Array.from(fileList).slice(0, 5);
+  fileList = null;
   for(const f of files){
-    if(f.size > 50*1024*1024){ toast(`${f.name}: 50MB 초과 파일은 첨부할 수 없음`); continue; }
+    if(f.size > MAX_ATTACH_BYTES){ toast(`${f.name}: 300MB 초과 파일은 첨부할 수 없음`); continue; }
     const isImg = f.type.startsWith("image/");
     const isText = f.type.startsWith("text/") || /\.(txt|md|csv|json|js|ts|py|html|css)$/i.test(f.name);
-    let dataUrl = null, text = null;
+    let dataUrl = null, text = null, fullText = null, binUrl = null;
     if(isImg){ dataUrl = await fileToDataURL(f); }
-    else if(isText){ text = (await fileToText(f)).slice(0, 6000); }
-    else if(/\.zip$/i.test(f.name) || f.type === "application/zip" || f.type === "application/x-zip-compressed"){
-      try{ text = "📦 ZIP 내용\n" + zipTreeText(await f.arrayBuffer()); }catch(e){ text = "📦 ZIP 내용을 읽지 못했어요: " + e.message; }
+    else if(isText){ fullText = await fileToText(f); text = fullText.slice(0, 6000); }
+    else if(/\.(zip|apk|jar|aab)$/i.test(f.name) || f.type === "application/zip" || f.type === "application/x-zip-compressed"){
+      try{ text = "ZIP 내용\n" + zipTreeText(await f.arrayBuffer()); }catch(e){ text = "ZIP 내용을 읽지 못했어요: " + e.message; }
     }
-    const entry = { name:f.name, type:f.type||"application/octet-stream", isImg, dataUrl, text };
+    const wantFS = (isWorkMode() || isCodeMode()) && window.LinuxFS;
+    // 텍스트·이미지가 아닌 파일(zip, apk, pdf 등)은 가상 컴퓨터에 원본 바이트 그대로 저장한다
+    if(wantFS && !isImg && !isText){ try{ binUrl = await fileToDataURL(f); }catch(e){ console.warn("[첨부] 원본 읽기 실패", e); } }
+    const entry = { name:f.name, type:f.type||"application/octet-stream", isImg, dataUrl, text, size:f.size, fee: attachFee(f.size) };
+    if(fullText != null && fullText.length > 6000) entry.fullText = fullText;
+    if(binUrl) entry.binUrl = binUrl;
     pendingFiles.push(entry);
     // WORK/CODE 모드에서는 업로드한 파일을 가상 Linux_Local(user/download/)에도 저장해서
     // AI가 fs_* 도구로 실제로 읽고/변환하고/수정할 수 있게 한다.
     if((isWorkMode() || isCodeMode()) && window.LinuxFS){
-      try{ LinuxFS.saveUploaded(entry); }catch(e){ console.warn("[Linux_Local] 업로드 저장 실패:", e); }
+      try{ const sp = LinuxFS.saveUploaded(entry); if(!sp) toast(`${f.name}: 가상 컴퓨터에 저장하지 못했어요 (용량 초과)`); }catch(e){ console.warn("[Linux_Local] 업로드 저장 실패:", e); }
+      delete entry.binUrl; delete entry.fullText;
     }
   }
   renderFilePreview();
@@ -1615,7 +1669,7 @@ function renderFilePreview(){
   pendingFiles.forEach((f, idx)=>{
     const chip = document.createElement("div");
     chip.className = "file-preview";
-    chip.innerHTML = (f.isImg && f.dataUrl ? `<img class="fp-thumb" src="${f.dataUrl}" alt="">` : "") + `<span class="fp-name">${f.isImg&&f.dataUrl?"":(f.isImg?"🖼️ ":"📄 ")}${escapeHtml(f.name)}</span><button data-idx="${idx}">✕</button>`;
+    chip.innerHTML = (f.isImg && f.dataUrl ? `<img class="fp-thumb" src="${f.dataUrl}" alt="">` : "") + `<span class="fp-name">${f.isImg&&f.dataUrl?"":(f.isImg?"🖼️ ":"📄 ")}${escapeHtml(f.name)}${f.fee ? ` <span style="opacity:.7">(+${f.fee}토큰)</span>` : ""}</span><button data-idx="${idx}">✕</button>`;
     chip.querySelectorAll("img,.fp-name").forEach(el=>el.addEventListener("click", ()=>openMediaViewer(f)));
     chip.querySelector("button").addEventListener("click", ()=>{
       pendingFiles.splice(idx,1);
@@ -1831,6 +1885,9 @@ async function redeemCode(rawCode){
     toast("⚠️ 코드 확인 중 오류남 (네트워크 확인)");
     return;
   }
+  if(info && info.needLogin){ toast("🔑 이 코드는 로그인 후 사용할 수 있음"); return; }
+  if(info && info.soldout){ toast("😢 선착순 마감된 코드임"); return; }
+  if(info && info.alreadyRedeemed){ toast("⚠️ 이미 사용한 코드임"); return; }
   if(!info || !info.valid){ toast("❌ 존재하지 않는 코드임"); return; }
   startCaptcha(async ()=>{
     let extra = {};
@@ -1849,6 +1906,8 @@ async function redeemCode(rawCode){
       toast("⚠️ 교환 중 오류남 (네트워크 확인)");
       return;
     }
+    if(d && d.soldout){ toast("😢 선착순 마감된 코드임"); return; }
+    if(d && d.needLogin){ toast("🔑 이 코드는 로그인 후 사용할 수 있음"); return; }
     if(d && d.alreadyRedeemed){ toast(d.daily ? "⚠️ 오늘은 이미 사용함" : "⚠️ 이미 사용한 코드임"); return; }
     if(!d || !d.valid){ toast("❌ 교환 실패"); return; }
     if(d.account){
@@ -2659,6 +2718,12 @@ async function sendMessage(){
     return;
   }
 
+  const attachTotalFee = pendingFiles.reduce((a, f)=>a + (f.fee || 0), 0);
+  if(attachTotalFee > 0 && tokensInternal < attachTotalFee * TOKEN_MULT){
+    toast(`파일 첨부에 토큰 ${attachTotalFee}개가 필요해요 (5MB 초과분 1MB당 5토큰). 잔액이 부족해요.`);
+    try{ showTokenOutModal(); }catch(_){}
+    return;
+  }
   const userMsg = { id: uid(), role:"user", content: raw.trim(), files: pendingFiles.slice(), ts: Date.now() };
   chat.messages.push(userMsg);
   if(chat.title === "새 채팅" && raw.trim()){
@@ -2673,6 +2738,7 @@ async function sendMessage(){
   renderTopbar();
   renderMessages();
 
+  if(attachTotalFee > 0){ try{ await chargeTokens(attachTotalFee * TOKEN_MULT, "파일 첨부", userMsg); saveChats(); renderMessages(); }catch(_){} }
   // NO BRAIN인데 WORK/CODE가 더 적합해 보이면, 토큰을 쓰지 않고 모드 전환을 먼저 안내한다.
   if((settings.mode||"nobrain") === "nobrain"){
     const suggested = suggestModeFor(raw);
@@ -3172,6 +3238,22 @@ document.getElementById("newChatBtn").addEventListener("click", ()=>{
 
 document.getElementById("sendBtn").addEventListener("click", sendMessage);
 
+
+/* 큰 패키지(50MB 이상) 설치 동의창 */
+window.ChoiminiConfirm = function(o){
+  return new Promise(res=>{
+    const ov = document.createElement("div");
+    ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px";
+    const box = document.createElement("div");
+    box.style.cssText = "background:#1f1f1f;color:#fff;border-radius:14px;padding:18px 20px;max-width:420px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:14px;line-height:1.5";
+    const t = document.createElement("div"); t.style.cssText = "font-weight:700;font-size:16px;margin-bottom:8px"; t.textContent = "📦 " + (o.title || "확인");
+    const p = document.createElement("div"); p.style.cssText = "white-space:pre-wrap;opacity:.9;margin-bottom:14px"; p.textContent = o.text || "";
+    const row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px;justify-content:flex-end";
+    const mk = (label, val, primary)=>{ const b = document.createElement("button"); b.textContent = label; b.style.cssText = "border:0;border-radius:10px;padding:9px 16px;font-size:14px;cursor:pointer;" + (primary ? "background:#4f8cff;color:#fff" : "background:#3a3a3a;color:#fff"); b.onclick = ()=>{ ov.remove(); res(val); }; return b; };
+    row.append(mk("취소", false), mk("설치", true, true));
+    box.append(t, p, row); ov.appendChild(box); document.body.appendChild(ov);
+  });
+};
 /* 터미널 패키지 다운로드 진행 표시 (처음 사용할 때 / npm 패키지 로드할 때) */
 (function(){
   let box = null, hideT = 0;

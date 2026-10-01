@@ -23,7 +23,18 @@
 
   const ROOT_KEY = "Choimin.Lnc";
   const MAX_TOTAL_BYTES = 4 * 1024 * 1024; // localStorage 여유를 고려한 가상 용량 상한(대략치)
-  const MAX_FILE_BYTES = 512 * 1024;       // 파일 1개당 상한 (텍스트/작은 이미지 기준)
+  const MAX_FILE_BYTES = 300 * 1024 * 1024; // 파일 1개당 상한 (300MB)
+  const BIG_THRESHOLD = 256 * 1024;         // 이보다 큰 파일은 localStorage 대신 IndexedDB(+메모리)에 보관
+  const MAX_BIG_TOTAL = 500 * 1024 * 1024;  // 큰 파일 총량 상한
+  const BIG = new Map();                    // bigId -> content (메모리)
+  const IDB_NAME = "choimini-fs", IDB_STORE = "blobs";
+  function idb(){ return new Promise((res, rej) => { try{ const r = indexedDB.open(IDB_NAME, 1); r.onupgradeneeded = () => r.result.createObjectStore(IDB_STORE); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }catch(e){ rej(e); } }); }
+  function idbPut(id, val){ return idb().then(db => new Promise(res => { const t = db.transaction(IDB_STORE, "readwrite"); t.objectStore(IDB_STORE).put(val, id); t.oncomplete = () => res(true); t.onerror = () => res(false); })).catch(() => false); }
+  function idbGet(id){ return idb().then(db => new Promise(res => { const q = db.transaction(IDB_STORE).objectStore(IDB_STORE).get(id); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); })).catch(() => undefined); }
+  function idbDel(id){ return idb().then(db => new Promise(res => { const t = db.transaction(IDB_STORE, "readwrite"); t.objectStore(IDB_STORE).delete(id); t.oncomplete = () => res(true); t.onerror = () => res(false); })).catch(() => false); }
+  function attachBig(e){ if(e && e.bigId){ const id = e.bigId; Object.defineProperty(e, "content", { get(){ return BIG.has(id) ? BIG.get(id) : ""; }, set(v){ BIG.set(id, v); }, enumerable:true, configurable:true }); } return e; }
+  function cloneEntry(e){ const c = {}; Object.keys(e).forEach(k => { c[k] = e[k]; }); if(e.bigId) attachBig(c); else if("content" in e) c.content = e.content; return c; }
+  function gcBig(){ const used = new Set(); for(const k in state.fs){ const e = state.fs[k]; if(e && e.bigId) used.add(e.bigId); } [...BIG.keys()].forEach(id => { if(!used.has(id)){ BIG.delete(id); idbDel(id); } }); }
 
   const DEFAULT_DIRS = [
     "/", "/cmds", "/package", "/tmp",
@@ -78,17 +89,19 @@
     let n = 0;
     for(const k in state.fs){
       const e = state.fs[k];
-      if(e.type === "file") n += (e.size || 0);
+      if(e.type === "file" && !e.bigId) n += (e.size || 0);
     }
     return n;
   }
+  function bigBytes(){ let n = 0; for(const k in state.fs){ const e = state.fs[k]; if(e.type === "file" && e.bigId) n += (e.size || 0); } return n; }
 
   function persist(){
     try{
       const root = JSON.parse(localStorage.getItem(ROOT_KEY) || "{}");
       root.AI_Service = root.AI_Service || {};
       root.AI_Service.Linux_Local = state;
-      localStorage.setItem(ROOT_KEY, JSON.stringify(root));
+      localStorage.setItem(ROOT_KEY, JSON.stringify(root, function(k, v){ return (k === "content" && this && this.bigId) ? undefined : v; }));
+      try{ gcBig(); }catch(_){}
       return true;
     }catch(e){
       console.error("[LinuxFS] 저장 실패(저장공간 부족 가능):", e);
@@ -105,6 +118,7 @@
         // 새 기본 디렉터리가 추가된 경우 backfill
         DEFAULT_DIRS.forEach(d => { if(!state.fs[d]) state.fs[d] = { type:"dir", createdAt: nowTs() }; });
         if(!state.cwd || !state.fs[state.cwd]) state.cwd = "/";
+        Object.keys(state.fs).forEach(k => { const e = state.fs[k]; if(e && e.bigId){ attachBig(e); idbGet(e.bigId).then(v => { if(v != null) BIG.set(e.bigId, v); }); } });
       } else {
         state = blankState();
         persist();
@@ -143,6 +157,7 @@
   }
 
   function byteSize(content){
+    if(typeof content === "string"){ const m = /^data:[^,]*;base64,/.exec(content); if(m){ const n = content.length - m[0].length; return Math.floor(n * 3 / 4) - (content.endsWith("==") ? 2 : content.endsWith("=") ? 1 : 0); } if(content.length > 2000000) return content.length * 3; }
     try{ return new Blob([content]).size; }catch(e){ return (content||"").length; }
   }
 
@@ -191,10 +206,19 @@
     const p = normPath(joinPath(state.cwd, path));
     const size = byteSize(content);
     if(size > MAX_FILE_BYTES) throw new Error(`파일이 너무 큼(가상 환경 상한 ${Math.round(MAX_FILE_BYTES/1024)}KB): ${p}`);
-    if(!exists(p) && totalBytes() + size > MAX_TOTAL_BYTES) throw new Error("Linux_Local 저장공간이 가득 참");
+    const big = size > BIG_THRESHOLD;
+    const prevE = exists(p) && state.fs[p].type==="file" ? state.fs[p] : null;
+    const prevSize = prevE ? (prevE.size||0) : 0, prevBig = !!(prevE && prevE.bigId);
+    if(big){ if(bigBytes() - (prevBig ? prevSize : 0) + size > MAX_BIG_TOTAL) throw new Error("Linux_Local 큰 파일 저장공간이 가득 참 (총 " + Math.round(MAX_BIG_TOTAL/1048576) + "MB)"); }
+    else if(totalBytes() - (prevBig ? 0 : prevSize) + size > MAX_TOTAL_BYTES) throw new Error("Linux_Local 저장공간이 가득 참");
     ensureParentDirs(p);
-    const prevSize = exists(p) && state.fs[p].type==="file" ? (state.fs[p].size||0) : 0;
-    if(totalBytes() - prevSize + size > MAX_TOTAL_BYTES) throw new Error("Linux_Local 저장공간이 가득 참");
+    if(big){
+      const id = "b" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      BIG.set(id, content); idbPut(id, content);
+      state.fs[p] = attachBig({ type:"file", bigId:id, mime: mime || (prevE && prevE.mime) || "application/octet-stream", size, createdAt:(prevE ? prevE.createdAt : nowTs()), updatedAt: nowTs() });
+      if(!persist()) throw new Error("저장 실패: 브라우저 저장공간 부족");
+      return p;
+    }
     state.fs[p] = {
       type:"file", content: content, mime: mime || (state.fs[p]&&state.fs[p].mime) || "text/plain",
       size, createdAt: (exists(p) ? state.fs[p].createdAt : nowTs()), updatedAt: nowTs()
@@ -231,7 +255,7 @@
     if(!exists(src)) throw new Error(`없음: ${src}`);
     if(isDir(dst)) dst = joinPath(dst, baseName(src));
     if(isFile(src)){
-      state.fs[dst] = Object.assign({}, state.fs[src], { updatedAt: nowTs() });
+      state.fs[dst] = Object.assign(cloneEntry(state.fs[src]), { updatedAt: nowTs() });
       delete state.fs[src];
     } else {
       const prefix = src + "/";
@@ -260,7 +284,7 @@
       copies.forEach(k => {
         const rel = k.slice(src.length);
         const nk = dst + rel;
-        state.fs[nk] = JSON.parse(JSON.stringify(state.fs[k]));
+        state.fs[nk] = cloneEntry(state.fs[k]);
       });
       persist();
     }
@@ -368,7 +392,7 @@
   function saveUploaded(file){
     const name = (file.name || ("file_" + nowTs())).replace(/[/\\]/g, "_");
     const target = "/user/download/" + name;
-    const content = file.isImg ? file.dataUrl : (file.text != null ? file.text : "");
+    const content = file.isImg ? file.dataUrl : (file.binUrl ? file.binUrl : (file.fullText != null ? file.fullText : (file.text != null ? file.text : "")));
     try{
       writeFile(target, content, file.type || (file.isImg ? "image/*" : "text/plain"));
       return target;

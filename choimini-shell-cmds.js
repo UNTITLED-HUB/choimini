@@ -279,7 +279,7 @@
     const one = (t, name) => { const l = (t.match(/\n/g) || []).length, w = (t.trim() ? t.trim().split(/\s+/).length : 0), c = enc.encode(t).length; tl += l; tw += w; tc += c;
       const cols = []; if(all || f.l) cols.push(l); if(all || f.w) cols.push(w); if(all || f.c) cols.push(c); if(f.m) cols.push(Array.from(t).length);
       io.out += cols.map(x => String(x).padStart(7)).join("") + (name ? " " + name : "") + "\n"; };
-    if(!rest.length) one(io.stdin, ""); else rest.forEach(p => { const t = getText(io, "wc", p); if(t == null) code = 1; else one(t, p); });
+    if(!rest.length) one(io.stdin, ""); else rest.forEach(p => { const st0 = statOf(p); if(st0 && st0.type === "file" && isBinContent(st0.content)){ const n = getBytes(p).length; tc += n; io.out += (all || f.c ? String(n).padStart(7) : "") + " " + p + "\n"; return; } const t = getText(io, "wc", p); if(t == null) code = 1; else one(t, p); });
     if(rest.length > 1){ const cols = []; if(all || f.l) cols.push(tl); if(all || f.w) cols.push(tw); if(all || f.c) cols.push(tc); io.out += cols.map(x => String(x).padStart(7)).join("") + " total\n"; }
     return code;
   });
@@ -639,24 +639,123 @@
       return 0; }
     return E(io, "pkg", "사용법: pkg install|uninstall|list|search|update <이름>");
   });
-  def("pip", "Python 패키지 (pip install/list/uninstall) — python 실행 시 Pyodide(micropip)로 로드", (a, io) => {
-    const { rest } = opts(a); const sub = rest[0], names = rest.slice(1).filter(n => n[0] !== "-");
-    if(sub === "install"){ if(!names.length) return E(io, "pip", "패키지 이름 필요"); names.forEach(n => { io.out += `${n}: ${recordPkg("pip", n.split(/[=<>~]/)[0]) ? "설치 기록됨" : "이미 기록됨"} (python 실행 시 micropip 으로 실제 로드 시도 — 순수 파이썬/Pyodide 지원 패키지만 가능)\n`; }); return 0; }
+  /* ======================= 실제 패키지 관리 (pip → Pyodide/micropip·PyPI, npm → esm.sh) =======================
+     설치 전에 크기를 확인하고, 50MB 이상이면 사용자 동의를 받은 뒤에만 진행한다. */
+  const PKG_LIMIT = 50 * 1024 * 1024, PYO = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/";
+  const fmtSize = n => n >= 1048576 ? (n / 1048576).toFixed(n >= 10485760 ? 0 : 1) + "MB" : Math.max(1, Math.round(n / 1024)) + "KB";
+  const lsGet = (k, d) => { try{ return JSON.parse(localStorage.getItem(k) || "null") || d; }catch(e){ return d; } };
+  const lsSet = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
+  async function fetchJson(u){ const r = await fetch(u); if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); }
+  async function headSize(u){
+    const cache = lsGet("choimini_pkg_sizes", {}); if(cache[u]) return cache[u];
+    try{ const r = await fetch(u, { method:"HEAD" }); const n = +r.headers.get("content-length") || 0; if(n){ cache[u] = n; lsSet("choimini_pkg_sizes", cache); } return n; }catch(e){ return 0; }
+  }
+  let LOCK = null;
+  async function pyLock(){ if(!LOCK) LOCK = (await fetchJson(PYO + "pyodide-lock.json")).packages || {}; return LOCK; }
+  const normPy = n => String(n).toLowerCase().replace(/[._]/g, "-").replace(/\[.*$/, "");
+  /* 파이썬 패키지 해석: Pyodide 내장 빌드(numpy·pandas·scipy·matplotlib·scikit-learn …) 우선, 없으면 PyPI 순수 파이썬 휠(micropip) */
+  async function pyResolve(names){
+    const lock = await pyLock(), lockKeys = {}; Object.keys(lock).forEach(k => { lockKeys[normPy(k)] = k; });
+    const lockSet = new Set(), pip = [], missing = []; let bytes = 0; const parts = [];
+    const addLock = k => { if(lockSet.has(k) || !lock[k]) return; lockSet.add(k); (lock[k].depends || []).forEach(d => { const dk = lockKeys[normPy(d)] || d; addLock(dk); }); };
+    for(const raw of names){
+      const spec = String(raw), n = normPy(spec.split(/[=<>~!;@ ]/)[0]);
+      if(lockKeys[n]){ addLock(lockKeys[n]); continue; }
+      try{
+        const info = await fetchJson("https://pypi.org/pypi/" + encodeURIComponent(n) + "/json");
+        const wheel = (info.urls || []).find(u => u.packagetype === "bdist_wheel" && /-(none-any|py3-none-any|pyodide[^.]*|emscripten[^.]*)\.whl$/.test(u.filename));
+        if(!wheel){ missing.push(n + " (PyPI에는 있지만 브라우저(Pyodide)용 휠이 없어요 — 네이티브 확장 패키지)"); continue; }
+        pip.push(spec.replace(/\s+/g, "")); bytes += wheel.size || 0; parts.push(n + " " + fmtSize(wheel.size || 0));
+      }catch(e){ missing.push(n + " (PyPI에서 찾지 못했어요)"); }
+    }
+    for(const k of lockSet){ const sz = await headSize(PYO + lock[k].file_name); bytes += sz; if(sz > 5e6) parts.push(k + " " + fmtSize(sz)); }
+    return { lock:[...lockSet], pip, missing, bytes, parts };
+  }
+  async function askConsent(label, bytes, parts){
+    const ok = lsGet("choimini_pkg_consent", {});
+    if(bytes < PKG_LIMIT || ok[label]) return true;
+    const info = { title:"큰 패키지 설치", text:`${label} — 약 ${fmtSize(bytes)}\n(${(parts || []).slice(0, 6).join(", ")})\n\n50MB 이상이라 데이터를 많이 쓰고 처음 실행이 느릴 수 있어요. 설치할까요?` };
+    let yes = false;
+    try{ yes = global.ChoiminiConfirm ? await global.ChoiminiConfirm(info) : global.confirm(info.title + "\n\n" + info.text); }catch(e){ yes = false; }
+    if(yes){ ok[label] = Date.now(); lsSet("choimini_pkg_consent", ok); }
+    return yes;
+  }
+  const PY_STD = new Set("os sys re json math random time datetime collections itertools functools typing pathlib io string csv sqlite3 hashlib base64 urllib http socket threading asyncio subprocess shutil glob copy dataclasses enum abc argparse logging unittest struct zlib gzip zipfile tarfile tempfile textwrap uuid decimal fractions statistics heapq bisect operator contextlib traceback inspect pickle platform secrets html xml email warnings weakref queue signal ssl select array codecs locale gc ast dis types numbers pprint calendar configparser fnmatch getpass sched stat unicodedata webbrowser zoneinfo __future__ builtins".split(" "));
+  function pyImports(src){ const s = new Set(); let m; const re = /^[ \t]*(?:from[ \t]+([A-Za-z_][\w]*)[\w.]*[ \t]+import|import[ \t]+([A-Za-z_][\w.,\t ]*))/gm; while((m = re.exec(src))){ if(m[1]) s.add(m[1]); else m[2].split(",").forEach(x => { const t = x.trim().split(/[ .]/)[0]; if(t) s.add(t); }); } return [...s].filter(x => !PY_STD.has(x)); }
+  /* 실행 전: 코드가 import 하는 패키지 + pip 로 설치한 패키지를 해석해 크기 확인·동의 후 목록 반환 */
+  async function preparePython(code, files){
+    const lock = await pyLock().catch(() => ({})), byImport = {};
+    Object.keys(lock).forEach(k => (lock[k].imports || []).forEach(im => { byImport[im] = k; }));
+    const local = new Set(Object.keys(files || {}).filter(p => /\.py$/.test(p)).map(p => p.split("/").pop().replace(/\.py$/, "")));
+    const srcs = [code].concat(Object.keys(files || {}).filter(p => /\.py$/.test(p) && !p.startsWith("/cmds/")).slice(0, 40).map(p => files[p]));
+    const want = new Set(listPkgs("pip"));
+    srcs.forEach(t => pyImports(t).forEach(im => { if(local.has(im)) return; if(byImport[im]) want.add(byImport[im]); }));
+    if(!want.size) return { lock:[], pip:[] };
+    const r = await pyResolve([...want]);
+    if(!(await askConsent("python:" + [...want].sort().join(","), r.bytes, r.parts))) throw new Error("큰 패키지 설치를 취소했어요");
+    return { lock:r.lock, pip:r.pip };
+  }
+  /* npm: registry 의 unpackedSize 로 크기 확인 (실행 시 esm.sh 로 브라우저용 번들을 불러옴) */
+  async function npmInfo(spec){
+    const m = /^(@?[^@]+)(?:@(.+))?$/.exec(spec), name = m[1], ver = m[2] || "latest";
+    const j = await fetchJson("https://registry.npmjs.org/" + name.replace("/", "%2F") + "/" + encodeURIComponent(ver));
+    return { name, version:j.version, size:(j.dist && j.dist.unpackedSize) || 0 };
+  }
+  const NODE_BUILTIN = new Set("fs path os util events assert crypto http https readline child_process url stream zlib buffer process timers module net tls dns worker_threads querystring string_decoder vm dotenv node-fetch discord.js".split(" "));
+  function npmScan(src){ const r = new Set(); let m; for(const re of [/require\(\s*['"]([^'"]+)['"]\s*\)/g, /from\s*['"]([^'"]+)['"]/g, /import\s*['"]([^'"]+)['"]/g]) while((m = re.exec(src))) r.add(m[1]); return [...r].map(n => n.replace(/^node:/, "")).filter(n => !n.startsWith(".") && !n.startsWith("/") && !n.startsWith("http") && !NODE_BUILTIN.has(n.split("/")[0]) && !NODE_BUILTIN.has(n)); }
+  const npmBase = n => n.startsWith("@") ? n.split("/").slice(0, 2).join("/") : n.split("/")[0];
+  async function installNpm(specs, io){
+    let c = 0;
+    for(const sp of specs){
+      try{
+        const info = await npmInfo(sp);
+        if(!(await askConsent("npm:" + info.name, info.size, [info.name + " " + fmtSize(info.size)]))){ io.err += `${sp}: 큰 패키지(${fmtSize(info.size)}) 설치를 취소했어요\n`; c = 1; continue; }
+        const added = recordPkg("npm", sp.replace(/\//g, "__"));
+        io.out += `+ ${info.name}@${info.version} (${info.size ? fmtSize(info.size) : "크기 미상"}) ${added ? "설치됨" : "이미 설치됨"} — node 실행 시 자동으로 불러와요\n`;
+      }catch(e){ io.err += `npm: '${sp}' 를 찾지 못했어요 (${e.message})\n`; c = 1; }
+    }
+    return c;
+  }
+  async function prepareNode(code, files){
+    const names = new Set(); npmScan(code).forEach(n => names.add(npmBase(n)));
+    Object.keys(files || {}).filter(k => /\.(m?js|cjs)$/.test(k) && !k.startsWith("/cmds/") && !k.startsWith("/package/") && !k.includes("node_modules")).slice(0, 60).forEach(k => npmScan(files[k]).forEach(n => names.add(npmBase(n))));
+    const todo = [...names].filter(n => !FS.isFile("/package/npm/" + n.replace(/\//g, "__")));
+    for(const n of todo){
+      try{ const info = await npmInfo(n); if(!(await askConsent("npm:" + info.name, info.size, [info.name + " " + fmtSize(info.size)]))) throw new Error(n + " 설치를 취소했어요 (" + fmtSize(info.size) + ")"); recordPkg("npm", n.replace(/\//g, "__")); }
+      catch(e){ if(/취소/.test(e.message)) throw e; }
+    }
+  }
+  def("pip", "Python 패키지 (pip install/list/uninstall) — 실제 설치: Pyodide 내장 빌드 + PyPI 순수 파이썬 휠, 50MB 이상은 동의 후 설치", async (a, io) => {
+    const { rest, v } = opts(a, "r"); const sub = rest[0]; let names = rest.slice(1).filter(n => n[0] !== "-");
+    if(sub === "install"){
+      if(v.r){ const t = getText(io, "pip", v.r); if(t == null) return 1; names = names.concat(t.split("\n").map(l => l.replace(/#.*/, "").trim()).filter(Boolean)); }
+      if(!names.length) return E(io, "pip", "패키지 이름 필요");
+      let r; try{ r = await pyResolve(names); }catch(e){ return E(io, "pip", "패키지 정보를 가져오지 못했어요 (" + e.message + ")"); }
+      r.missing.forEach(m => { io.err += `pip: ${m}\n`; });
+      if(!r.lock.length && !r.pip.length) return 1;
+      if(!(await askConsent("python:" + names.slice().sort().join(","), r.bytes, r.parts))){ io.err += `pip: 큰 패키지(${fmtSize(r.bytes)}) 설치를 취소했어요\n`; return 1; }
+      names.forEach(n => { const k = normPy(n.split(/[=<>~!;@ ]/)[0]); if(!r.missing.some(m => m.startsWith(k))){ recordPkg("pip", n.replace(/[^\w.\-\[\]]/g, "_")); } });
+      io.out += `설치 준비 완료: ${r.lock.concat(r.pip).join(", ")} (약 ${fmtSize(r.bytes)}) — python 실행 시 자동으로 불러와요\n`; return r.missing.length ? 1 : 0;
+    }
     if(sub === "list" || sub === "freeze"){ io.out += nl(listPkgs("pip")); return 0; }
     if(sub === "uninstall"){ names.forEach(n => { try{ FS.rm(`/package/pip/${n}`, false); io.out += `제거됨: ${n}\n`; }catch(e){ E(io, "pip", `${n}: not installed`); } }); return 0; }
-    return E(io, "pip", "사용법: pip install|list|uninstall <이름>");
+    return E(io, "pip", "사용법: pip install [-r requirements.txt] <이름> | list | uninstall <이름>");
   });
   def("pip3", "pip 와 동일", (a, io, ctx) => S.registry.pip.fn(a, io, ctx));
-  def("npm", "Node 패키지 기록 (npm install/list/uninstall/init/run) — 격리된 node 실행기에는 모듈 로딩 제약", (a, io) => {
-    const { rest } = opts(a); const sub = rest[0], names = rest.slice(1).filter(n => n[0] !== "-");
-    if(sub === "install" || sub === "i"){ if(!names.length){ io.out += "up to date (package.json 의존성 설치는 지원하지 않아요)\n"; return 0; } names.forEach(n => { io.out += `${n}: ${recordPkg("npm", n) ? "설치 기록됨" : "이미 기록됨"} ⚠ node 실행기(격리 iframe)는 require() 로 npm 모듈을 불러오지 못해요. 필요하면 코드에서 await import("https://esm.sh/${n}") 를 사용하세요.\n`; }); return 0; }
-    if(sub === "list" || sub === "ls"){ io.out += nl(listPkgs("npm")); return 0; }
-    if(sub === "uninstall" || sub === "remove"){ names.forEach(n => { try{ FS.rm(`/package/npm/${n}`, false); io.out += `제거됨: ${n}\n`; }catch(e){ E(io, "npm", `${n}: not installed`); } }); return 0; }
+  def("npm", "Node 패키지 (npm install/list/uninstall/init) — esm.sh 로 브라우저용 번들을 불러옴, 50MB 이상은 동의 후 설치", async (a, io) => {
+    const { rest } = opts(a); const sub = rest[0]; let names = rest.slice(1).filter(n => n[0] !== "-");
+    if(sub === "install" || sub === "i" || sub === "add"){
+      if(!names.length){ const t = statOf("package.json"); if(t && t.type === "file"){ try{ const pj = JSON.parse(t.content); names = Object.keys(Object.assign({}, pj.dependencies, pj.devDependencies)).map(k => { const ver = (pj.dependencies || {})[k] || (pj.devDependencies || {})[k] || ""; return /^[~^]?\d/.test(ver) ? k + "@" + ver.replace(/^[~^]/, "") : k; }); }catch(e){ return E(io, "npm", "package.json 을 읽지 못했어요"); } } if(!names.length){ io.out += "up to date\n"; return 0; } }
+      return installNpm(names, io);
+    }
+    if(sub === "list" || sub === "ls"){ io.out += nl(listPkgs("npm").map(x => x.replace(/__/g, "/"))); return 0; }
+    if(sub === "uninstall" || sub === "remove" || sub === "rm"){ names.forEach(n => { try{ FS.rm(`/package/npm/${n.replace(/\//g, "__")}`, false); io.out += `제거됨: ${n}\n`; }catch(e){ E(io, "npm", `${n}: not installed`); } }); return 0; }
     if(sub === "init"){ try{ FS.writeFile("package.json", JSON.stringify({ name:"project", version:"1.0.0", main:"index.js" }, null, 2) + "\n"); io.out += "package.json 생성됨\n"; }catch(e){ return E(io, "npm", e.message); } return 0; }
     if(sub === "-v" || sub === "--version"){ io.out += "npm (choimini virtual)\n"; return 0; }
-    return E(io, "npm", "사용법: npm install|list|uninstall|init <이름>  (npm run/start 등은 지원하지 않아요)");
+    if(sub === "run" || sub === "start" || sub === "test"){ const t = statOf("package.json"); let sc = null; try{ const pj = JSON.parse(t.content); const key = sub === "run" ? names[0] : sub; sc = (pj.scripts || {})[key] || (sub === "start" && pj.main ? "node " + pj.main : null); }catch(e){} if(!sc) return E(io, "npm", "실행할 scripts 항목이 없어요"); const r = await S.run(sc); io.out += r.stdout || ""; io.err += r.stderr || ""; return r.code; }
+    return E(io, "npm", "사용법: npm install|list|uninstall|init|run|start <이름>");
   });
-  def("npx", "npx <스크립트.js> → node 로 실행 (외부 패키지 실행은 미지원)", (a, io, ctx) => { if(a[0] && /\.(m?js|cjs)$/.test(a[0])) return S.registry.node.fn(a, io, ctx); return E(io, "npx", "외부 패키지 실행은 지원하지 않아요. .js 파일 경로를 주세요"); });
+  def("npx", "npx <스크립트.js> 또는 <패키지> → node 실행", (a, io, ctx) => { if(a[0] && /\.(m?js|cjs)$/.test(a[0])) return S.registry.node.fn(a, io, ctx); return E(io, "npx", "npm 패키지 CLI 는 브라우저에서 실행할 수 없어요. .js 파일 경로를 주세요"); });
 
   /* ======================= python / node (격리 iframe 샌드박스) =======================
      iframe sandbox="allow-scripts" (same-origin 없음) → 사이트의 localStorage/API 키에 접근 불가.
@@ -798,16 +897,17 @@ module.exports={Client,Collection,EmbedBuilder,SlashCommandBuilder,ActionRowBuil
     })();
     return firstUseP;
   }
-  function runSandbox(kind, code, args, timeoutMs){
+  function snapshotBinary(){ const out = {}; let total = 0; try{ FS.find("/").forEach(p => { const st = statOf(p); if(!st || st.type !== "file" || p.startsWith("/cmds/") || p.startsWith("/package/")) return; const cc = String(st.content == null ? "" : st.content); if(!isBinContent(cc)) return; const b64 = cc.slice(cc.indexOf(",") + 1); if(total + b64.length > 24000000) return; total += b64.length; out[p] = b64; }); }catch(e){} return out; }
+  function runSandbox(kind, code, args, timeoutMs, prep){
     return new Promise(resolve => {
-      const files = snapshotFiles(); const cwd = FS.pwd(); const id = "sb" + Math.random().toString(36).slice(2);
-      const pipPkgs = kind === "python" ? listPkgs("pip") : [];
+      const files = snapshotFiles(); const bfiles = snapshotBinary(); const cwd = FS.pwd(); const id = "sb" + Math.random().toString(36).slice(2);
+      const pyPkgs = prep && prep.lock ? prep : { lock:[], pip:[] };
       const frame = document.createElement("iframe"); frame.setAttribute("sandbox", "allow-scripts"); frame.style.display = "none";
       let done = false; const finish = r => { if(done) return; done = true; window.removeEventListener("message", onMsg); clearTimeout(timer); frame.remove(); resolve(r); };
       const timer = setTimeout(() => finish({ out:"", err:`실행 시간 초과 (${Math.round(timeoutMs / 1000)}초)\n`, code:124, changed:{} }), timeoutMs);
       const onMsg = ev => { if(ev.source !== frame.contentWindow || !ev.data || ev.data.id !== id) return; if(ev.data.type === "progress"){ termProgress(ev.data.text, ev.data.pct, ev.data.done); return; } finish(ev.data.result); };
       window.addEventListener("message", onMsg);
-      const payload = JSON.stringify({ id, code, args, files, cwd, pipPkgs, discordSrc: DISCORD_SRC, env: Object.assign({}, S.env || {}), maxMs: timeoutMs - 5000, intervalMs: 4000 }).replace(/</g, "\\u003c");
+      const payload = JSON.stringify({ id, code, args, files, cwd, pyPkgs, bfiles, discordSrc: DISCORD_SRC, env: Object.assign({}, S.env || {}), maxMs: timeoutMs - 5000, intervalMs: 4000 }).replace(/</g, "\\u003c");
       const common = `const P=${payload};const post=r=>parent.postMessage({id:P.id,result:r},"*");`;
       const nodeScript = common + NODE_SRC;
       const pyScript = `${common}
@@ -815,10 +915,15 @@ module.exports={Client,Collection,EmbedBuilder,SlashCommandBuilder,ActionRowBuil
 const py=await loadPyodide();py.setStdout({batched:l=>{out+=l+"\\n"}});py.setStderr({batched:l=>{err+=l+"\\n"}});
 const ROOT="/vfs";const mk=d=>{let c="";d.split("/").filter(Boolean).forEach(s=>{c+="/"+s;try{py.FS.mkdir(c)}catch(e){}})};mk(ROOT);
 Object.keys(P.files).forEach(p=>{mk(ROOT+p.split("/").slice(0,-1).join("/"));py.FS.writeFile(ROOT+p,P.files[p])});mk(ROOT+P.cwd);py.FS.chdir(ROOT+P.cwd);
-if(P.pipPkgs.length){try{await py.loadPackage("micropip");const mp=py.pyimport("micropip");for(const n of P.pipPkgs){try{await py.loadPackage(n)}catch(e){try{await mp.install(n)}catch(e2){err+="pip: '"+n+"' 로드 실패 ("+e2.message.split("\\n")[0]+")\\n"}}}}catch(e){}}
+const note=(t,p,d)=>{try{parent.postMessage({id:P.id,type:"progress",text:t,pct:p,done:!!d},"*")}catch(e){}};
+if(P.pyPkgs.lock.length){note("터미널 패키지 다운로드중... "+P.pyPkgs.lock.slice(0,3).join(", "),10);try{await py.loadPackage(P.pyPkgs.lock)}catch(e){err+="pyodide 패키지 로드 실패: "+String(e.message||e).split("\\n")[0]+"\\n"}}
+if(P.pyPkgs.pip.length){note("터미널 패키지 다운로드중... (PyPI)",50);try{await py.loadPackage("micropip");const mp=py.pyimport("micropip");for(const n of P.pyPkgs.pip){try{await mp.install(n)}catch(e2){err+="pip: '"+n+"' 설치 실패 ("+String(e2.message).split("\\n")[0]+")\\n"}}}catch(e){err+="micropip 로드 실패\\n"}}
+try{await py.loadPackagesFromImports(P.code)}catch(e){}
+if(P.pyPkgs.lock.length||P.pyPkgs.pip.length)note("터미널 패키지 준비 완료",100,true);
+Object.keys(P.bfiles||{}).forEach(p=>{mk(ROOT+p.split("/").slice(0,-1).join("/"));const b=atob(P.bfiles[p]);const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);py.FS.writeFile(ROOT+p,u)});
 py.globals.set("__args",P.args);await py.runPythonAsync("import sys\\nsys.argv=list(__args)");
 let code=0;try{await py.runPythonAsync(P.code)}catch(e){err+=String(e.message||e).split("\\n").slice(-6).join("\\n")+"\\n";code=1}
-const changed={};const walk=d=>{py.FS.readdir(d).forEach(n=>{if(n==="."||n==="..")return;const f=d+"/"+n;const st=py.FS.stat(f);if(py.FS.isDir(st.mode))walk(f);else{try{const t=py.FS.readFile(f,{encoding:"utf8"});const key=f.slice(ROOT.length);if(P.files[key]!==t)changed[key]=t}catch(e){}}})};walk(ROOT);post({out,err,code,changed})}catch(e){post({out,err:err+String(e&&e.message||e)+"\\n",code:1,changed:{}})}})();`;
+const changed={};const walk=d=>{py.FS.readdir(d).forEach(n=>{if(n==="."||n==="..")return;const f=d+"/"+n;const st=py.FS.stat(f);if(py.FS.isDir(st.mode))walk(f);else{try{const key=f.slice(ROOT.length);if(P.bfiles&&P.bfiles[key])return;const u=py.FS.readFile(f);let t=null;try{t=new TextDecoder("utf-8",{fatal:true}).decode(u)}catch(e){}if(t!==null&&t.indexOf("\\u0000")<0){if(P.files[key]!==t)changed[key]=t}else if(u.length<8000000){let s="";for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));const ext=(key.split(".").pop()||"").toLowerCase();const mt={png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",gif:"image/gif",svg:"image/svg+xml",pdf:"application/pdf",zip:"application/zip",webp:"image/webp"}[ext]||"application/octet-stream";changed[key]="data:"+mt+";base64,"+btoa(s)}}catch(e){}}})};walk(ROOT);post({out,err,code,changed})}catch(e){post({out,err:err+String(e&&e.message||e)+"\\n",code:1,changed:{}})}})();`;
       frame.srcdoc = `<!doctype html><html><body><script>${kind === "python" ? pyScript : nodeScript}<\/script></body></html>`;
       document.body.appendChild(frame);
     });
@@ -833,13 +938,16 @@ const changed={};const walk=d=>{py.FS.readdir(d).forEach(n=>{if(n==="."||n==="..
     else if(io.stdin){ code = io.stdin; args = ["-"]; }
     else return E(io, kind, "실행할 스크립트 파일이나 -c '코드' 가 필요해요");
     await firstUse(kind);
-    const r = await runSandbox(kind, code, args, kind === "python" ? 120000 : 60000);
+    let prep = null;
+    try{ prep = kind === "python" ? await preparePython(code, snapshotFiles()) : (await prepareNode(code, snapshotFiles()), null); }
+    catch(e){ return E(io, kind, e.message); }
+    const r = await runSandbox(kind, code, args, kind === "python" ? 300000 : 90000, prep);
     io.out += r.out; io.err += r.err;
     Object.keys(r.changed || {}).forEach(p => { try{ FS.writeFile(p, r.changed[p]); }catch(e){ io.err += `(파일 저장 실패 ${p}: ${e.message})\n`; } });
     return r.code;
   }
   def(["python", "python3"], "Python 실행 (Pyodide/WebAssembly, 격리 샌드박스)", (a, io) => runInterpreter("python", a, io));
-  def(["node", "nodejs"], "JavaScript 실행 (격리 샌드박스, fs/path 지원)", (a, io) => runInterpreter("node", a, io));
+  def(["node", "nodejs"], "JavaScript 실행 (격리 샌드박스, npm 패키지는 자동으로 불러옴)", (a, io) => runInterpreter("node", a, io));
 
 
   /* ======================= HTML 미리보기 / 실제 테스트 (htmltest, jscheck) =======================
