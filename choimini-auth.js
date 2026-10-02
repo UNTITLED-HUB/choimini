@@ -67,14 +67,18 @@
         '  <div class="clg-or"><span>또는 이메일 로그인 링크</span></div>' +
         '  <div id="clgEmailStep1" class="clg-row">' +
         '    <input id="clgEmail" type="email" autocomplete="email" placeholder="이메일 주소 (학교 계정 가능)" />' +
-        '    <button id="clgSendBtn" class="clg-mini">로그인 링크 받기</button>' +
+        '  </div>' +
+        '  <div class="clg-row">' +
+        '    <button id="clgSendBtn" class="clg-mini" style="flex:1;padding:11px 8px">Supabase 메일로 받기</button>' +
+        '    <button id="clgCustomBtn" class="clg-mini" style="flex:1;padding:11px 8px;background:#6366f1">커스텀 메일로 받기</button>' +
         '  </div>' +
         '  <div id="clgError" class="clg-error"></div>' +
         '</div>';
       document.body.appendChild(gate);
       document.getElementById("clgGoogleBtn").addEventListener("click", login);
-      document.getElementById("clgSendBtn").addEventListener("click", sendEmailCode);
-      document.getElementById("clgEmail").addEventListener("keydown", function (e) { if (e.key === "Enter") sendEmailCode(); });
+      document.getElementById("clgSendBtn").addEventListener("click", function () { sendEmailCode(false); });
+      document.getElementById("clgCustomBtn").addEventListener("click", function () { sendEmailCode(true); });
+      document.getElementById("clgEmail").addEventListener("keydown", function (e) { if (e.key === "Enter") sendEmailCode(false); });
     }
     gate.style.display = "flex";
     document.documentElement.classList.add("choimini-locked");
@@ -93,13 +97,28 @@
 
   /* ---------------- 이메일 인증번호 로그인 (Google 이 막힌 학교/회사 계정용) ---------------- */
   let pendingEmail = "";
-  async function sendEmailCode() {
+  async function sendCustomMail(email) {
+    const res = await fetch(SUPABASE_URL + "/functions/v1/custom-mail-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email: email, redirectTo: location.origin + location.pathname }),
+    });
+    let d = {}; try { d = await res.json(); } catch (e) {}
+    if (res.ok && d.ok) return;
+    if (d.error === "not_configured") throw new Error("커스텀 메일이 아직 설정되지 않았어요");
+    if (d.error === "cooldown") throw new Error("rate limit: 1분 뒤에 다시 시도해줘");
+    throw new Error(d.error || ("HTTP " + res.status));
+  }
+  async function sendEmailCode(custom) {
     const email = (document.getElementById("clgEmail").value || "").trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { gateError("이메일 주소를 확인해줘"); return; }
-    const btn = document.getElementById("clgSendBtn"); btn.disabled = true; gateError("");
+    const btn = document.getElementById(custom ? "clgCustomBtn" : "clgSendBtn"); btn.disabled = true; gateError("");
     try {
-      const { error } = await supabase.auth.signInWithOtp({ email: email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
-      if (error) throw error;
+      if (custom) { await sendCustomMail(email); }
+      else {
+        const { error } = await supabase.auth.signInWithOtp({ email: email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
+        if (error) throw error;
+      }
       pendingEmail = email;
       gateError("로그인 링크를 메일로 보냈어요. 같은 브라우저에서 메일의 링크를 눌러주세요. (스팸함도 확인)");
       setTimeout(function () { btn.disabled = false; }, 30000);
@@ -223,6 +242,16 @@
 
   /* ---------------- 세션 부트스트랩 ---------------- */
   async function bootstrapSession() {
+    try { // 커스텀 메일 로그인 링크(?token_hash=...&type=magiclink)
+      const q = new URLSearchParams(location.search);
+      const th = q.get("token_hash"), ty = q.get("type");
+      if (th && ty === "magiclink") {
+        const { error } = await supabase.auth.verifyOtp({ token_hash: th, type: "magiclink" });
+        q.delete("token_hash"); q.delete("type");
+        history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : "") + location.hash);
+        if (error) console.warn("custom mail login failed", error.message);
+      }
+    } catch (e) { console.warn(e); }
     const { data } = await supabase.auth.getSession();
     const session = data && data.session;
     if (!session || !session.user) {
