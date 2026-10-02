@@ -364,6 +364,13 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
   padding: 13px 16px; font-size: 14.5px; font-weight: 600; cursor: pointer;
 }
 #choiminiLoginGate .clg-google:hover { opacity: .92; }
+#choiminiLoginGate .clg-or { margin: 16px 0 10px; font-size: 12px; color: #8b93a1; display:flex; align-items:center; gap:8px; }
+#choiminiLoginGate .clg-or::before, #choiminiLoginGate .clg-or::after { content:""; flex:1; height:1px; background:#2a303b; }
+#choiminiLoginGate .clg-row { display:flex; gap:8px; margin-top:8px; }
+#choiminiLoginGate .clg-row input { flex:1; min-width:0; background:#0f1218; color:#e8ecf3; border:1px solid #2a303b; border-radius:10px; padding:11px 12px; font-size:14px; outline:none; }
+#choiminiLoginGate .clg-row input:focus { border-color:#3b82f6; }
+#choiminiLoginGate .clg-mini { background:#3b82f6; color:#fff; border:none; border-radius:10px; padding:0 14px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+#choiminiLoginGate .clg-mini:disabled { opacity:.5; cursor:default; }
 #choiminiLoginGate .clg-error { margin-top: 12px; font-size: 12.5px; color: #f0575c; min-height: 16px; }
 
 </style>
@@ -400,7 +407,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="./choimini-auth.js?v=20261001"></script>
+<script src="./choimini-auth.js?v=20261007"></script>
 <script src="./choimini-browser.js?v=20261001"></script>
 <script src="./choimini-linuxfs.js?v=20261003"></script>
 <script src="./choimini-shell.js?v=20261005"></script>
