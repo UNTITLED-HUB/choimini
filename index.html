@@ -294,6 +294,39 @@ code.md-code{background:var(--panel-2);border:1px solid var(--border);border-rad
 .ic{width:1.15em;height:1.15em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.2em;flex:none;display:inline-block}
 .ic-coin{color:#e9b44c}.ic-warn{color:#f0b13a}.ic-err{color:#ef6a6a}.ic-ok,.ic-check{color:#4cc38a}.ic-sparkle{color:#e9b44c}
 .cfgate-icon .ic,.lock-icon .ic{width:1.6em;height:1.6em}
+
+#ctxMenu{position:fixed;z-index:200000;min-width:150px;background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.45);padding:6px;display:none;}
+#ctxMenu.show{display:block;}
+#ctxMenu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:none;color:var(--text);padding:9px 12px;border-radius:8px;font-size:13.5px;cursor:pointer;}
+#ctxMenu button:hover{background:var(--panel-2);}
+#ctxMenu button.danger{color:#f0575c;}
+#ctxMenu button:disabled{opacity:.4;cursor:default;}
+.chat-item,.row.user .bubble{-webkit-touch-callout:none;}
+.chat-item{user-select:none;-webkit-user-select:none;}
+.chat-item .pin{font-size:11px;margin-right:4px;}
+.file-preview .fp-name{cursor:pointer;}
+#lfsModal .modal{max-width:760px;width:96vw;}
+.lfs-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;}
+.lfs-bar button{padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;font-size:12.5px;}
+.lfs-bar button:hover{border-color:var(--accent);}
+.lfs-path{font-size:12.5px;color:var(--text-dim);word-break:break-all;margin:4px 0 8px;}
+.lfs-list{border:1px solid var(--border);border-radius:10px;max-height:52vh;overflow:auto;}
+.lfs-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;}
+.lfs-row:last-child{border-bottom:none;}
+.lfs-row:hover{background:var(--panel-2);}
+.lfs-row .n{flex:1;word-break:break-all;}
+.lfs-row .sz{color:var(--text-dim);font-size:11.5px;}
+.lfs-row .x{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;}
+.lfs-row .x:hover{color:#f0575c;}
+#lfsEditor textarea{width:100%;min-height:46vh;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;resize:vertical;box-sizing:border-box;}
+#lfsEditor img{max-width:100%;max-height:50vh;display:block;margin:8px auto;}
+#pvCons{display:none;flex-direction:column;height:34%;border-top:1px solid var(--border);background:#0b0d12;}
+#pvCons.show{display:flex;}
+#pvConsOut{flex:1;overflow:auto;padding:8px 10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-all;}
+#pvConsOut .e{color:#f0575c;} #pvConsOut .w{color:#e5b94a;} #pvConsOut .i{color:#8b93a1;}
+#pvConsIn{border:none;border-top:1px solid var(--border);background:#0b0d12;color:#e8ecf3;padding:8px 10px;font:12px ui-monospace,Menlo,Consolas,monospace;outline:none;}
+.paste-edit{width:100%;min-height:50vh;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;box-sizing:border-box;}
+#mvBody:has(.paste-edit){width:min(800px,90vw);}
 </style>
 
 <style id="cfgate-gate-style">
@@ -559,26 +592,12 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <option value="local">실제 로컬 터미널 (내 컴퓨터에서 실행)</option>
           <option value="virtual">가상 Linux_Local (브라우저 안 격리 환경)</option>
         </select>
-        <div style="font-size:11.5px;color:var(--text-dim);margin-top:6px;line-height:1.5;">CODE 모드에서 명령을 어디서 실행할지 정함. 로컬은 작업 폴더 승인이 필요하고, 가상은 내 컴퓨터에 영향이 없음.</div>
-        <details style="margin-top:8px;font-size:12px;color:var(--text-dim);line-height:1.6;">
-          <summary style="cursor:pointer;color:var(--text);">🛠️ 스킬 안내 (AI가 쓰는 기능)</summary>
-          <div style="margin-top:6px;">
-            <b>로컬 터미널</b> — 내 컴퓨터에서 파일 읽기·검색·수정·명령 실행 (작업 폴더·승인은 앱이 관리)<br>
-            <b>upload</b> — 만든 파일을 채팅에 미리보기/다운로드 카드로 전달<br>
-            <b>question-load</b> — 꼭 필요한 정보만 선택지로 물어봄<br>
-            <b>browser</b> — 크롬 확장 연결 시 보고 있는 탭을 읽고 조작<br>
-            <b>가상 Linux_Local(runcmd)</b> — 브라우저 안 격리 리눅스에서 안전하게 실행 (가상 모드 선택 시)
-          </div>
-        </details>
       </div>
 
       <div class="field-group">
         <label>기억력 · <span id="memoryLevelLabel">중간</span></label>
         <input type="range" id="memoryLevelSlider" min="1" max="5" step="1" value="3" style="width:100%;">
         <div class="range-ticks"><span>매우낮음</span><span>낮음</span><span>중간</span><span>높음</span><span>최대</span></div>
-        <div style="font-size:11.5px;color:var(--text-dim);margin-top:6px;line-height:1.5;">
-          이전 대화를 얼마나 참고할지 결정함. 높을수록 더 많은 과거 대화를 참고하지만 응답마다 토큰을 더 많이 씀. 1(매우낮음)은 직전 메시지만, 5(최대)는 압축 요약까지 포함해 가능한 만큼 참고함.
-        </div>
       </div>
 
       <div class="field-group">
@@ -590,9 +609,6 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <option value="medium">보통</option>
           <option value="high">높음 · 깊게 추론</option>
         </select>
-        <div style="font-size:11.5px;color:var(--text-dim);margin-top:6px;line-height:1.5;">
-          AI가 답하기 전에 얼마나 깊게 생각할지 정함. 높을수록 복잡한 코딩/추론에 강하지만 느리고 토큰을 더 씀. 모델이 지원하는 경우에만 적용돼요 (Gemini 사고 예산 · OpenAI o시리즈/GPT-5 reasoning effort · Claude 확장 사고).
-        </div>
       </div>
 
       <div class="field-group">
@@ -604,9 +620,6 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <option value="8" selected>8회</option>
           <option value="12">12회</option>
         </select>
-        <div style="font-size:11.5px;color:var(--text-dim);margin-top:6px;line-height:1.5;">
-          대화가 지정한 횟수만큼 쌓이면 이전 대화를 AI가 스스로 요약해서 압축하고, 요약본만 컨텍스트로 유지해 토큰을 절약함. (진행 중인 작업/파일 정보/결정 사항 등은 우선 보존)
-        </div>
       </div>
 
       <div class="field-group">
@@ -663,6 +676,29 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
   </div>
 </div>
 
+
+<div class="modal-overlay" id="lfsModal">
+  <div class="modal">
+    <div class="modal-header"><h3>Linux Local</h3><button class="modal-close" data-close="lfsModal">✕</button></div>
+    <div class="modal-body">
+      <div id="lfsBrowser">
+        <div class="lfs-bar">
+          <button id="lfsUp">⬆ 위로</button><button id="lfsNewFile">＋ 새 파일</button><button id="lfsNewDir">＋ 새 폴더</button>
+          <button id="lfsUpload">업로드</button><button id="lfsRefresh">새로고침</button>
+          <input type="file" id="lfsUploadInput" multiple style="display:none">
+        </div>
+        <div class="lfs-path" id="lfsPath">/</div>
+        <div class="lfs-list" id="lfsList"></div>
+      </div>
+      <div id="lfsEditor" style="display:none">
+        <div class="lfs-bar"><b id="lfsEdName" style="flex:1;word-break:break-all"></b>
+          <button id="lfsEdSave">저장</button><button id="lfsEdDl">다운로드</button><button id="lfsEdDel">삭제</button><button id="lfsEdClose">목록으로</button></div>
+        <div id="lfsEdBody"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="storageModal">
   <div class="modal">
     <div class="modal-header"><h3>저장공간 관리</h3><button class="modal-close" data-close="storageModal">✕</button></div>
@@ -673,6 +709,11 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         <div class="storage-stat"><span>업로드된 파일 수</span><b id="statFiles">0</b></div>
         <div class="storage-stat"><span>브라우저 저장공간 사용량(추정)</span><b id="statSize">0 KB</b></div>
         <div class="storage-stat"><span>토큰 잔액 (표시 / 내부)</span><b id="statTokens">100 / 1000</b></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-title">Linux Local</div>
+      <div class="btn-row" style="justify-content:flex-start;flex-wrap:wrap;margin-bottom:6px;">
+        <button class="primary-btn" id="openLfsBtn">Linux Local</button>
       </div>
       <div class="divider"></div>
       <div class="section-title">데이터 관리</div>
@@ -1044,7 +1085,7 @@ function createChat(){
 }
 
 function saveChats(){
-  try{ localStorage.setItem(LS.chats, JSON.stringify(chats, (k, v)=> (k === "dataUrl" || k === "binUrl" || k === "fullText") && typeof v === "string" && v.length > 1500000 ? undefined : v)); }
+  try{ localStorage.setItem(LS.chats, JSON.stringify(chats, (k, v)=> (k === "dataUrl" || k === "binUrl" || k === "fullText") && typeof v === "string" && v.length > 1500000 ? undefined : (k === "text" && typeof v === "string" && v.length > 1500000 ? v.slice(0, 1500000) : v))); }
   catch(e){ toast("저장 실패: 브라우저 저장공간이 가득 찼을 수 있음"); }
 }
 
@@ -1097,14 +1138,19 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !isGe
 function renderChatList(){
   const el = document.getElementById("chatList");
   el.innerHTML = "";
-  const ids = Object.keys(chats).sort((a,b)=>chats[b].createdAt - chats[a].createdAt);
+  const ids = Object.keys(chats).sort((a,b)=>((chats[b].pinned?1:0) - (chats[a].pinned?1:0)) || (chats[b].createdAt - chats[a].createdAt));
   ids.forEach(id=>{
     const c = chats[id];
     const div = document.createElement("div");
     div.className = "chat-item" + (id===activeChatId ? " active":"");
-    div.innerHTML = `${c.unread ? '<span class="unread" title="새 답변"></span>' : ''}<span class="title">${escapeHtml(c.title||"새 채팅")}</span><button class="del" title="삭제">✕</button>`;
+    div.innerHTML = `${c.unread ? '<span class="unread" title="새 답변"></span>' : ''}${c.pinned ? '<span class="pin" title="고정됨">📌</span>' : ''}<span class="title">${escapeHtml(c.title||"새 채팅")}</span>`;
+    div.title = "꾹 누르거나 우클릭: 이름 변경 · 고정 · 삭제";
     div.querySelector(".title").addEventListener("click", ()=>switchChat(id));
-    div.querySelector(".del").addEventListener("click", (e)=>deleteChat(id,e));
+    bindLongPress(div, (x,y)=>showCtxMenu(x,y,[
+      { label: c.pinned ? "📌 고정 해제" : "📌 고정", fn: ()=>{ c.pinned = !c.pinned; saveChats(); renderChatList(); } },
+      { label: "✏️ 이름 변경", fn: ()=>{ const n = prompt("새 이름", c.title||""); if(n && n.trim()){ c.title = n.trim().slice(0, 60); saveChats(); renderChatList(); renderTopbar(); } } },
+      { label: "🗑 삭제", danger:true, fn: ()=>deleteChat(id) },
+    ]));
     el.appendChild(div);
   });
 }
@@ -1194,18 +1240,43 @@ function collectTurnFiles(chat, idx){
 function fileCardHtml(p){
   const ok = window.LinuxFS && LinuxFS.isFile(p);
   if(!ok) return "";
-  return `<div class="file-card" data-path="${encodeURIComponent(p)}"><span class="fname">📄 ${escapeHtml(baseName(p))}</span><button data-act="preview">미리보기</button><button data-act="download">다운로드</button></div>`;
+  return `<div class="file-card" data-path="${encodeURIComponent(p)}"><span class="fname">📄 ${escapeHtml(baseName(p))}</span><button data-act="preview">미리보기</button><button data-act="copy">복사</button><button data-act="download">다운로드</button></div>`;
 }
 function ensurePreviewOverlay(){
   let o = document.getElementById("previewOverlay");
   if(o) return o;
   o = document.createElement("div"); o.id = "previewOverlay";
-  o.innerHTML = `<div class="pv-box"><div class="pv-head"><span id="pvTitle"></span><button id="pvClose">닫기 ✕</button></div><div id="pvBody" style="flex:1;display:flex;min-height:0;"></div></div>`;
+  o.innerHTML = `<div class="pv-box"><div class="pv-head"><span id="pvTitle"></span><button id="pvCopy">코드 복사</button><button id="pvRefresh">새로고침</button><button id="pvConsBtn">콘솔</button><button id="pvClose">닫기 ✕</button></div><div id="pvBody" style="flex:1;display:flex;min-height:0;"></div><div id="pvCons"><div id="pvConsOut"></div><input id="pvConsIn" placeholder="JavaScript 입력 후 Enter (미리보기 페이지에서 실행)" spellcheck="false"></div></div>`;
   document.body.appendChild(o);
   const close = ()=>{ o.classList.remove("show"); document.getElementById("pvBody").innerHTML = ""; };
+  const cons = o.querySelector("#pvConsOut"), consIn = o.querySelector("#pvConsIn");
+  const logLine = (t, m)=>{ const d = document.createElement("div"); d.className = t === "error" ? "e" : t === "warn" ? "w" : t === "in" || t === "info" ? "i" : ""; d.textContent = (t === "in" ? "> " : "") + m; cons.appendChild(d); cons.scrollTop = cons.scrollHeight; };
+  window.addEventListener("message", ev=>{
+    const d = ev.data; if(!d || !d.__pv) return;
+    const fr = o.querySelector("#pvBody iframe"); if(!fr || ev.source !== fr.contentWindow) return;
+    logLine(d.t, d.m);
+  });
+  o.querySelector("#pvConsBtn").addEventListener("click", ()=>o.querySelector("#pvCons").classList.toggle("show"));
+  o.querySelector("#pvRefresh").addEventListener("click", ()=>{ if(o._path){ cons.innerHTML = ""; previewFile(o._path); toast("새로고침됨"); } });
+  o.querySelector("#pvCopy").addEventListener("click", ()=>{
+    const st = o._path && LinuxFS.stat(o._path); const t = st && typeof st.content === "string" && !/^data:/.test(st.content) ? st.content : null;
+    if(t == null){ toast("복사할 텍스트 내용이 없어요"); return; }
+    navigator.clipboard?.writeText(t).then(()=>toast("코드 복사됨")).catch(()=>toast("복사 실패"));
+  });
+  consIn.addEventListener("keydown", e=>{
+    if(e.key !== "Enter" || !consIn.value.trim()) return;
+    const fr = o.querySelector("#pvBody iframe"); if(!fr){ logLine("warn", "HTML 미리보기에서만 사용할 수 있어요"); return; }
+    logLine("in", consIn.value); fr.contentWindow.postMessage({ __pvEval: consIn.value }, "*"); consIn.value = "";
+  });
   o.addEventListener("click", e=>{ if(e.target === o) close(); });
   o.querySelector("#pvClose").addEventListener("click", close);
   return o;
+}
+
+function pvInject(html){
+  const hook = "<script>(function(){function s(t,a){try{parent.postMessage({__pv:1,t:t,m:Array.prototype.map.call(a,function(x){try{return typeof x==='string'?x:(x instanceof Error?(x.stack||String(x)):JSON.stringify(x))}catch(e){return String(x)}}).join(' ')},'*')}catch(e){}}['log','info','warn','error','debug'].forEach(function(k){var o=console[k];console[k]=function(){s(k,arguments);try{o.apply(console,arguments)}catch(e){}}});window.addEventListener('error',function(e){s('error',[e.message+' (line '+(e.lineno||'?')+')'])});window.addEventListener('unhandledrejection',function(e){s('error',['Unhandled: '+((e.reason&&e.reason.message)||e.reason)])});window.addEventListener('message',function(e){if(e.data&&typeof e.data.__pvEval==='string'){try{var r=(0,eval)(e.data.__pvEval);s('log',[r===undefined?'undefined':r])}catch(x){s('error',[String(x)])}}});})();<\/script>";
+  html = String(html);
+  return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, m=>m + hook) : hook + html;
 }
 function previewFile(p){
   const o = ensurePreviewOverlay(), body = o.querySelector("#pvBody");
@@ -1213,11 +1284,15 @@ function previewFile(p){
   body.innerHTML = "";
   const st = LinuxFS.stat(p);
   if(!st){ toast("파일을 찾을 수 없어요"); return; }
+  o._path = p;
+  o.querySelector("#pvCopy").style.display = (typeof st.content === "string" && !/^data:/.test(st.content)) ? "" : "none";
+  o.querySelector("#pvConsBtn").style.display = /\.(html?)$/i.test(p) ? "" : "none";
+  if(!/\.(html?)$/i.test(p)) o.querySelector("#pvCons").classList.remove("show");
   if(/\.(html?|svg)$/i.test(p)){
     const f = document.createElement("iframe");
     // same-origin 없는 샌드박스: 미리보기 안의 코드가 이 사이트의 저장소/API 키에 접근할 수 없다
     f.setAttribute("sandbox", "allow-scripts allow-modals allow-pointer-lock allow-forms");
-    f.srcdoc = /\.svg$/i.test(p) ? `<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh">${st.content}</body>` : (window.ChoiminiShell && ChoiminiShell.buildPreviewHtml ? ChoiminiShell.buildPreviewHtml(p) : String(st.content||""));
+    f.srcdoc = /\.svg$/i.test(p) ? `<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh">${st.content}</body>` : pvInject(window.ChoiminiShell && ChoiminiShell.buildPreviewHtml ? ChoiminiShell.buildPreviewHtml(p) : String(st.content||""));
     body.appendChild(f);
   } else if(/^data:image\//.test(st.content||"")){
     const img = document.createElement("img"); img.src = st.content; img.style.cssText = "max-width:100%;max-height:100%;margin:auto;object-fit:contain;"; body.appendChild(img);
@@ -1324,19 +1399,13 @@ function renderMessageRow(m, isLast, idx){
   bubble.innerHTML = inner;
   row.appendChild(avatar);
   row.appendChild(bubble);
-  if(m.role === "ai" && isLast && !m.codeLocked){
-    const actions = document.createElement("div");
-    actions.className = "msg-actions";
-    actions.innerHTML = `<button class="regen-btn" id="regenBtn">🔄 다시 요청</button>`;
-    bubble.appendChild(actions);
-    actions.querySelector("#regenBtn").addEventListener("click", ()=>regenerateMessage(m.id));
-  }
-  if(m.role === "user" && !isGenerating){
-    const actions = document.createElement("div");
-    actions.className = "msg-actions";
-    actions.innerHTML = `<button class="msg-edit-btn" id="editBtn">✏️ 수정</button>`;
-    bubble.appendChild(actions);
-    actions.querySelector("#editBtn").addEventListener("click", ()=>editUserMessage(m.id));
+  if(m.role === "user"){
+    bubble.title = "꾹 누르거나 우클릭: 복사 · 수정 · 다시 생성";
+    bindLongPress(bubble, (x,y)=>showCtxMenu(x,y,[
+      { label: "📋 복사", fn: ()=>{ const t = (m.content||"") || (m.files||[]).map(f=>f.text||"").join("\n"); navigator.clipboard?.writeText(t).then(()=>toast("복사됨")).catch(()=>toast("복사 실패")); } },
+      { label: "✏️ 수정", fn: ()=>{ if(isGenerating){ toast("답변 생성 중에는 수정할 수 없어요"); return; } editUserMessage(m.id); } },
+      { label: "🔄 다시 생성", fn: ()=>{ if(isGenerating){ toast("답변 생성 중이에요"); return; } regenerateFromUser(m.id); } },
+    ]));
   }
   if(m.role === "ai" && m.codeLocked){
     row.querySelector("[data-verify]").addEventListener("click", ()=>{
@@ -1360,6 +1429,11 @@ function renderMessageRow(m, isLast, idx){
     const p = decodeURIComponent(card.dataset.path);
     card.querySelector('[data-act="preview"]').addEventListener("click", ()=>previewFile(p));
     card.querySelector('[data-act="download"]').addEventListener("click", ()=>downloadFile(p));
+    card.querySelector('[data-act="copy"]').addEventListener("click", ()=>{
+      const st = LinuxFS.stat(p); const t = st && typeof st.content === "string" && !/^data:/.test(st.content) ? st.content : null;
+      if(t == null){ toast("복사할 텍스트 내용이 없어요"); return; }
+      navigator.clipboard?.writeText(t).then(()=>toast("코드 복사됨")).catch(()=>toast("복사 실패"));
+    });
   });
   row.querySelectorAll(".code-copy").forEach(btn=>{
     btn.addEventListener("click", ()=>{
@@ -1620,10 +1694,10 @@ async function handleFiles(fileList){
   for(const f of files){
     if(f.size > MAX_ATTACH_BYTES){ toast(`${f.name}: 300MB 초과 파일은 첨부할 수 없음`); continue; }
     const isImg = f.type.startsWith("image/");
-    const isText = f.type.startsWith("text/") || /\.(txt|md|csv|json|js|ts|py|html|css)$/i.test(f.name);
+    const isText = f.type.startsWith("text/") || /\.(txt|md|csv|json|js|jsx|ts|tsx|py|html|css|xml|yml|yaml|log|sh|java|c|cpp|h|go|rs|php|sql|ini|toml)$/i.test(f.name);
     let dataUrl = null, text = null, fullText = null, binUrl = null;
     if(isImg){ dataUrl = await fileToDataURL(f); }
-    else if(isText){ fullText = await fileToText(f); text = fullText.slice(0, 6000); }
+    else if(isText){ text = await fileToText(f); }
     else if(/\.(zip|apk|jar|aab)$/i.test(f.name) || f.type === "application/zip" || f.type === "application/x-zip-compressed"){
       try{ text = "ZIP 내용\n" + zipTreeText(await f.arrayBuffer()); }catch(e){ text = "ZIP 내용을 읽지 못했어요: " + e.message; }
     }
@@ -1631,7 +1705,6 @@ async function handleFiles(fileList){
     // 텍스트·이미지가 아닌 파일(zip, apk, pdf 등)은 가상 컴퓨터에 원본 바이트 그대로 저장한다
     if(wantFS && !isImg && !isText){ try{ binUrl = await fileToDataURL(f); }catch(e){ console.warn("[첨부] 원본 읽기 실패", e); } }
     const entry = { name:f.name, type:f.type||"application/octet-stream", isImg, dataUrl, text, size:f.size, fee: attachFee(f.size) };
-    if(fullText != null && fullText.length > 6000) entry.fullText = fullText;
     if(binUrl) entry.binUrl = binUrl;
     pendingFiles.push(entry);
     // WORK/CODE 모드에서는 업로드한 파일을 가상 Linux_Local(user/download/)에도 저장해서
@@ -1644,7 +1717,7 @@ async function handleFiles(fileList){
   renderFilePreview();
 }
 
-function openMediaViewer(f){
+function openMediaViewer(f, editable){
   if(!f || !(f.isImg && f.dataUrl) && !f.text) return;
   let v = document.getElementById("mediaViewer");
   if(!v){
@@ -1657,6 +1730,17 @@ function openMediaViewer(f){
   const body = document.getElementById("mvBody");
   body.innerHTML = "";
   if(f.isImg && f.dataUrl){ const im = document.createElement("img"); im.src = f.dataUrl; im.alt = f.name; body.appendChild(im); }
+  else if(editable && f.pasted){
+    const ta = document.createElement("textarea"); ta.className = "paste-edit"; ta.value = f.text || ""; ta.spellcheck = false;
+    const bar = document.createElement("div"); bar.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:8px";
+    const sv = document.createElement("button"); sv.textContent = "저장"; sv.className = "primary-btn";
+    sv.addEventListener("click", ()=>{
+      f.text = ta.value; f.size = new Blob([f.text]).size; f.fee = attachFee(f.size);
+      if((isWorkMode() || isCodeMode()) && window.LinuxFS){ try{ LinuxFS.saveUploaded(f); }catch(e){} }
+      renderFilePreview(); v.classList.remove("show"); toast("수정됨");
+    });
+    bar.appendChild(sv); body.appendChild(ta); body.appendChild(bar);
+  }
   else { const pr = document.createElement("pre"); pr.textContent = f.text; body.appendChild(pr); }
   v.classList.add("show");
 }
@@ -1677,7 +1761,7 @@ function renderFilePreview(){
     const chip = document.createElement("div");
     chip.className = "file-preview";
     chip.innerHTML = (f.isImg && f.dataUrl ? `<img class="fp-thumb" src="${f.dataUrl}" alt="">` : "") + `<span class="fp-name">${f.isImg&&f.dataUrl?"":(f.isImg?"🖼️ ":"📄 ")}${escapeHtml(f.name)}${f.fee ? ` <span style="opacity:.7">(+${f.fee}토큰)</span>` : ""}</span><button data-idx="${idx}">✕</button>`;
-    chip.querySelectorAll("img,.fp-name").forEach(el=>el.addEventListener("click", ()=>openMediaViewer(f)));
+    chip.querySelectorAll("img,.fp-name").forEach(el=>el.addEventListener("click", ()=>openMediaViewer(f, true)));
     chip.querySelector("button").addEventListener("click", ()=>{
       pendingFiles.splice(idx,1);
       renderFilePreview();
@@ -2733,8 +2817,8 @@ async function sendMessage(){
   }
   const userMsg = { id: uid(), role:"user", content: raw.trim(), files: pendingFiles.slice(), ts: Date.now() };
   chat.messages.push(userMsg);
-  if(chat.title === "새 채팅" && raw.trim()){
-    chat.title = raw.trim().slice(0, 24);
+  if(chat.title === "새 채팅" && (raw.trim() || pendingFiles.length)){
+    chat.title = (raw.trim() || (pendingFiles[0] && pendingFiles[0].name) || "새 채팅").slice(0, 24);
   }
   input.value = "";
   autoGrow(input);
@@ -3022,7 +3106,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         outs.push("▶ " + label + "\n" + out);
       }
       aiMsg.activity = { commands, created:[], edited:[], deleted:[], uploaded:[] };
-      if(outs.length) feedback = "[도구 실행 결과]\n" + outs.join("\n\n").slice(0, 24000);
+      if(outs.length) feedback = "[도구 실행 결과]\n" + outs.join("\n\n").slice(0, 100000);
     }
     // 순수 브라우저(또는 Desktop 이 아닌 경우)에서 WORK/CODE 모드면 가상 Linux_Local 스킬(runcmd / upload / question-load / ```tool)을 실행한다.
     if(!feedback && (isWorkMode() || isCodeMode()) && window.ChoiminiToolRunner && hasToolBlocks(aiMsg.content)){
@@ -3072,7 +3156,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(AGENT_TOOL_COST * TOKEN_MULT, "도구 사용") + ` 충전한 뒤 "계속해줘"라고 보내면 이어서 진행해요.`, ts: Date.now() });
         autoLoadChat(chat); showTokenOutModal(); return;
       }
-      if(outs.length) feedback = "[Linux_Local 실행 결과]\n" + outs.join("\n\n").slice(0, 24000);
+      if(outs.length) feedback = "[Linux_Local 실행 결과]\n" + outs.join("\n\n").slice(0, 100000);
     }
     if(!feedback && browserAvailable() && hasBrowserBlocks(aiMsg.content)){
       if(tokensInternal < AGENT_TOOL_COST * TOKEN_MULT){
@@ -3092,7 +3176,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         return { cmd:"🌐 " + (BL[j.action] || j.action) + det, ok: !!j.ok, out: shortOut(j.ok ? JSON.stringify(j.result||{}) : (j.message || j.error || "")) };
       });
       aiMsg.activity = { commands: cmds.length ? cmds : [{ cmd:"브라우저 작업", ok:true, out:"" }], created:[], edited:[], deleted:[], uploaded:[] };
-      if(results.length) feedback = "[브라우저 실행 결과]\n" + results.join("\n").slice(0, 12000);
+      if(results.length) feedback = "[브라우저 실행 결과]\n" + results.join("\n").slice(0, 50000);
     }
   }catch(e){
     if(e && e.name === "AbortError"){
@@ -3160,6 +3244,7 @@ function editUserMessage(msgId){
   renderMessages();
   const input = document.getElementById("msgInput");
   input.value = target.content || "";
+  if(target.files && target.files.length){ pendingFiles = target.files.slice(); renderFilePreview(); }
   autoGrow(input);
   input.focus();
   toast("✏️ 질문을 수정하고 다시 보내줘");
@@ -3563,6 +3648,147 @@ document.getElementById("acctLogoutBtn").addEventListener("click", ()=>{
     toast("로그아웃 기능을 사용할 수 없습니다");
   }
 });
+
+
+/* ---------------- 컨텍스트 메뉴 (꾹 누르기 / 우클릭) ---------------- */
+function hideCtxMenu(){ const m = document.getElementById("ctxMenu"); if(m) m.classList.remove("show"); }
+function showCtxMenu(x, y, items){
+  let m = document.getElementById("ctxMenu");
+  if(!m){ m = document.createElement("div"); m.id = "ctxMenu"; document.body.appendChild(m);
+    document.addEventListener("pointerdown", e=>{ if(!e.target.closest("#ctxMenu")) hideCtxMenu(); }, true);
+    document.addEventListener("keydown", e=>{ if(e.key === "Escape") hideCtxMenu(); });
+    window.addEventListener("scroll", hideCtxMenu, true); window.addEventListener("resize", hideCtxMenu);
+  }
+  m.innerHTML = "";
+  items.forEach(it=>{
+    const b = document.createElement("button"); b.textContent = it.label; if(it.danger) b.className = "danger";
+    b.addEventListener("click", ()=>{ hideCtxMenu(); try{ it.fn(); }catch(e){ console.error(e); } });
+    m.appendChild(b);
+  });
+  m.classList.add("show");
+  const w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.max(6, Math.min(x, window.innerWidth - w - 6)) + "px";
+  m.style.top = Math.max(6, Math.min(y, window.innerHeight - h - 6)) + "px";
+}
+function bindLongPress(el, handler){
+  let t = null, sx = 0, sy = 0;
+  const arm = (x, y)=>{ sx = x; sy = y; clearTimeout(t); t = setTimeout(()=>{ t = null; el._lpFired = true; setTimeout(()=>{ el._lpFired = false; }, 600); handler(sx, sy); }, 500); };
+  const cancel = ()=>{ clearTimeout(t); t = null; };
+  el.addEventListener("contextmenu", e=>{ e.preventDefault(); cancel(); el._lpFired = false; handler(e.clientX, e.clientY); });
+  el.addEventListener("touchstart", e=>{ const p = e.touches[0]; arm(p.clientX, p.clientY); }, { passive:true });
+  el.addEventListener("touchmove", e=>{ const p = e.touches[0]; if(Math.abs(p.clientX - sx) > 10 || Math.abs(p.clientY - sy) > 10) cancel(); }, { passive:true });
+  el.addEventListener("touchend", cancel); el.addEventListener("touchcancel", cancel);
+  el.addEventListener("mousedown", e=>{ if(e.button === 0) arm(e.clientX, e.clientY); });
+  el.addEventListener("mousemove", e=>{ if(t && (Math.abs(e.clientX - sx) > 6 || Math.abs(e.clientY - sy) > 6)) cancel(); });
+  el.addEventListener("mouseup", cancel); el.addEventListener("mouseleave", cancel);
+  el.addEventListener("click", e=>{ if(el._lpFired){ el._lpFired = false; e.stopPropagation(); e.preventDefault(); } }, true);
+}
+async function regenerateFromUser(userId){
+  if(isGenerating) return;
+  const chat = currentChat(); if(!chat) return;
+  const idx = chat.messages.findIndex(m=>m.id === userId);
+  if(idx < 0) return;
+  chat.messages.splice(idx + 1);
+  saveChats(); renderMessages();
+  await runGenerationTurn(chat, settings.preset);
+}
+
+/* ---------------- 긴 텍스트 붙여넣기 → pasted_N.txt ---------------- */
+function addPastedText(t){
+  const chat = currentChat(); if(!chat) return;
+  chat.pasteSeq = (chat.pasteSeq || 0) + 1;
+  const size = new Blob([t]).size;
+  const entry = { name:`pasted_${chat.pasteSeq}.txt`, type:"text/plain", isImg:false, dataUrl:null, text:t, size, fee: attachFee(size), pasted:true };
+  pendingFiles.push(entry);
+  if((isWorkMode() || isCodeMode()) && window.LinuxFS){ try{ LinuxFS.saveUploaded(entry); }catch(e){ console.warn(e); } }
+  saveChats();
+  renderFilePreview();
+}
+document.getElementById("msgInput").addEventListener("paste", e=>{
+  const cd = e.clipboardData; if(!cd) return;
+  if(cd.files && cd.files.length){ e.preventDefault(); handleFiles(cd.files); return; }
+  const t = cd.getData("text/plain");
+  if(t && t.length >= 70){ e.preventDefault(); addPastedText(t); toast("긴 글을 파일로 첨부했어요 (클릭해서 수정 가능)"); }
+});
+
+/* ---------------- Linux Local 파일 관리자 ---------------- */
+let lfsCwd = "/user", lfsOpen = null;
+const lfsJoin = (d, n)=> (d === "/" ? "" : d) + "/" + n;
+const lfsFmt = n=> n == null ? "" : n < 1024 ? n + " B" : n < 1048576 ? (n/1024).toFixed(1) + " KB" : (n/1048576).toFixed(1) + " MB";
+function lfsIsText(st){ return st && typeof st.content === "string" && !/^data:/.test(st.content); }
+function renderLfs(){
+  const list = document.getElementById("lfsList"); list.innerHTML = "";
+  document.getElementById("lfsPath").textContent = lfsCwd;
+  let items = [];
+  try{ items = LinuxFS.ls(lfsCwd); }catch(e){ lfsCwd = "/"; try{ items = LinuxFS.ls("/"); }catch(_){} }
+  items.sort((a,b)=> ((b.type === "dir") - (a.type === "dir")) || a.name.localeCompare(b.name));
+  if(!items.length){ list.innerHTML = '<div class="lfs-row" style="cursor:default;color:var(--text-dim)">(비어 있음)</div>'; return; }
+  items.forEach(it=>{
+    const full = lfsJoin(lfsCwd, it.name);
+    const row = document.createElement("div"); row.className = "lfs-row";
+    row.innerHTML = `<span>${it.type === "dir" ? "📁" : "📄"}</span><span class="n">${escapeHtml(it.name)}</span><span class="sz">${it.type === "dir" ? "" : lfsFmt(it.size)}</span><button class="x" title="삭제">🗑</button>`;
+    row.addEventListener("click", e=>{ if(e.target.closest(".x")) return; it.type === "dir" ? (lfsCwd = full, renderLfs()) : lfsEdit(full); });
+    row.querySelector(".x").addEventListener("click", ()=>lfsDelete(full, it.type === "dir"));
+    list.appendChild(row);
+  });
+}
+function lfsDelete(full, isDir){
+  if(!confirm(`${full} ${isDir ? "(폴더 전체)" : ""} 삭제할까요?`)) return;
+  try{ LinuxFS.rm(full, true); toast("삭제됨"); }catch(e){ toast("삭제 실패: " + e.message); }
+  if(lfsOpen === full){ lfsOpen = null; document.getElementById("lfsEditor").style.display = "none"; document.getElementById("lfsBrowser").style.display = ""; }
+  renderLfs();
+}
+function lfsEdit(full){
+  const st = LinuxFS.stat(full); if(!st){ toast("파일을 찾을 수 없어요"); return; }
+  lfsOpen = full;
+  document.getElementById("lfsBrowser").style.display = "none";
+  document.getElementById("lfsEditor").style.display = "";
+  document.getElementById("lfsEdName").textContent = full + " (" + lfsFmt(st.size) + ")";
+  const body = document.getElementById("lfsEdBody"); body.innerHTML = "";
+  const save = document.getElementById("lfsEdSave");
+  if(lfsIsText(st)){
+    const ta = document.createElement("textarea"); ta.id = "lfsEdText"; ta.value = st.content; ta.spellcheck = false; body.appendChild(ta); save.style.display = "";
+  } else {
+    save.style.display = "none";
+    if(/^data:image\//.test(st.content || "")){ const im = document.createElement("img"); im.src = st.content; body.appendChild(im); }
+    else body.innerHTML = '<div style="color:var(--text-dim);padding:10px">바이너리 파일이라 내용을 편집할 수 없어요. 다운로드해서 확인하세요.</div>';
+  }
+}
+function lfsBack(){ lfsOpen = null; document.getElementById("lfsEditor").style.display = "none"; document.getElementById("lfsBrowser").style.display = ""; renderLfs(); }
+document.getElementById("openLfsBtn").addEventListener("click", ()=>{
+  if(!window.LinuxFS){ toast("Linux Local을 사용할 수 없어요"); return; }
+  closeModal("storageModal"); lfsCwd = "/user"; lfsBack(); openModal("lfsModal");
+});
+document.getElementById("lfsUp").addEventListener("click", ()=>{ lfsCwd = lfsCwd.replace(/\/[^/]*$/, "") || "/"; renderLfs(); });
+document.getElementById("lfsRefresh").addEventListener("click", renderLfs);
+document.getElementById("lfsNewFile").addEventListener("click", ()=>{
+  const n = prompt("새 파일 이름", "new.txt"); if(!n || !n.trim()) return;
+  try{ const full = lfsJoin(lfsCwd, n.trim().replace(/[\\/]/g, "_")); LinuxFS.writeFile(full, ""); renderLfs(); lfsEdit(full); }catch(e){ toast("생성 실패: " + e.message); }
+});
+document.getElementById("lfsNewDir").addEventListener("click", ()=>{
+  const n = prompt("새 폴더 이름"); if(!n || !n.trim()) return;
+  try{ LinuxFS.mkdirp(lfsJoin(lfsCwd, n.trim().replace(/[\\/]/g, "_"))); renderLfs(); }catch(e){ toast("생성 실패: " + e.message); }
+});
+document.getElementById("lfsUpload").addEventListener("click", ()=>document.getElementById("lfsUploadInput").click());
+document.getElementById("lfsUploadInput").addEventListener("change", async e=>{
+  const files = Array.from(e.target.files || []); e.target.value = "";
+  for(const f of files){
+    try{
+      const full = lfsJoin(lfsCwd, f.name.replace(/[\\/]/g, "_"));
+      const isText = f.type.startsWith("text/") || /\.(txt|md|csv|json|js|jsx|ts|tsx|py|html|css|xml|yml|yaml|log|sh|java|c|cpp|h|go|rs|php|sql|ini|toml|svg)$/i.test(f.name);
+      if(isText) LinuxFS.writeFile(full, await fileToText(f), f.type || "text/plain");
+      else LinuxFS.writeFile(full, await fileToDataURL(f), f.type || "application/octet-stream");
+    }catch(err){ toast(`${f.name}: ${err.message}`); }
+  }
+  renderLfs(); if(files.length) toast("업로드 완료");
+});
+document.getElementById("lfsEdSave").addEventListener("click", ()=>{
+  const ta = document.getElementById("lfsEdText"); if(!ta || !lfsOpen) return;
+  try{ LinuxFS.writeFile(lfsOpen, ta.value); toast("저장됨"); document.getElementById("lfsEdName").textContent = lfsOpen + " (" + lfsFmt(new Blob([ta.value]).size) + ")"; }catch(e){ toast("저장 실패: " + e.message); }
+});
+document.getElementById("lfsEdDl").addEventListener("click", ()=>{ if(lfsOpen) downloadFile(lfsOpen); });
+document.getElementById("lfsEdDel").addEventListener("click", ()=>{ if(lfsOpen) lfsDelete(lfsOpen, false); });
+document.getElementById("lfsEdClose").addEventListener("click", lfsBack);
 
 /* storage modal */
 document.getElementById("openStorageBtn").addEventListener("click", ()=>{
