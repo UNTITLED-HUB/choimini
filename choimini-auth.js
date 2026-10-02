@@ -64,23 +64,17 @@
         '    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>' +
         '    <span>Google로 로그인</span>' +
         '  </button>' +
-        '  <div class="clg-or"><span>또는 이메일 인증번호</span></div>' +
+        '  <div class="clg-or"><span>또는 이메일 로그인 링크</span></div>' +
         '  <div id="clgEmailStep1" class="clg-row">' +
         '    <input id="clgEmail" type="email" autocomplete="email" placeholder="이메일 주소 (학교 계정 가능)" />' +
-        '    <button id="clgSendBtn" class="clg-mini">인증번호 받기</button>' +
-        '  </div>' +
-        '  <div id="clgEmailStep2" class="clg-row" style="display:none">' +
-        '    <input id="clgCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="메일로 받은 인증번호" />' +
-        '    <button id="clgVerifyBtn" class="clg-mini">확인</button>' +
+        '    <button id="clgSendBtn" class="clg-mini">로그인 링크 받기</button>' +
         '  </div>' +
         '  <div id="clgError" class="clg-error"></div>' +
         '</div>';
       document.body.appendChild(gate);
       document.getElementById("clgGoogleBtn").addEventListener("click", login);
       document.getElementById("clgSendBtn").addEventListener("click", sendEmailCode);
-      document.getElementById("clgVerifyBtn").addEventListener("click", verifyEmailCode);
       document.getElementById("clgEmail").addEventListener("keydown", function (e) { if (e.key === "Enter") sendEmailCode(); });
-      document.getElementById("clgCode").addEventListener("keydown", function (e) { if (e.key === "Enter") verifyEmailCode(); });
     }
     gate.style.display = "flex";
     document.documentElement.classList.add("choimini-locked");
@@ -104,32 +98,17 @@
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { gateError("이메일 주소를 확인해줘"); return; }
     const btn = document.getElementById("clgSendBtn"); btn.disabled = true; gateError("");
     try {
-      const { error } = await supabase.auth.signInWithOtp({ email: email, options: { shouldCreateUser: true } });
+      const { error } = await supabase.auth.signInWithOtp({ email: email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
       if (error) throw error;
       pendingEmail = email;
-      document.getElementById("clgEmailStep2").style.display = "flex";
-      gateError("인증번호를 메일로 보냈어요. (스팸함도 확인해줘)");
-      document.getElementById("clgCode").focus();
+      gateError("로그인 링크를 메일로 보냈어요. 같은 브라우저에서 메일의 링크를 눌러주세요. (스팸함도 확인)");
       setTimeout(function () { btn.disabled = false; }, 30000);
     } catch (e) {
       btn.disabled = false;
       const m = String((e && e.message) || e);
-      gateError(/rate|seconds|limit/i.test(m) ? "잠시 후 다시 시도해줘 (메일 발송 제한)" : "인증번호 전송 실패: " + m);
+      gateError(/rate|seconds|limit/i.test(m) ? "잠시 후 다시 시도해줘 (메일 발송 제한)" : "메일 전송 실패: " + m);
     }
   }
-  async function verifyEmailCode() {
-    const token = (document.getElementById("clgCode").value || "").replace(/\s+/g, "");
-    if (!pendingEmail) { gateError("먼저 인증번호를 받아줘"); return; }
-    if (!/^\d{6,10}$/.test(token)) { gateError("인증번호(숫자)를 입력해줘"); return; }
-    const btn = document.getElementById("clgVerifyBtn"); btn.disabled = true; gateError("");
-    try {
-      const { error } = await supabase.auth.verifyOtp({ email: pendingEmail, token: token, type: "email" });
-      if (error) throw error;
-    } catch (e) {
-      gateError("인증 실패: 번호가 틀렸거나 만료됐어요");
-    } finally { btn.disabled = false; }
-  }
-
   /* ---------------- 로그인 / 로그아웃 ---------------- */
   async function login() {
     gateError("");
