@@ -1053,6 +1053,7 @@ function init(){
   if(![0,3,5,8,12].includes(settings.compressEvery)) settings.compressEvery = 8;
   if(!["auto","off","low","medium","high"].includes(settings.thinkingLevel)) settings.thinkingLevel = "auto";
   chats = loadJSON(LS.chats, {});
+  Object.values(chats).forEach(c=>{ if(c && c.pendingReply){ delete c.pendingReply; const l=(c.messages||[]).slice(-1)[0]; if(l && l.role==='user') c.messages.push({ id: uid(), role:'system', content:'📱 앱이 백그라운드에 있는 동안 답변 생성이 끊겼어요. 아래 버튼으로 이어서 받을 수 있어요.', ts: Date.now(), canRetry:true }); } });
   activeChatId = localStorage.getItem(LS.activeChat) || null;
   tokensInternal = sanitizeTokens(loadJSON(LS.tokens, DEFAULT_INTERNAL_TOKENS));
   renderTokens();
@@ -1138,7 +1139,7 @@ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !isGe
 function renderChatList(){
   const el = document.getElementById("chatList");
   el.innerHTML = "";
-  const ids = Object.keys(chats).sort((a,b)=>((chats[b].pinned?1:0) - (chats[a].pinned?1:0)) || (chats[b].createdAt - chats[a].createdAt));
+  const ids = Object.keys(chats).filter(id=>(chats[id].messages||[]).length > 0).sort((a,b)=>((chats[b].pinned?1:0) - (chats[a].pinned?1:0)) || (chats[b].createdAt - chats[a].createdAt));
   ids.forEach(id=>{
     const c = chats[id];
     const div = document.createElement("div");
@@ -1149,7 +1150,7 @@ function renderChatList(){
     bindLongPress(div, (x,y)=>showCtxMenu(x,y,[
       { label: c.pinned ? "📌 고정 해제" : "📌 고정", fn: ()=>{ c.pinned = !c.pinned; saveChats(); renderChatList(); } },
       { label: "✏️ 이름 변경", fn: ()=>{ const n = prompt("새 이름", c.title||""); if(n && n.trim()){ c.title = n.trim().slice(0, 60); saveChats(); renderChatList(); renderTopbar(); } } },
-      { label: "🗑 삭제", danger:true, fn: ()=>deleteChat(id) },
+      { label: "🗑 삭제", danger:true, fn: ()=>{ if(confirm(`'${c.title||"새 채팅"}' 대화를 삭제할까요? 되돌릴 수 없어요.`)) deleteChat(id); } },
     ]));
     el.appendChild(div);
   });
@@ -1308,14 +1309,20 @@ function previewFile(p){
 }
 function downloadFile(p){
   try{
+    const st = LinuxFS.stat(p);
     const bytes = ChoiminiShell.getBytes(p);
+    const blob = new Blob([bytes], { type: (st && st.mime && !/^image\/\*$/.test(st.mime)) ? st.mime : "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([bytes]));
-    a.download = baseName(p);
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    a.href = url; a.download = baseName(p); a.rel = "noopener"; a.style.display = "none";
+    document.body.appendChild(a);
+    a.dispatchEvent(new MouseEvent("click", { bubbles:true, cancelable:true, view:window }));
+    // 큰 파일은 브라우저가 다 받기 전에 주소를 지우면 실패하므로 충분히 기다린다
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 120000);
+    toast(`다운로드: ${baseName(p)} (${lfsFmtSize(bytes.length)})`);
   }catch(e){ toast("다운로드 실패: " + e.message); }
 }
+function lfsFmtSize(n){ return n < 1024 ? n + " B" : n < 1048576 ? (n/1024).toFixed(1) + " KB" : (n/1048576).toFixed(1) + " MB"; }
 
 function renderMessageRow(m, isLast, idx){
   if(m.role === "user" && m.auto) return null; // 도구 실행 결과는 AI에게만 전달하고, 화면엔 "진행 표시"로 대신 보여준다
@@ -1403,8 +1410,8 @@ function renderMessageRow(m, isLast, idx){
     bubble.title = "꾹 누르거나 우클릭: 복사 · 수정 · 다시 생성";
     bindLongPress(bubble, (x,y)=>showCtxMenu(x,y,[
       { label: "📋 복사", fn: ()=>{ const t = (m.content||"") || (m.files||[]).map(f=>f.text||"").join("\n"); navigator.clipboard?.writeText(t).then(()=>toast("복사됨")).catch(()=>toast("복사 실패")); } },
-      { label: "✏️ 수정", fn: ()=>{ if(isGenerating){ toast("답변 생성 중에는 수정할 수 없어요"); return; } editUserMessage(m.id); } },
-      { label: "🔄 다시 생성", fn: ()=>{ if(isGenerating){ toast("답변 생성 중이에요"); return; } regenerateFromUser(m.id); } },
+      { label: "✏️ 수정", fn: ()=>{ if(isGenerating){ toast("답변 생성 중에는 수정할 수 없어요"); return; } if(!confirm("이 질문과 그 뒤의 대화가 지워지고 질문을 다시 수정해요. 계속할까요?")) return; editUserMessage(m.id); } },
+      { label: "🔄 다시 생성", fn: ()=>{ if(isGenerating){ toast("답변 생성 중이에요"); return; } if(!confirm("이 질문 뒤의 답변을 지우고 다시 생성할까요? (토큰이 사용돼요)")) return; regenerateFromUser(m.id); } },
     ]));
   }
   if(m.role === "ai" && m.codeLocked){
@@ -2241,8 +2248,59 @@ function classifyStatus(status){
   if(status >= 500) return { friendly:"AI 서버에 일시적인 문제가 있어요.", retryable:true };
   return { friendly:`AI 서버와 통신 중 오류가 발생했어요 (${status}).`, retryable:false };
 }
+/* ---- 백그라운드 복귀 대응: 모바일에서 다른 앱/탭을 보다 오면 진행 중이던 요청이 OS에 의해 끊기거나 멈춤.
+   그럴 땐 오류로 처리하지 않고, 화면으로 돌아오면 같은 요청을 자동으로 다시 보낸다. ---- */
+const _bgInflight = new Set();
+let _hiddenAt = 0, _lastHiddenAt = 0;
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden){ _hiddenAt = Date.now(); _lastHiddenAt = _hiddenAt; }
+  else if(_hiddenAt){
+    const ms = Date.now() - _hiddenAt, hs = _hiddenAt; _hiddenAt = 0;
+    const nativeKeep = !!(window.AndroidBridge && window.AndroidBridge.setGenerating); // 안드로이드 앱은 백그라운드에서도 연결이 살아 있으므로 끊지 않음
+    if(ms >= 8000 && !nativeKeep) _bgInflight.forEach(h=>{ if(h.startedAt <= hs){ h.bg = true; try{ h.ctl.abort(); }catch(_){} } }); // 멈춰 있을 수 있는 연결은 끊고 재시도
+  }
+  if(!document.hidden && isGenerating) acquireWakeLock();
+});
+function waitVisible(){
+  return new Promise(res=>{
+    if(!document.hidden) return res();
+    const f = ()=>{ if(!document.hidden){ document.removeEventListener("visibilitychange", f); res(); } };
+    document.addEventListener("visibilitychange", f);
+  });
+}
+let _wakeLock = null;
+async function acquireWakeLock(){
+  try{ if(navigator.wakeLock && !_wakeLock && !document.hidden){ _wakeLock = await navigator.wakeLock.request("screen"); _wakeLock.addEventListener("release", ()=>{ _wakeLock = null; }); } }catch(_){ _wakeLock = null; }
+}
+function releaseWakeLock(){ try{ if(_wakeLock) _wakeLock.release(); }catch(_){} _wakeLock = null; }
+async function withBgResume(init, run, onReset){
+  const outer = init && init.signal;
+  for(let n=0; ; n++){
+    const h = { ctl:new AbortController(), startedAt:Date.now(), bg:false };
+    const onOuter = ()=>h.ctl.abort();
+    if(outer){ if(outer.aborted) throw Object.assign(new Error("aborted"), { name:"AbortError" }); outer.addEventListener("abort", onOuter); }
+    _bgInflight.add(h);
+    try{
+      return await run(Object.assign({}, init, { signal:h.ctl.signal }));
+    }catch(e){
+      if(outer && outer.aborted) throw e;
+      const hidden = document.hidden || _lastHiddenAt >= h.startedAt;
+      const netish = e && (e.name === "AbortError" || (e instanceof ApiCallError && e.status === undefined));
+      if((h.bg || (hidden && netish)) && n < 15){
+        await waitVisible(); await sleep(400);
+        if(onReset) onReset();
+        continue;
+      }
+      throw e;
+    }finally{
+      _bgInflight.delete(h);
+      if(outer) outer.removeEventListener("abort", onOuter);
+    }
+  }
+}
 /* fetch + 자동 재시도(지수 백오프) + 오류 분류. signal이 전달되면 "답변 중지" 버튼으로 즉시 취소 가능함. */
-async function fetchJsonWithRetry(url, opts, retryOpts){
+function fetchJsonWithRetry(url, opts, retryOpts){ return withBgResume(opts || {}, o=>fetchJsonWithRetryOnce(url, o, retryOpts)); }
+async function fetchJsonWithRetryOnce(url, opts, retryOpts){
   // WORK/CODE 는 요청이 크고 단계가 많아 일시 오류(429/503)를 더 자주 만나므로 재시도를 넉넉하게
   const maxRetries = (retryOpts && retryOpts.maxRetries) || ((isCodeMode() || isWorkMode()) ? 5 : 3);
   const baseDelay = (retryOpts && retryOpts.baseDelay) || 600;
@@ -2280,7 +2338,8 @@ async function fetchJsonWithRetry(url, opts, retryOpts){
 }
 
 /* SSE 스트리밍 요청: 응답이 오는 대로 onEvent(json)을 부른다. 시작 전 일시 오류(429/5xx/네트워크)는 fetchJsonWithRetry 와 같이 재시도. */
-async function streamSSE(url, init, onEvent){
+function streamSSE(url, init, onEvent, onReset){ return withBgResume(init || {}, i=>streamSSEOnce(url, i, onEvent), onReset); }
+async function streamSSEOnce(url, init, onEvent){
   const maxRetries = (isCodeMode() || isWorkMode()) ? 5 : 3, baseDelay = 600;
   let res, lastErr;
   for(let attempt=0; attempt<maxRetries; attempt++){
@@ -2375,7 +2434,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
       if(c?.finishReason) fin = c.finishReason;
       if(j?.usageMetadata) usageMd = j.usageMetadata;
       onDelta(acc);
-    });
+    }, ()=>{ acc = ""; usageMd = {}; fin = ""; });
     if(!acc){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty stream " + fin }); e.empty = true; throw e; }
     const raw = (usageMd.candidatesTokenCount||0) + (usageMd.thoughtsTokenCount||0);
     return { text: acc, usageAmount: raw > 0 ? raw / 15 : null, streamed:true };
@@ -2431,7 +2490,7 @@ async function callOpenAI(model, apiKey, systemPrompt, history, maxTokens, signa
       const dlt = j?.choices?.[0]?.delta?.content; if(dlt) acc += dlt;
       if(j?.usage?.completion_tokens) comp = j.usage.completion_tokens;
       onDelta(acc);
-    });
+    }, ()=>{ acc = ""; comp = 0; });
     if(!acc){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty stream" }); e.empty = true; throw e; }
     return { text: acc, usageAmount: comp > 0 ? comp / 15 : null, streamed:true };
   }
@@ -2491,7 +2550,7 @@ async function callAnthropic(model, apiKey, systemPrompt, history, maxTokens, si
       if(j.type === "content_block_delta" && j.delta && j.delta.type === "text_delta"){ acc += j.delta.text || ""; onDelta(acc); }
       else if(j.type === "message_delta" && j.usage && j.usage.output_tokens) outTok = j.usage.output_tokens;
       else if(j.type === "error") throw new ApiCallError("AI 서버에 일시적인 문제가 있어요.", { retryable:true, dev: (j.error && j.error.message) || "stream error" });
-    });
+    }, ()=>{ acc = ""; outTok = 0; });
     if(!acc){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty stream" }); e.empty = true; throw e; }
     return { text: acc, usageAmount: outTok > 0 ? outTok / 15 : null, streamed:true };
   }
@@ -2761,6 +2820,8 @@ let currentReveal = null; // { finish(){ } } — 진행 중인 타자 효과를 
 
 function setGeneratingUI(on){
   isGenerating = on;
+  if(on) acquireWakeLock(); else releaseWakeLock();
+  try{ if(window.AndroidBridge && AndroidBridge.setGenerating) AndroidBridge.setGenerating(!!on); }catch(_){}
   const input = document.getElementById("msgInput");
   const sendBtn = document.getElementById("sendBtn");
   const stopBtn = document.getElementById("stopBtn");
@@ -2862,6 +2923,7 @@ async function runGenerationTurn(chat, preset, depth){
   }
   await maybeCompressChat(chat);
   setGeneratingUI(true);
+  chat.pendingReply = true; saveChats();
   currentAbortController = new AbortController();
   const typingRow = makeLiveRow("생각하는 중...");
   try{
@@ -2878,8 +2940,10 @@ async function runGenerationTurn(chat, preset, depth){
     autoLoadChat(chat);
   }
   typingRow.remove();
+  delete chat.pendingReply;
   currentAbortController = null;
   setGeneratingUI(false);
+  try{ if(window.AndroidBridge && AndroidBridge.notifyDone){ const lm=(chat.messages||[]).slice(-1)[0]; AndroidBridge.notifyDone('최미나이', lm && lm.role==='ai' ? String(lm.content||'').replace(/\s+/g,' ').slice(0,80) : '답변이 준비됐어요'); } }catch(_){}
   renderMessages(); // 잠금 해제 후 다시 그려서 수정(✏️)/다시요청 버튼이 정상적으로 보이게 함
 }
 
@@ -3322,7 +3386,12 @@ function autoGrow(el){
 
 /* ---------------- events ---------------- */
 document.getElementById("newChatBtn").addEventListener("click", ()=>{
-  createChat();
+  const cur = currentChat();
+  if(!(cur && !(cur.messages||[]).length)){
+    const emptyId = Object.keys(chats).find(id=>!((chats[id].messages||[]).length));
+    if(emptyId){ activeChatId = emptyId; try{ localStorage.setItem(LS.activeChat, emptyId); }catch(e){} }
+    else createChat();
+  }
   renderChatList();
   renderMessages();
   renderTopbar();
@@ -3641,6 +3710,7 @@ function refreshAccountInfo(){
   else { img.removeAttribute("src"); img.style.display = "none"; }
 }
 document.getElementById("acctLogoutBtn").addEventListener("click", ()=>{
+  if(!confirm("로그아웃할까요?")) return;
   if(window.ChoiminiAuth && ChoiminiAuth.logout){
     closeModal("accountModal");
     ChoiminiAuth.logout();
@@ -3713,14 +3783,17 @@ document.getElementById("msgInput").addEventListener("paste", e=>{
 
 /* ---------------- Linux Local 파일 관리자 ---------------- */
 let lfsCwd = "/user", lfsOpen = null;
+const lfsBlocked = p=> /^\/(cmds|package)(\/|$)/.test(String(p || "").replace(/\/+$/, "") || "/") ;
 const lfsJoin = (d, n)=> (d === "/" ? "" : d) + "/" + n;
 const lfsFmt = n=> n == null ? "" : n < 1024 ? n + " B" : n < 1048576 ? (n/1024).toFixed(1) + " KB" : (n/1048576).toFixed(1) + " MB";
 function lfsIsText(st){ return st && typeof st.content === "string" && !/^data:/.test(st.content); }
 function renderLfs(){
+  if(lfsBlocked(lfsCwd)) lfsCwd = "/user";
   const list = document.getElementById("lfsList"); list.innerHTML = "";
   document.getElementById("lfsPath").textContent = lfsCwd;
   let items = [];
   try{ items = LinuxFS.ls(lfsCwd); }catch(e){ lfsCwd = "/"; try{ items = LinuxFS.ls("/"); }catch(_){} }
+  items = items.filter(it=>!lfsBlocked(lfsJoin(lfsCwd, it.name)));
   items.sort((a,b)=> ((b.type === "dir") - (a.type === "dir")) || a.name.localeCompare(b.name));
   if(!items.length){ list.innerHTML = '<div class="lfs-row" style="cursor:default;color:var(--text-dim)">(비어 있음)</div>'; return; }
   items.forEach(it=>{
@@ -3733,12 +3806,14 @@ function renderLfs(){
   });
 }
 function lfsDelete(full, isDir){
+  if(lfsBlocked(full)){ toast("시스템 영역은 접근할 수 없어요"); return; }
   if(!confirm(`${full} ${isDir ? "(폴더 전체)" : ""} 삭제할까요?`)) return;
   try{ LinuxFS.rm(full, true); toast("삭제됨"); }catch(e){ toast("삭제 실패: " + e.message); }
   if(lfsOpen === full){ lfsOpen = null; document.getElementById("lfsEditor").style.display = "none"; document.getElementById("lfsBrowser").style.display = ""; }
   renderLfs();
 }
 function lfsEdit(full){
+  if(lfsBlocked(full)){ toast("시스템 영역은 열람할 수 없어요"); return; }
   const st = LinuxFS.stat(full); if(!st){ toast("파일을 찾을 수 없어요"); return; }
   lfsOpen = full;
   document.getElementById("lfsBrowser").style.display = "none";
