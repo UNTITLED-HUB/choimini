@@ -309,6 +309,24 @@ code.md-code{background:var(--panel-2);border:1px solid var(--border);border-rad
 .lfs-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;}
 .lfs-bar button{padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;font-size:12.5px;}
 .lfs-bar button:hover{border-color:var(--accent);}
+.lfs-tabs{display:flex;gap:6px;margin-bottom:10px;}
+.lfs-tabs button{flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;font-size:13px;}
+.lfs-tabs button.on{border-color:var(--accent);background:var(--accent);color:#fff;}
+.lfs-quick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.lfs-quick button{padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:none;color:var(--text-dim);cursor:pointer;font-size:12px;}
+.lfs-quick button:hover{color:var(--text);border-color:var(--accent);}
+.lfs-search{flex:1;min-width:140px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:12.5px;}
+.lfs-bar select{padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:12.5px;}
+.lfs-path .crumb{cursor:pointer;color:var(--accent);}
+.lfs-selbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding:6px 8px;border-radius:10px;background:var(--panel-2);}
+.lfs-selbar button{padding:5px 9px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;font-size:12px;}
+.lfs-selbar button.danger,.lfs-bar button.danger{color:#f0575c;}
+.lfs-row.sel{background:rgba(124,92,255,.15);}
+.lfs-row .dt{color:var(--text-dim);font-size:11px;min-width:64px;text-align:right;}
+.lfs-row .sub{color:var(--text-dim);font-size:11.5px;margin-top:2px;word-break:break-all;}
+.lfs-list.drag{outline:2px dashed var(--accent);}
+.lfs-foot,.lfs-hint{color:var(--text-dim);font-size:11.5px;margin-top:8px;}
+@media(max-width:560px){.lfs-row .dt{display:none;}}
 .lfs-path{font-size:12.5px;color:var(--text-dim);word-break:break-all;margin:4px 0 8px;}
 .lfs-list{border:1px solid var(--border);border-radius:10px;max-height:52vh;overflow:auto;}
 .lfs-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;}
@@ -442,9 +460,9 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./choimini-auth.js?v=20261009"></script>
 <script src="./choimini-browser.js?v=20261001"></script>
-<script src="./choimini-linuxfs.js?v=20261003"></script>
+<script src="./choimini-linuxfs.js?v=20261011"></script>
 <script src="./choimini-shell.js?v=20261005"></script>
-<script src="./choimini-shell-cmds.js?v=20261006"></script>
+<script src="./choimini-shell-cmds.js?v=20261011"></script>
 <script src="./choimini-apk.js?v=20261004"></script>
 
 
@@ -681,18 +699,41 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
   <div class="modal">
     <div class="modal-header"><h3>Linux Local</h3><button class="modal-close" data-close="lfsModal">✕</button></div>
     <div class="modal-body">
+      <div class="lfs-tabs" id="lfsTabs">
+        <button data-tab="files" class="on">📁 파일</button><button data-tab="trash">🗑 휴지통 <span id="lfsTrashN"></span></button><button data-tab="backup">📦 백업 <span id="lfsBkN"></span></button>
+      </div>
       <div id="lfsBrowser">
+        <div class="lfs-quick" id="lfsQuick">
+          <button data-p="/user">🏠 user</button><button data-p="/user/projects">🗂 projects</button><button data-p="/user/download">⬇ download</button><button data-p="/user/documents">📄 documents</button><button data-p="/user/desktop">🖥 desktop</button><button data-p="/tmp">tmp</button>
+        </div>
         <div class="lfs-bar">
           <button id="lfsUp">⬆ 위로</button><button id="lfsNewFile">＋ 새 파일</button><button id="lfsNewDir">＋ 새 폴더</button>
-          <button id="lfsUpload">업로드</button><button id="lfsRefresh">새로고침</button>
+          <button id="lfsUpload">업로드</button><button id="lfsSelToggle">☑ 선택</button><button id="lfsRefresh">새로고침</button>
           <input type="file" id="lfsUploadInput" multiple style="display:none">
         </div>
+        <div class="lfs-bar">
+          <input id="lfsSearch" class="lfs-search" placeholder="🔍 이 폴더에서 검색 (Enter: 하위 폴더 포함)"><button id="lfsSearchAll" title="하위 폴더 포함 검색">하위 포함</button>
+          <select id="lfsSort"><option value="name">이름순</option><option value="size">크기순</option><option value="date">최근 수정순</option></select>
+        </div>
         <div class="lfs-path" id="lfsPath">/</div>
+        <div class="lfs-selbar" id="lfsSelBar" style="display:none">
+          <b id="lfsSelN">0개 선택</b><button id="lfsSelAll">전체</button><button id="lfsSelLock">🔒 잠금</button><button id="lfsSelUnlock">🔓 해제</button><button id="lfsSelZip">⬇ ZIP</button><button id="lfsSelDel" class="danger">🗑 삭제</button><button id="lfsSelCancel">취소</button>
+        </div>
         <div class="lfs-list" id="lfsList"></div>
+        <div class="lfs-foot" id="lfsFoot"></div>
+        <div class="lfs-hint">행을 길게 누르거나 우클릭 / ⋯ 로 이름 변경·이동·복사·잠금·다운로드를 할 수 있어요. 🔒 잠긴 항목은 최미나이가 고치려면 동의가 필요해요.</div>
+      </div>
+      <div id="lfsTrash" style="display:none">
+        <div class="lfs-bar"><span class="lfs-hint" style="flex:1;margin:0">삭제한 파일·프로젝트는 14일 동안 보관돼요. 그 뒤엔 자동으로 완전히 삭제돼요.</span><button id="lfsTrashEmpty" class="danger">휴지통 비우기</button></div>
+        <div class="lfs-list" id="lfsTrashList"></div>
+      </div>
+      <div id="lfsBackup" style="display:none">
+        <div class="lfs-bar"><span class="lfs-hint" style="flex:1;margin:0">최미나이가 명령어로 지운 파일은 &lt;프로젝트명&gt;.zip 으로 묶여 7일 동안 보관돼요. 그 뒤엔 자동 삭제돼요.</span></div>
+        <div class="lfs-list" id="lfsBackupList"></div>
       </div>
       <div id="lfsEditor" style="display:none">
         <div class="lfs-bar"><b id="lfsEdName" style="flex:1;word-break:break-all"></b>
-          <button id="lfsEdSave">저장</button><button id="lfsEdDl">다운로드</button><button id="lfsEdDel">삭제</button><button id="lfsEdClose">목록으로</button></div>
+          <button id="lfsEdSave">저장</button><button id="lfsEdPv">👁 미리보기</button><button id="lfsEdLock">🔒 잠금</button><button id="lfsEdDl">다운로드</button><button id="lfsEdDel">삭제</button><button id="lfsEdClose">목록으로</button></div>
         <div id="lfsEdBody"></div>
       </div>
     </div>
@@ -895,7 +936,8 @@ function fsToolPrompt(mode){
   const F = "```";
   let p = "\n\n[작업 에이전트 모드 · 가상 Linux(Linux_Local)]\n"
     + "지금 너는 대화만 하는 챗봇이 아니라 '작업 에이전트'다. 파일을 만들거나 고치거나 변환하는 요청은 채팅에 코드를 붙여 넣는 것으로 끝내면 안 되고, 반드시 아래 스킬로 Linux_Local 에서 직접 실행해서 파일로 만들어야 한다.\n"
-    + "Linux_Local 은 브라우저 저장공간 안의 격리된 가상 Linux 다. 폴더: /user/download(사용자가 올린 파일 자동 저장), /user/documents, /user/desktop, /user/projects(작업물), /cmds(명령어), /package(설치된 패키지), /tmp.\n"
+    + "Linux_Local 은 브라우저 저장공간 안의 격리된 가상 Linux 다. 폴더: /user/download(사용자가 올린 파일 자동 저장), /user/documents, /user/desktop, /user/projects(작업물), /cmds(명령어), /package(설치된 패키지), /tmp, /trash(사용자가 지운 항목 휴지통), /backup(네가 지운 파일이 <프로젝트명>.zip 으로 자동 백업되는 곳).\n"
+    + "  · 사용자가 🔒 잠근 파일/폴더를 수정·삭제·이동하려 하면 사용자에게 동의 창이 뜬다. 거부되면 '🔒 잠긴 파일' 오류가 나오니 우회하지 말고 사용자에게 잠금 해제나 허용을 요청해라. /trash 와 /backup 은 수정·삭제할 수 없다. 네가 지운 파일은 /backup 에서 사용자가 복원할 수 있다.\n"
     + "\n■ 스킬 1 — runcmd : 리눅스 명령어를 실행한다 (특정 명령어 몇 개로 제한되지 않는다). 코드블록 언어를 runcmd 로 쓰고 그 안에 셸 명령을 그대로 쓴다(JSON 아님, 여러 줄 가능):\n"
     + F + "runcmd\nmkdir -p /user/projects/game\ncat > /user/projects/game/game.html <<'EOF'\n<!DOCTYPE html>\n<html>…전체 코드…</html>\nEOF\nls -la /user/projects/game\n" + F + "\n"
     + "  · 파일은 cat > 경로 <<'EOF' … EOF (히어독) 로 만든다. 파이프(|), 리다이렉션(> >> <), 체인(; && ||), 변수($VAR), 명령 치환($(...)), 글롭(*.txt)을 쓸 수 있다. 관련 명령은 한 블록에 묶어서 효율적으로 실행해라.\n"
@@ -2820,7 +2862,7 @@ let currentReveal = null; // { finish(){ } } — 진행 중인 타자 효과를 
 
 function setGeneratingUI(on){
   isGenerating = on;
-  if(on) acquireWakeLock(); else releaseWakeLock();
+  if(on) acquireWakeLock(); else { releaseWakeLock(); try{ LinuxFS.clearLockConsent(); }catch(_){} }
   try{ if(window.AndroidBridge && AndroidBridge.setGenerating) AndroidBridge.setGenerating(!!on); }catch(_){}
   const input = document.getElementById("msgInput");
   const sendBtn = document.getElementById("sendBtn");
@@ -3782,35 +3824,123 @@ document.getElementById("msgInput").addEventListener("paste", e=>{
 });
 
 /* ---------------- Linux Local 파일 관리자 ---------------- */
-let lfsCwd = "/user", lfsOpen = null;
-const lfsBlocked = p=> /^\/(cmds|package)(\/|$)/.test(String(p || "").replace(/\/+$/, "") || "/") ;
+let lfsCwd = "/user", lfsOpen = null, lfsTab = "files", lfsSel = new Set(), lfsSelMode = false, lfsSearchAll = false;
+const lfsBlocked = p=> /^\/(cmds|package|trash|backup)(\/|$)/.test(String(p || "").replace(/\/+$/, "") || "/") ;
 const lfsJoin = (d, n)=> (d === "/" ? "" : d) + "/" + n;
 const lfsFmt = n=> n == null ? "" : n < 1024 ? n + " B" : n < 1048576 ? (n/1024).toFixed(1) + " KB" : (n/1048576).toFixed(1) + " MB";
+const lfsU = fn=> window.LinuxFS.asUser(fn); // 사용자 조작은 항상 "사용자" 권한으로 (AI 잠금 검사 대상 아님)
+const lfsDate = t=>{ if(!t) return ""; const d = new Date(t), z = n=>String(n).padStart(2, "0"); return `${d.getMonth()+1}/${d.getDate()} ${z(d.getHours())}:${z(d.getMinutes())}`; };
+const lfsDaysLeft = t=> Math.max(0, Math.ceil((t - Date.now()) / 86400000));
 function lfsIsText(st){ return st && typeof st.content === "string" && !/^data:/.test(st.content); }
+function lfsIcon(name, isDir){
+  if(isDir) return "📁";
+  const e = (name.split(".").pop() || "").toLowerCase();
+  if(/^(html?|svg)$/.test(e)) return "🌐";
+  if(/^(zip|apk|jar|gz|tar|7z|rar)$/.test(e)) return "🗜";
+  if(/^(png|jpe?g|gif|webp|bmp|ico)$/.test(e)) return "🖼";
+  if(/^(js|ts|py|java|c|cpp|go|rs|php|sh|css|json|xml|yml|yaml)$/.test(e)) return "📜";
+  return "📄";
+}
+function lfsPreviewable(name){ return /\.(html?|svg|zip|apk|jar|png|jpe?g|gif|webp|bmp|ico)$/i.test(name); }
+function lfsSetTab(tab){
+  lfsTab = tab; lfsOpen = null;
+  document.querySelectorAll("#lfsTabs button").forEach(b=>b.classList.toggle("on", b.dataset.tab === tab));
+  document.getElementById("lfsBrowser").style.display = tab === "files" ? "" : "none";
+  document.getElementById("lfsTrash").style.display = tab === "trash" ? "" : "none";
+  document.getElementById("lfsBackup").style.display = tab === "backup" ? "" : "none";
+  document.getElementById("lfsEditor").style.display = "none";
+  if(tab === "files") renderLfs(); else if(tab === "trash") renderLfsTrash(); else renderLfsBackup();
+}
+function lfsUpdateCounts(){
+  try{
+    const t = LinuxFS.trashList().length, b = LinuxFS.backupList().length;
+    document.getElementById("lfsTrashN").textContent = t ? `(${t})` : ""; document.getElementById("lfsBkN").textContent = b ? `(${b})` : "";
+  }catch(_){}
+}
+function lfsCrumbs(){
+  const box = document.getElementById("lfsPath"); box.innerHTML = "";
+  const parts = lfsCwd.split("/").filter(Boolean); let cur = "";
+  const add = (label, path)=>{ const s = document.createElement("span"); s.className = "crumb"; s.textContent = label; s.addEventListener("click", ()=>{ lfsCwd = path; lfsSel.clear(); renderLfs(); }); box.appendChild(s); };
+  add("/", "/");
+  parts.forEach(p=>{ cur += "/" + p; const sep = document.createElement("span"); sep.textContent = " › "; box.appendChild(sep); add(p, cur); });
+}
 function renderLfs(){
   if(lfsBlocked(lfsCwd)) lfsCwd = "/user";
+  lfsUpdateCounts();
   const list = document.getElementById("lfsList"); list.innerHTML = "";
-  document.getElementById("lfsPath").textContent = lfsCwd;
-  let items = [];
-  try{ items = LinuxFS.ls(lfsCwd); }catch(e){ lfsCwd = "/"; try{ items = LinuxFS.ls("/"); }catch(_){} }
-  items = items.filter(it=>!lfsBlocked(lfsJoin(lfsCwd, it.name)));
-  items.sort((a,b)=> ((b.type === "dir") - (a.type === "dir")) || a.name.localeCompare(b.name));
-  if(!items.length){ list.innerHTML = '<div class="lfs-row" style="cursor:default;color:var(--text-dim)">(비어 있음)</div>'; return; }
-  items.forEach(it=>{
-    const full = lfsJoin(lfsCwd, it.name);
-    const row = document.createElement("div"); row.className = "lfs-row";
-    row.innerHTML = `<span>${it.type === "dir" ? "📁" : "📄"}</span><span class="n">${escapeHtml(it.name)}</span><span class="sz">${it.type === "dir" ? "" : lfsFmt(it.size)}</span><button class="x" title="삭제">🗑</button>`;
-    row.addEventListener("click", e=>{ if(e.target.closest(".x")) return; it.type === "dir" ? (lfsCwd = full, renderLfs()) : lfsEdit(full); });
-    row.querySelector(".x").addEventListener("click", ()=>lfsDelete(full, it.type === "dir"));
+  lfsCrumbs();
+  const q = (document.getElementById("lfsSearch").value || "").trim().toLowerCase();
+  const sortBy = document.getElementById("lfsSort").value;
+  let rows = [];
+  try{
+    if(q && lfsSearchAll){
+      rows = LinuxFS.find(lfsCwd, "*" + q + "*").filter(p=>p !== lfsCwd && !lfsBlocked(p)).map(p=>{ const st = LinuxFS.stat(p); return st && { full:p, name:p.slice(lfsCwd === "/" ? 1 : lfsCwd.length + 1), type:st.type, size:st.size, st }; }).filter(Boolean);
+    } else {
+      rows = LinuxFS.ls(lfsCwd).filter(it=>!lfsBlocked(lfsJoin(lfsCwd, it.name))).map(it=>{ const full = lfsJoin(lfsCwd, it.name); return { full, name:it.name, type:it.type, size:it.size, st: LinuxFS.stat(full) }; });
+      if(q) rows = rows.filter(r=>r.name.toLowerCase().includes(q));
+    }
+  }catch(e){ lfsCwd = "/user"; }
+  rows.sort((a, b)=> ((b.type === "dir") - (a.type === "dir")) || (sortBy === "size" ? (b.size||0) - (a.size||0) : sortBy === "date" ? ((b.st&&b.st.updatedAt||b.st&&b.st.createdAt||0) - (a.st&&a.st.updatedAt||a.st&&a.st.createdAt||0)) : a.name.localeCompare(b.name)));
+  document.getElementById("lfsSelBar").style.display = lfsSelMode ? "" : "none";
+  document.getElementById("lfsSelN").textContent = lfsSel.size + "개 선택";
+  if(!rows.length){ list.innerHTML = `<div class="lfs-row" style="cursor:default;color:var(--text-dim)">${q ? "검색 결과가 없어요" : "(비어 있음) — 파일을 여기로 끌어다 놓으면 업로드돼요"}</div>`; }
+  rows.forEach(r=>{
+    const row = document.createElement("div"); row.className = "lfs-row" + (lfsSel.has(r.full) ? " sel" : "");
+    const locked = r.st && (r.st.locked || LinuxFS.lockRoot(r.full));
+    const kids = r.type === "dir" ? LinuxFS.dirChildren(r.full).length : null;
+    row.innerHTML = `${lfsSelMode ? `<input type="checkbox" class="ck" ${lfsSel.has(r.full) ? "checked" : ""}>` : ""}<span>${lfsIcon(r.name, r.type === "dir")}</span><span class="n">${locked ? "🔒 " : ""}${escapeHtml(r.name)}</span><span class="sz">${r.type === "dir" ? kids + "개" : lfsFmt(r.size)}</span><span class="dt">${lfsDate(r.st && (r.st.updatedAt || r.st.createdAt))}</span><button class="x" title="더보기">⋯</button>`;
+    const menu = (x, y)=>lfsRowMenu(r, x, y);
+    row.addEventListener("click", e=>{
+      if(row._lpFired) return;
+      if(e.target.closest(".x")){ const b = e.target.getBoundingClientRect(); menu(b.left, b.bottom); return; }
+      if(lfsSelMode){ lfsSel.has(r.full) ? lfsSel.delete(r.full) : lfsSel.add(r.full); renderLfs(); return; }
+      if(r.type === "dir"){ lfsCwd = r.full; document.getElementById("lfsSearch").value = ""; lfsSearchAll = false; renderLfs(); }
+      else if(!lfsIsText(r.st) && lfsPreviewable(r.name)) previewFile(r.full);
+      else lfsEdit(r.full);
+    });
+    bindLongPress(row, menu);
     list.appendChild(row);
   });
+  try{ const u = LinuxFS.usageSummary(); document.getElementById("lfsFoot").textContent = `파일 ${u.fileCount}개 · 작은 파일 저장 ${lfsFmt(u.usedBytes)} / ${lfsFmt(u.capBytes)} 사용 중`; }catch(_){}
+}
+function lfsRowMenu(r, x, y){
+  const locked = !!(r.st && r.st.locked), inherited = !locked && LinuxFS.lockRoot(r.full);
+  const items = [];
+  items.push({ label: r.type === "dir" ? "📂 열기" : "📝 열기/편집", fn: ()=>{ if(r.type === "dir"){ lfsCwd = r.full; renderLfs(); } else lfsEdit(r.full); } });
+  if(r.type === "file") items.push({ label:"👁 미리보기", fn: ()=>previewFile(r.full) });
+  items.push({ label:"✏️ 이름 변경", fn: ()=>lfsRename(r.full) });
+  items.push({ label:"📦 이동", fn: ()=>lfsMoveCopy(r.full, "move") });
+  items.push({ label:"📑 복사", fn: ()=>lfsMoveCopy(r.full, "copy") });
+  items.push({ label: locked ? "🔓 잠금 해제" : inherited ? "🔒 (상위 폴더가 잠겨 있음)" : "🔒 잠금 (최미나이 편집 시 동의 필요)", fn: ()=>{ if(inherited) { toast("상위 폴더 잠금을 해제하면 풀려요: " + inherited); return; } lfsU(()=>LinuxFS.setLock(r.full, !locked)); toast(locked ? "잠금 해제됨" : "잠금됨 — 최미나이가 수정하려면 동의가 필요해요"); renderLfs(); } });
+  items.push({ label: r.type === "dir" ? "⬇ 폴더를 ZIP으로 받기" : "⬇ 다운로드", fn: ()=> r.type === "dir" ? lfsZipDownload([r.full], baseName(r.full) + ".zip") : downloadFile(r.full) });
+  items.push({ label:"🗑 삭제 (휴지통)", danger:true, fn: ()=>lfsDelete(r.full, r.type === "dir") });
+  showCtxMenu(x, y, items);
+}
+function lfsRename(full){
+  const old = baseName(full), n = prompt("새 이름", old); if(!n || !n.trim() || n === old) return;
+  const dst = lfsJoin(LinuxFS.parentOf(full) || "/", n.trim().replace(/[\\/]/g, "_"));
+  if(LinuxFS.exists(dst)){ toast("같은 이름이 이미 있어요"); return; }
+  try{ lfsU(()=>LinuxFS.mv(full, dst)); toast("이름 변경됨"); }catch(e){ toast("실패: " + e.message); }
+  renderLfs();
+}
+function lfsMoveCopy(full, mode){
+  const t = prompt(mode === "move" ? "이동할 폴더 경로" : "복사할 폴더 경로", lfsCwd); if(!t || !t.trim()) return;
+  const dir = LinuxFS.normPath(t.trim());
+  if(lfsBlocked(dir)){ toast("시스템 영역으로는 보낼 수 없어요"); return; }
+  if(dir === full || dir.startsWith(full + "/")){ toast("자기 자신 안으로는 보낼 수 없어요"); return; }
+  try{
+    lfsU(()=>{ if(!LinuxFS.exists(dir)) LinuxFS.mkdirp(dir); else if(!LinuxFS.isDir(dir)) throw new Error("폴더가 아니에요"); const dst = lfsJoin(dir, baseName(full)); if(LinuxFS.exists(dst)) throw new Error("같은 이름이 이미 있어요: " + dst); mode === "move" ? LinuxFS.mv(full, dst) : LinuxFS.cp(full, dst); });
+    toast(mode === "move" ? "이동됨" : "복사됨");
+  }catch(e){ toast("실패: " + e.message); }
+  renderLfs();
 }
 function lfsDelete(full, isDir){
   if(lfsBlocked(full)){ toast("시스템 영역은 접근할 수 없어요"); return; }
-  if(!confirm(`${full} ${isDir ? "(폴더 전체)" : ""} 삭제할까요?`)) return;
-  try{ LinuxFS.rm(full, true); toast("삭제됨"); }catch(e){ toast("삭제 실패: " + e.message); }
-  if(lfsOpen === full){ lfsOpen = null; document.getElementById("lfsEditor").style.display = "none"; document.getElementById("lfsBrowser").style.display = ""; }
-  renderLfs();
+  const locked = LinuxFS.lockRoot(full);
+  if(!confirm(`${full}${isDir ? " (폴더 전체)" : ""}을(를) 휴지통으로 보낼까요?\n14일 동안 보관되고 그 뒤 자동 삭제돼요.` + (locked ? "\n\n🔒 잠긴 항목이에요." : ""))) return;
+  try{ lfsU(()=>LinuxFS.userDelete(full)); toast("휴지통으로 이동했어요"); }catch(e){ toast("삭제 실패: " + e.message); }
+  if(lfsOpen && (lfsOpen === full || lfsOpen.startsWith(full + "/"))){ lfsOpen = null; document.getElementById("lfsEditor").style.display = "none"; document.getElementById("lfsBrowser").style.display = ""; }
+  lfsSel.delete(full); renderLfs();
 }
 function lfsEdit(full){
   if(lfsBlocked(full)){ toast("시스템 영역은 열람할 수 없어요"); return; }
@@ -3818,7 +3948,10 @@ function lfsEdit(full){
   lfsOpen = full;
   document.getElementById("lfsBrowser").style.display = "none";
   document.getElementById("lfsEditor").style.display = "";
-  document.getElementById("lfsEdName").textContent = full + " (" + lfsFmt(st.size) + ")";
+  const locked = !!LinuxFS.lockRoot(full);
+  document.getElementById("lfsEdName").textContent = (locked ? "🔒 " : "") + full + " (" + lfsFmt(st.size) + ")";
+  document.getElementById("lfsEdLock").textContent = st.locked ? "🔓 잠금 해제" : "🔒 잠금";
+  document.getElementById("lfsEdPv").style.display = lfsPreviewable(full) ? "" : "none";
   const body = document.getElementById("lfsEdBody"); body.innerHTML = "";
   const save = document.getElementById("lfsEdSave");
   if(lfsIsText(st)){
@@ -3826,44 +3959,143 @@ function lfsEdit(full){
   } else {
     save.style.display = "none";
     if(/^data:image\//.test(st.content || "")){ const im = document.createElement("img"); im.src = st.content; body.appendChild(im); }
-    else body.innerHTML = '<div style="color:var(--text-dim);padding:10px">바이너리 파일이라 내용을 편집할 수 없어요. 다운로드해서 확인하세요.</div>';
+    else body.innerHTML = '<div style="color:var(--text-dim);padding:10px">바이너리 파일이라 내용을 편집할 수 없어요. 미리보기나 다운로드로 확인하세요.</div>';
   }
 }
-function lfsBack(){ lfsOpen = null; document.getElementById("lfsEditor").style.display = "none"; document.getElementById("lfsBrowser").style.display = ""; renderLfs(); }
-document.getElementById("openLfsBtn").addEventListener("click", ()=>{
-  if(!window.LinuxFS){ toast("Linux Local을 사용할 수 없어요"); return; }
-  closeModal("storageModal"); lfsCwd = "/user"; lfsBack(); openModal("lfsModal");
-});
-document.getElementById("lfsUp").addEventListener("click", ()=>{ lfsCwd = lfsCwd.replace(/\/[^/]*$/, "") || "/"; renderLfs(); });
-document.getElementById("lfsRefresh").addEventListener("click", renderLfs);
-document.getElementById("lfsNewFile").addEventListener("click", ()=>{
-  const n = prompt("새 파일 이름", "new.txt"); if(!n || !n.trim()) return;
-  try{ const full = lfsJoin(lfsCwd, n.trim().replace(/[\\/]/g, "_")); LinuxFS.writeFile(full, ""); renderLfs(); lfsEdit(full); }catch(e){ toast("생성 실패: " + e.message); }
-});
-document.getElementById("lfsNewDir").addEventListener("click", ()=>{
-  const n = prompt("새 폴더 이름"); if(!n || !n.trim()) return;
-  try{ LinuxFS.mkdirp(lfsJoin(lfsCwd, n.trim().replace(/[\\/]/g, "_"))); renderLfs(); }catch(e){ toast("생성 실패: " + e.message); }
-});
-document.getElementById("lfsUpload").addEventListener("click", ()=>document.getElementById("lfsUploadInput").click());
-document.getElementById("lfsUploadInput").addEventListener("change", async e=>{
-  const files = Array.from(e.target.files || []); e.target.value = "";
+function lfsBack(){ lfsOpen = null; document.getElementById("lfsEditor").style.display = "none"; lfsSetTab("files"); }
+async function lfsSaveBytes(bytes, name, mime){
+  const blob = new Blob([bytes], { type: mime || "application/octet-stream" }), url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; a.rel = "noopener"; a.style.display = "none"; document.body.appendChild(a);
+  a.dispatchEvent(new MouseEvent("click", { bubbles:true, cancelable:true, view:window }));
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 120000);
+  toast(`다운로드: ${name} (${lfsFmt(bytes.length)})`);
+}
+async function lfsZipDownload(paths, outName){
+  try{
+    if(!window.ChoiminiApk) throw new Error("zip 모듈이 없어요");
+    const entries = [];
+    paths.forEach(p=>{
+      const parent = LinuxFS.parentOf(p) || "/", cut = parent === "/" ? 1 : parent.length + 1;
+      const files = LinuxFS.isDir(p) ? LinuxFS.find(p).filter(k=>LinuxFS.isFile(k)) : [p];
+      files.forEach(k=>entries.push({ name:k.slice(cut), data: ChoiminiShell.getBytes(k) }));
+    });
+    if(!entries.length) throw new Error("압축할 파일이 없어요");
+    const { sec1, cd, count } = await ChoiminiApk.zipParts(entries);
+    const e22 = new Uint8Array(22), dv = new DataView(e22.buffer);
+    dv.setUint32(0, 0x06054b50, true); dv.setUint16(8, count, true); dv.setUint16(10, count, true); dv.setUint32(12, cd.length, true); dv.setUint32(16, sec1.length, true);
+    const all = new Uint8Array(sec1.length + cd.length + 22); all.set(sec1, 0); all.set(cd, sec1.length); all.set(e22, sec1.length + cd.length);
+    lfsSaveBytes(all, outName || "files.zip", "application/zip");
+  }catch(e){ toast("ZIP 만들기 실패: " + e.message); }
+}
+async function lfsUploadFiles(files){
   for(const f of files){
     try{
       const full = lfsJoin(lfsCwd, f.name.replace(/[\\/]/g, "_"));
       const isText = f.type.startsWith("text/") || /\.(txt|md|csv|json|js|jsx|ts|tsx|py|html|css|xml|yml|yaml|log|sh|java|c|cpp|h|go|rs|php|sql|ini|toml|svg)$/i.test(f.name);
-      if(isText) LinuxFS.writeFile(full, await fileToText(f), f.type || "text/plain");
-      else LinuxFS.writeFile(full, await fileToDataURL(f), f.type || "application/octet-stream");
+      if(isText){ const c = await fileToText(f); lfsU(()=>LinuxFS.writeFile(full, c, f.type || "text/plain")); }
+      else { const c = await fileToDataURL(f); lfsU(()=>LinuxFS.writeFile(full, c, f.type || "application/octet-stream")); }
     }catch(err){ toast(`${f.name}: ${err.message}`); }
   }
   renderLfs(); if(files.length) toast("업로드 완료");
+}
+/* 휴지통 */
+function renderLfsTrash(){
+  lfsUpdateCounts();
+  const box = document.getElementById("lfsTrashList"); box.innerHTML = "";
+  const items = LinuxFS.trashList();
+  if(!items.length){ box.innerHTML = '<div class="lfs-row" style="cursor:default;color:var(--text-dim)">휴지통이 비어 있어요</div>'; return; }
+  items.forEach(t=>{
+    const row = document.createElement("div"); row.className = "lfs-row";
+    row.innerHTML = `<span>${t.isProject ? "🗂" : lfsIcon(t.name, t.type === "dir")}</span><span class="n">${escapeHtml(t.name)}<div class="sub">${t.isProject ? "프로젝트 · " : ""}${escapeHtml(t.origPath)} · 파일 ${t.files}개 · ${lfsFmt(t.size)} · ${lfsDate(t.trashedAt)} 삭제 · <b>${lfsDaysLeft(t.expiresAt)}일 후 자동 삭제</b></div></span><button class="x" data-a="restore" title="복원">↩ 복원</button><button class="x" data-a="del" title="영구 삭제">🗑</button>`;
+    row.querySelector('[data-a=restore]').addEventListener("click", ()=>{ try{ const to = lfsU(()=>LinuxFS.trashRestore(t.id)); toast("복원됨: " + to); }catch(e){ toast("복원 실패: " + e.message); } renderLfsTrash(); });
+    row.querySelector('[data-a=del]').addEventListener("click", ()=>{ if(!confirm(`"${t.name}"을(를) 완전히 삭제할까요? 되돌릴 수 없어요.`)) return; lfsU(()=>LinuxFS.trashPurge(t.id)); toast("영구 삭제됨"); renderLfsTrash(); });
+    box.appendChild(row);
+  });
+}
+/* 백업 */
+async function renderLfsBackup(){
+  try{ await LinuxFS.flushBackups(); }catch(_){}
+  lfsUpdateCounts();
+  const box = document.getElementById("lfsBackupList"); box.innerHTML = "";
+  const items = LinuxFS.backupList();
+  if(!items.length){ box.innerHTML = '<div class="lfs-row" style="cursor:default;color:var(--text-dim)">백업이 없어요. 최미나이가 명령어로 파일을 지우면 여기에 자동으로 모여요</div>'; return; }
+  items.forEach(b=>{
+    const row = document.createElement("div"); row.className = "lfs-row";
+    row.innerHTML = `<span>📦</span><span class="n">${escapeHtml(b.name)}<div class="sub">파일 ${b.fileCount}개 · ${lfsFmt(b.size)} · ${lfsDate(b.updatedAt)} 업데이트 · <b>${lfsDaysLeft(b.expiresAt)}일 후 자동 삭제</b></div></span><button class="x" data-a="pv" title="내용 보기">👁</button><button class="x" data-a="restore" title="복원">↩ 복원</button><button class="x" data-a="dl" title="다운로드">⬇</button><button class="x" data-a="del" title="삭제">🗑</button>`;
+    row.querySelector('[data-a=pv]').addEventListener("click", ()=>previewFile(b.path));
+    row.querySelector('[data-a=dl]').addEventListener("click", ()=>downloadFile(b.path));
+    row.querySelector('[data-a=restore]').addEventListener("click", async ()=>{
+      if(!confirm(`"${b.project}" 백업의 파일 ${b.fileCount}개를 /user/projects/${b.project} 로 복원할까요?\n(같은 이름의 파일이 있으면 "(복원)" 이름으로 따로 저장돼요)`)) return;
+      try{ const r = await lfsU(()=>LinuxFS.backupRestore(b.path)); toast(`복원됨: ${r.count}개 → ${r.dir}`); }catch(e){ toast("복원 실패: " + e.message); }
+    });
+    row.querySelector('[data-a=del]').addEventListener("click", ()=>{ if(!confirm(`백업 "${b.name}"을(를) 삭제할까요?`)) return; lfsU(()=>LinuxFS.backupDelete(b.path)); renderLfsBackup(); });
+    box.appendChild(row);
+  });
+}
+document.getElementById("openLfsBtn").addEventListener("click", ()=>{
+  if(!window.LinuxFS){ toast("Linux Local을 사용할 수 없어요"); return; }
+  closeModal("storageModal"); lfsCwd = "/user"; lfsSel.clear(); lfsSelMode = false; document.getElementById("lfsSearch").value = ""; lfsSearchAll = false;
+  lfsSetTab("files"); openModal("lfsModal");
 });
+document.querySelectorAll("#lfsTabs button").forEach(b=>b.addEventListener("click", ()=>lfsSetTab(b.dataset.tab)));
+document.querySelectorAll("#lfsQuick button").forEach(b=>b.addEventListener("click", ()=>{ lfsCwd = b.dataset.p; lfsSel.clear(); document.getElementById("lfsSearch").value = ""; lfsSearchAll = false; lfsSetTab("files"); }));
+document.getElementById("lfsUp").addEventListener("click", ()=>{ lfsCwd = lfsCwd.replace(/\/[^/]*$/, "") || "/"; lfsSel.clear(); renderLfs(); });
+document.getElementById("lfsRefresh").addEventListener("click", renderLfs);
+document.getElementById("lfsSort").addEventListener("change", renderLfs);
+document.getElementById("lfsSearch").addEventListener("input", ()=>{ lfsSearchAll = false; renderLfs(); });
+document.getElementById("lfsSearch").addEventListener("keydown", e=>{ if(e.key === "Enter"){ lfsSearchAll = true; renderLfs(); } });
+document.getElementById("lfsSearchAll").addEventListener("click", ()=>{ lfsSearchAll = true; renderLfs(); });
+document.getElementById("lfsNewFile").addEventListener("click", ()=>{
+  const n = prompt("새 파일 이름", "new.txt"); if(!n || !n.trim()) return;
+  try{ const full = lfsJoin(lfsCwd, n.trim().replace(/[\\/]/g, "_")); lfsU(()=>LinuxFS.writeFile(full, "")); renderLfs(); lfsEdit(full); }catch(e){ toast("생성 실패: " + e.message); }
+});
+document.getElementById("lfsNewDir").addEventListener("click", ()=>{
+  const n = prompt("새 폴더 이름"); if(!n || !n.trim()) return;
+  try{ lfsU(()=>LinuxFS.mkdirp(lfsJoin(lfsCwd, n.trim().replace(/[\\/]/g, "_")))); renderLfs(); }catch(e){ toast("생성 실패: " + e.message); }
+});
+document.getElementById("lfsUpload").addEventListener("click", ()=>document.getElementById("lfsUploadInput").click());
+document.getElementById("lfsUploadInput").addEventListener("change", e=>{ const files = Array.from(e.target.files || []); e.target.value = ""; lfsUploadFiles(files); });
+(function(){
+  const l = document.getElementById("lfsList");
+  l.addEventListener("dragover", e=>{ e.preventDefault(); l.classList.add("drag"); });
+  l.addEventListener("dragleave", ()=>l.classList.remove("drag"));
+  l.addEventListener("drop", e=>{ e.preventDefault(); l.classList.remove("drag"); const fs = Array.from(e.dataTransfer && e.dataTransfer.files || []); if(fs.length) lfsUploadFiles(fs); });
+})();
+document.getElementById("lfsSelToggle").addEventListener("click", ()=>{ lfsSelMode = !lfsSelMode; lfsSel.clear(); renderLfs(); });
+document.getElementById("lfsSelAll").addEventListener("click", ()=>{ document.querySelectorAll("#lfsList .lfs-row .ck").forEach(()=>{}); try{ LinuxFS.ls(lfsCwd).filter(it=>!lfsBlocked(lfsJoin(lfsCwd, it.name))).forEach(it=>lfsSel.add(lfsJoin(lfsCwd, it.name))); }catch(_){} renderLfs(); });
+document.getElementById("lfsSelCancel").addEventListener("click", ()=>{ lfsSelMode = false; lfsSel.clear(); renderLfs(); });
+document.getElementById("lfsSelLock").addEventListener("click", ()=>{ if(!lfsSel.size) return; lfsSel.forEach(p=>{ try{ lfsU(()=>LinuxFS.setLock(p, true)); }catch(_){} }); toast("잠금됨"); renderLfs(); });
+document.getElementById("lfsSelUnlock").addEventListener("click", ()=>{ if(!lfsSel.size) return; lfsSel.forEach(p=>{ try{ lfsU(()=>LinuxFS.setLock(p, false)); }catch(_){} }); toast("잠금 해제됨"); renderLfs(); });
+document.getElementById("lfsSelZip").addEventListener("click", ()=>{ if(lfsSel.size) lfsZipDownload([...lfsSel], "선택항목.zip"); });
+document.getElementById("lfsSelDel").addEventListener("click", ()=>{
+  if(!lfsSel.size) return;
+  if(!confirm(`선택한 ${lfsSel.size}개를 휴지통으로 보낼까요? (14일 후 자동 삭제)`)) return;
+  let n = 0; [...lfsSel].forEach(p=>{ try{ lfsU(()=>LinuxFS.userDelete(p)); n++; }catch(e){ toast(e.message); } });
+  lfsSel.clear(); lfsSelMode = false; toast(`${n}개를 휴지통으로 보냈어요`); renderLfs();
+});
+document.getElementById("lfsTrashEmpty").addEventListener("click", ()=>{ if(!LinuxFS.trashList().length) return; if(!confirm("휴지통을 비울까요? 모든 항목이 완전히 삭제돼요.")) return; lfsU(()=>LinuxFS.trashEmpty()); renderLfsTrash(); });
 document.getElementById("lfsEdSave").addEventListener("click", ()=>{
   const ta = document.getElementById("lfsEdText"); if(!ta || !lfsOpen) return;
-  try{ LinuxFS.writeFile(lfsOpen, ta.value); toast("저장됨"); document.getElementById("lfsEdName").textContent = lfsOpen + " (" + lfsFmt(new Blob([ta.value]).size) + ")"; }catch(e){ toast("저장 실패: " + e.message); }
+  try{ lfsU(()=>LinuxFS.writeFile(lfsOpen, ta.value)); toast("저장됨"); document.getElementById("lfsEdName").textContent = (LinuxFS.lockRoot(lfsOpen) ? "🔒 " : "") + lfsOpen + " (" + lfsFmt(new Blob([ta.value]).size) + ")"; }catch(e){ toast("저장 실패: " + e.message); }
 });
 document.getElementById("lfsEdDl").addEventListener("click", ()=>{ if(lfsOpen) downloadFile(lfsOpen); });
+document.getElementById("lfsEdPv").addEventListener("click", ()=>{
+  if(!lfsOpen) return; const ta = document.getElementById("lfsEdText");
+  if(ta){ try{ lfsU(()=>LinuxFS.writeFile(lfsOpen, ta.value)); }catch(_){} } // 편집 중인 내용을 반영해서 미리보기
+  previewFile(lfsOpen);
+});
+document.getElementById("lfsEdLock").addEventListener("click", ()=>{
+  if(!lfsOpen) return; const st = LinuxFS.stat(lfsOpen); lfsU(()=>LinuxFS.setLock(lfsOpen, !(st && st.locked))); lfsEdit(lfsOpen);
+  toast(st && st.locked ? "잠금 해제됨" : "잠금됨 — 최미나이가 수정하려면 동의가 필요해요");
+});
 document.getElementById("lfsEdDel").addEventListener("click", ()=>{ if(lfsOpen) lfsDelete(lfsOpen, false); });
 document.getElementById("lfsEdClose").addEventListener("click", lfsBack);
+/* 최미나이가 잠긴 항목을 건드리려 할 때 사용자 동의 */
+LinuxFS.onLockRequest = info=>{
+  if(document.hidden){ return false; } // 화면에 없으면 물어볼 수 없으니 거부(최미나이에게는 '잠김'으로 전달됨)
+  return confirm(`🔒 최미나이가 잠긴 항목을 ${info.opLabel}하려고 해요.\n\n대상: ${info.path}\n잠긴 항목: ${info.lock}\n\n허용할까요?\n(허용하면 이번 답변이 끝날 때까지 이 잠금은 다시 묻지 않아요)`);
+};
+setInterval(()=>{ try{ LinuxFS.purgeExpired(); }catch(_){} }, 3600000);
 
 /* storage modal */
 document.getElementById("openStorageBtn").addEventListener("click", ()=>{

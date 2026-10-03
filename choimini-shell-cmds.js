@@ -172,7 +172,7 @@
       const st = statOf(p);
       if(!st){ if(!f.f) c = E(io, "rm", `cannot remove '${p}': ${NOFILE}`); return; }
       if(st.type === "dir" && !(f.r || f.R || f.recursive)){ c = E(io, "rm", `cannot remove '${p}': Is a directory`); return; }
-      try{ FS.rm(p, true); }catch(e){ if(!f.f) c = E(io, "rm", e.message); } });
+      try{ FS.rm(p, true); }catch(e){ if(!f.f || /🔒|보호 영역/.test(e.message)) c = E(io, "rm", e.message); } });
     return c;
   });
   def(["cp"], "복사 (-r)", (a, io) => {

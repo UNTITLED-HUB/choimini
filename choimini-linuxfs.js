@@ -37,7 +37,7 @@
   function gcBig(){ const used = new Set(); for(const k in state.fs){ const e = state.fs[k]; if(e && e.bigId) used.add(e.bigId); } [...BIG.keys()].forEach(id => { if(!used.has(id)){ BIG.delete(id); idbDel(id); } }); }
 
   const DEFAULT_DIRS = [
-    "/", "/cmds", "/package", "/tmp",
+    "/", "/cmds", "/package", "/tmp", "/trash", "/backup",
     "/user", "/user/download", "/user/documents", "/user/desktop", "/user/projects"
   ];
 
@@ -128,6 +128,8 @@
     }
   }
   load();
+  try{ setTimeout(() => { purgeExpiredSafe(); }, 0); }catch(_){}
+  function purgeExpiredSafe(){ try{ purgeExpired(); }catch(_){} }
 
   function isDir(p){ const e = state.fs[normPath(p)]; return !!e && e.type === "dir"; }
   function isFile(p){ const e = state.fs[normPath(p)]; return !!e && e.type === "file"; }
@@ -161,6 +163,174 @@
     try{ return new Blob([content]).size; }catch(e){ return (content||"").length; }
   }
 
+  /* ---------------- 파일 잠금 / 휴지통 / 백업 ----------------
+     - 잠금: 사용자가 파일·폴더에 거는 보호 표시(entry.locked). 최미나이(AI 도구 실행 중)가 잠긴 항목을
+       수정·삭제·이동하려면 사용자의 동의(onLockRequest)가 필요하다. 폴더를 잠그면 안의 모든 항목이 잠긴다.
+     - 휴지통(/trash): 사용자가 지운 항목을 14일 보관 후 자동 삭제.
+     - 백업(/backup): 최미나이가 명령어로 지운 파일을 <프로젝트명>.zip 으로 묶어 7일 보관 후 자동 삭제. */
+  const TRASH_MS = 14 * 24 * 3600 * 1000, BACKUP_MS = 7 * 24 * 3600 * 1000;
+  let aiDepth = 0, sysDepth = 0;
+  const consent = new Set();
+  const OP_LABEL = { edit:"수정", delete:"삭제", move:"이동", create:"생성", copy:"복사" };
+  function lockRoot(p){
+    let cur = normPath(p);
+    for(;;){
+      const e = state.fs[cur]; if(e && e.locked) return cur;
+      const par = parentOf(cur); if(!par) return null; cur = par;
+    }
+  }
+  function lockedBelow(p){
+    p = normPath(p); const prefix = p === "/" ? "/" : p + "/";
+    for(const k in state.fs){ if(k.startsWith(prefix) && state.fs[k].locked) return k; }
+    return null;
+  }
+  const SYS_RE = /^\/(trash|backup)(\/|$)/;
+  function guard(p, op, deep){
+    if(!aiDepth || sysDepth) return;
+    p = normPath(p);
+    if(SYS_RE.test(p)) throw new Error(`휴지통/백업은 시스템 보호 영역이라 ${OP_LABEL[op] || op}할 수 없음: ${p}`);
+    const r = lockRoot(p) || (deep ? lockedBelow(p) : null);
+    if(!r || consent.has(r)) return;
+    let ok = false;
+    try{ ok = typeof api.onLockRequest === "function" ? !!api.onLockRequest({ path:p, lock:r, op, opLabel: OP_LABEL[op] || op }) : false; }catch(_){ ok = false; }
+    if(!ok) throw new Error(`🔒 잠긴 파일이라 ${OP_LABEL[op] || op}할 수 없음 (사용자가 허용하지 않았어요): ${r}`);
+    consent.add(r);
+  }
+  function setLock(path, on){
+    const k = normPath(path); if(!state.fs[k]) throw new Error(`없음: ${k}`);
+    if(SYS_RE.test(k) || /^\/(cmds|package)(\/|$)/.test(k)) throw new Error("시스템 영역은 잠글 수 없어요");
+    if(on) state.fs[k].locked = true; else delete state.fs[k].locked;
+    persist(); return !!on;
+  }
+  function moveRaw(src, dst){
+    const e = state.fs[src];
+    if(e.type === "file"){
+      state.fs[dst] = Object.assign(cloneEntry(e), { updatedAt: e.updatedAt || nowTs() });
+      delete state.fs[src];
+    } else {
+      const prefix = src + "/";
+      Object.keys(state.fs).filter(k => k === src || k.startsWith(prefix)).forEach(k => {
+        const nk = dst + k.slice(src.length);
+        state.fs[nk] = state.fs[k]; delete state.fs[k];
+      });
+    }
+  }
+  function subtreeKeys(p){ const prefix = p + "/"; return Object.keys(state.fs).filter(k => k === p || k.startsWith(prefix)); }
+  function rmRaw(p){ subtreeKeys(p).forEach(k => { delete state.fs[k]; }); }
+
+  /* 휴지통 */
+  function inSystem(p){ return /^\/(cmds|package|trash|backup)(\/|$)/.test(p); }
+  function userDelete(path){
+    const p = normPath(joinPath(state.cwd, path));
+    if(DEFAULT_DIRS.includes(p)) throw new Error(`기본 디렉터리는 삭제할 수 없음: ${p}`);
+    if(!exists(p)) throw new Error(`없음: ${p}`);
+    if(/^\/(cmds|package)(\/|$)/.test(p)) throw new Error("시스템 영역은 삭제할 수 없어요");
+    if(SYS_RE.test(p)){ rmRaw(p); persist(); return { permanent:true }; }
+    const id = baseName(p) + "~" + Date.now().toString(36);
+    const dst = "/trash/" + id;
+    moveRaw(p, dst);
+    Object.assign(state.fs[dst], { trashedAt: nowTs(), origPath: p, isProject: parentOf(p) === "/user/projects" });
+    persist(); return { id, trashed:true };
+  }
+  function trashList(){
+    purgeExpired();
+    return childrenOf("/trash").map(k => { const e = state.fs[k], id = baseName(k); return { id, name: id.replace(/~[^~]*$/, ""), type: e.type, origPath: e.origPath || "", trashedAt: e.trashedAt || 0, isProject: !!e.isProject, expiresAt: (e.trashedAt || 0) + TRASH_MS, size: subtreeKeys(k).reduce((n, q) => n + (state.fs[q].type === "file" ? (state.fs[q].size || 0) : 0), 0), files: subtreeKeys(k).filter(q => state.fs[q].type === "file").length }; }).sort((a, b) => b.trashedAt - a.trashedAt);
+  }
+  function trashRestore(id){
+    const src = "/trash/" + id, e = state.fs[src]; if(!e) throw new Error("휴지통에 없음");
+    let dst = e.origPath || ("/user/" + id.replace(/~[^~]*$/, ""));
+    if(exists(dst)){ const m = /^(.*?)(\.[^./]+)?$/.exec(dst); let n = 1, c; do{ c = m[1] + " (복원" + (n > 1 ? n : "") + ")" + (m[2] || ""); n++; }while(exists(c)); dst = c; }
+    ensureParentDirs(dst);
+    moveRaw(src, dst); delete state.fs[dst].trashedAt; delete state.fs[dst].origPath; delete state.fs[dst].isProject;
+    persist(); return dst;
+  }
+  function trashPurge(id){ const p = "/trash/" + id; if(!state.fs[p]) return false; rmRaw(p); persist(); return true; }
+  function trashEmpty(){ childrenOf("/trash").forEach(rmRaw); persist(); }
+
+  /* 백업 */
+  function projectOf(p){
+    p = normPath(p); let m = /^\/user\/projects\/([^/]+)\//.exec(p); if(m) return { name: m[1], root: "/user/projects/" + m[1] + "/" };
+    m = /^\/user\/([^/]+)\//.exec(p); if(m) return { name: m[1], root: "/user/" + m[1] + "/" };
+    return { name: "etc", root: "/" };
+  }
+  const bkPending = [];
+  let bkTimer = null, bkRunning = Promise.resolve();
+  function toBytes(c){
+    if(c == null) return new Uint8Array(0);
+    c = String(c); const m = /^data:[^,]*;base64,/.exec(c);
+    if(m){ try{ const b = atob(c.slice(m[0].length)); const u = new Uint8Array(b.length); for(let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }catch(_){} }
+    return new TextEncoder().encode(c);
+  }
+  function captureForBackup(p){
+    if(!aiDepth || sysDepth || inSystem(p) || /^\/tmp(\/|$)/.test(p)) return;
+    subtreeKeys(p).forEach(k => { const e = state.fs[k]; if(e && e.type === "file") bkPending.push({ path:k, content:e.content, mime:e.mime, ts: nowTs() }); });
+    if(bkPending.length && !bkTimer) bkTimer = setTimeout(() => { bkTimer = null; bkRunning = bkRunning.then(flushBackups); }, 30);
+  }
+  function stamp(t){ const d = new Date(t), z = n => String(n).padStart(2, "0"); return d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + "-" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()); }
+  async function flushBackups(){
+    if(!bkPending.length) return 0;
+    const items = bkPending.splice(0, bkPending.length), groups = {};
+    items.forEach(it => { const pr = projectOf(it.path); (groups[pr.name] = groups[pr.name] || { root: pr.root, list: [] }).list.push(it); });
+    const Apk = global.ChoiminiApk; if(!Apk){ console.warn("[LinuxFS] 백업 불가: ChoiminiApk 없음"); return 0; }
+    let n = 0;
+    for(const name of Object.keys(groups)){
+      try{
+        const g = groups[name], zpath = "/backup/" + name.replace(/[\\/]/g, "_") + ".zip";
+        const entries = [], used = new Set();
+        const old = state.fs[zpath];
+        if(old && typeof old.content === "string" && /^data:/.test(old.content)){
+          try{ const list = await Apk.readZip(toBytes(old.content)); for(const z of list){ entries.push({ name:z.name, data: await z.read() }); used.add(z.name); } }catch(e){ console.warn("[LinuxFS] 기존 백업 읽기 실패", e); }
+        }
+        g.list.forEach(it => {
+          let nm = it.path.startsWith(g.root) ? it.path.slice(g.root.length) : it.path.replace(/^\//, "");
+          if(used.has(nm)){ const m = /^(.*?)(\.[^./]+)?$/.exec(nm); nm = m[1] + " (삭제 " + stamp(it.ts) + ")" + (m[2] || ""); }
+          used.add(nm); entries.push({ name:nm, data: toBytes(it.content) });
+        });
+        const { sec1, cd, count } = await Apk.zipParts(entries);
+        const e22 = new Uint8Array(22), dv = new DataView(e22.buffer);
+        dv.setUint32(0, 0x06054b50, true); dv.setUint16(8, count, true); dv.setUint16(10, count, true); dv.setUint32(12, cd.length, true); dv.setUint32(16, sec1.length, true);
+        const all = new Uint8Array(sec1.length + cd.length + 22); all.set(sec1, 0); all.set(cd, sec1.length); all.set(e22, sec1.length + cd.length);
+        sysDepth++; try{ writeFile(zpath, "data:application/zip;base64," + Apk.u8ToB64(all), "application/zip"); state.fs[zpath].backupOf = name; state.fs[zpath].fileCount = entries.length; persist(); }finally{ sysDepth--; }
+        n += g.list.length;
+      }catch(e){ console.warn("[LinuxFS] 백업 실패:", name, e); }
+    }
+    return n;
+  }
+  function backupList(){
+    purgeExpired();
+    return childrenOf("/backup").filter(k => state.fs[k].type === "file").map(k => { const e = state.fs[k]; return { path:k, name: baseName(k), project: e.backupOf || baseName(k).replace(/\.zip$/i, ""), size: e.size || 0, updatedAt: e.updatedAt || 0, expiresAt: (e.updatedAt || 0) + BACKUP_MS, fileCount: e.fileCount || 0 }; }).sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+  function isTextBytes(u){ try{ new TextDecoder("utf-8", { fatal:true }).decode(u); return !u.includes(0); }catch(_){ return false; } }
+  const MIME_BY_EXT = { png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", gif:"image/gif", webp:"image/webp", pdf:"application/pdf", zip:"application/zip", mp3:"audio/mpeg", mp4:"video/mp4" };
+  async function backupRestore(path){
+    const e = state.fs[normPath(path)]; if(!e) throw new Error("백업 파일 없음");
+    const Apk = global.ChoiminiApk; if(!Apk) throw new Error("zip 모듈이 없어요");
+    const proj = e.backupOf || baseName(path).replace(/\.zip$/i, "");
+    const base = "/user/projects/" + proj + "/";
+    let count = 0;
+    for(const z of await Apk.readZip(toBytes(e.content))){
+      if(z.name.endsWith("/")) continue;
+      const u = await z.read(); let dst = base + z.name;
+      if(exists(dst)){ const m = /^(.*?)(\.[^./]+)?$/.exec(dst); dst = m[1] + " (복원)" + (m[2] || ""); }
+      const ext = (z.name.split(".").pop() || "").toLowerCase();
+      if(isTextBytes(u)) writeFile(dst, new TextDecoder().decode(u), "text/plain");
+      else writeFile(dst, "data:" + (MIME_BY_EXT[ext] || "application/octet-stream") + ";base64," + Apk.u8ToB64(u), MIME_BY_EXT[ext] || "application/octet-stream");
+      count++;
+    }
+    return { count, dir: base.slice(0, -1) };
+  }
+  function backupDelete(path){ const k = normPath(path); if(!/^\/backup\//.test(k) || !state.fs[k]) return false; rmRaw(k); persist(); return true; }
+
+  function purgeExpired(){
+    const now = nowTs(); let ch = false;
+    childrenOf("/trash").forEach(k => { const e = state.fs[k]; if(e && (e.trashedAt || 0) + TRASH_MS < now){ rmRaw(k); ch = true; } });
+    childrenOf("/backup").forEach(k => { const e = state.fs[k]; if(e && (e.updatedAt || e.createdAt || 0) + BACKUP_MS < now){ rmRaw(k); ch = true; } });
+    if(ch) persist();
+    return ch;
+  }
+  function asAI(fn){ aiDepth++; let r; try{ r = fn(); }catch(e){ aiDepth--; throw e; } if(r && typeof r.then === "function") return r.finally(() => { aiDepth--; }); aiDepth--; return r; }
+  function asUser(fn){ const a = aiDepth; aiDepth = 0; try{ return fn(); }finally{ aiDepth = a; } }
+
   /* ---------------- 공개 API ---------------- */
 
   function ls(path){
@@ -186,6 +356,7 @@
 
   function mkdir(path){
     const p = normPath(joinPath(state.cwd, path));
+    guard(p, "create");
     if(exists(p)) throw new Error(`이미 존재함: ${p}`);
     ensureParentDirs(p);
     state.fs[p] = { type:"dir", createdAt: nowTs() };
@@ -195,6 +366,7 @@
 
   function touch(path){
     const p = normPath(joinPath(state.cwd, path));
+    guard(p, exists(p) ? "edit" : "create");
     if(exists(p)) { state.fs[p].updatedAt = nowTs(); persist(); return p; }
     ensureParentDirs(p);
     state.fs[p] = { type:"file", content:"", mime:"text/plain", size:0, createdAt: nowTs(), updatedAt: nowTs() };
@@ -204,6 +376,7 @@
 
   function writeFile(path, content, mime){
     const p = normPath(joinPath(state.cwd, path));
+    guard(p, exists(p) ? "edit" : "create");
     const size = byteSize(content);
     if(size > MAX_FILE_BYTES) throw new Error(`파일이 너무 큼(가상 환경 상한 ${Math.round(MAX_FILE_BYTES/1024)}KB): ${p}`);
     const big = size > BIG_THRESHOLD;
@@ -215,14 +388,16 @@
     if(big){
       const id = "b" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
       BIG.set(id, content); idbPut(id, content);
-      state.fs[p] = attachBig({ type:"file", bigId:id, mime: mime || (prevE && prevE.mime) || "application/octet-stream", size, createdAt:(prevE ? prevE.createdAt : nowTs()), updatedAt: nowTs() });
+      state.fs[p] = attachBig({ type:"file", bigId:id, locked: (prevE && prevE.locked) || undefined, mime: mime || (prevE && prevE.mime) || "application/octet-stream", size, createdAt:(prevE ? prevE.createdAt : nowTs()), updatedAt: nowTs() });
       if(!persist()) throw new Error("저장 실패: 브라우저 저장공간 부족");
       return p;
     }
+    const wasLocked = !!(prevE && prevE.locked);
     state.fs[p] = {
       type:"file", content: content, mime: mime || (state.fs[p]&&state.fs[p].mime) || "text/plain",
       size, createdAt: (exists(p) ? state.fs[p].createdAt : nowTs()), updatedAt: nowTs()
     };
+    if(wasLocked) state.fs[p].locked = true;
     if(!persist()) throw new Error("저장 실패: 브라우저 저장공간 부족");
     return p;
   }
@@ -237,12 +412,15 @@
     const p = normPath(joinPath(state.cwd, path));
     if(DEFAULT_DIRS.includes(p)) throw new Error(`기본 디렉터리는 삭제할 수 없음: ${p}`);
     if(!exists(p)) throw new Error(`없음: ${p}`);
+    guard(p, "delete", true);
     if(isDir(p)){
       const kids = childrenOf(p);
       if(kids.length && !recursive) throw new Error(`비어있지 않은 디렉터리(recursive 필요): ${p}`);
+      captureForBackup(p);
       const prefix = p + "/";
       Object.keys(state.fs).filter(k => k===p || k.startsWith(prefix)).forEach(k => delete state.fs[k]);
     } else {
+      captureForBackup(p);
       delete state.fs[p];
     }
     persist();
@@ -254,6 +432,7 @@
     let dst = normPath(joinPath(state.cwd, to));
     if(!exists(src)) throw new Error(`없음: ${src}`);
     if(isDir(dst)) dst = joinPath(dst, baseName(src));
+    guard(src, "move", true); guard(dst, "edit", true);
     if(isFile(src)){
       state.fs[dst] = Object.assign(cloneEntry(state.fs[src]), { updatedAt: nowTs() });
       delete state.fs[src];
@@ -276,6 +455,7 @@
     let dst = normPath(joinPath(state.cwd, to));
     if(!exists(src)) throw new Error(`없음: ${src}`);
     if(isDir(dst)) dst = joinPath(dst, baseName(src));
+    guard(dst, "copy");
     if(isFile(src)){
       writeFile(dst, state.fs[src].content, state.fs[src].mime);
     } else {
@@ -420,12 +600,14 @@
   function setMeta(p, meta){
     const k = abs(p);
     if(!state.fs[k]) throw new Error(`없음: ${k}`);
+    guard(k, "edit");
     Object.assign(state.fs[k], meta); persist(); return k;
   }
   function mkdirp(p){
     const k = abs(p);
     if(isFile(k)) throw new Error(`파일이 이미 존재함: ${k}`);
     if(isDir(k)) return k;
+    guard(k, "create");
     ensureParentDirs(k);
     state.fs[k] = { type:"dir", createdAt: nowTs() };
     persist(); return k;
@@ -433,7 +615,7 @@
   // 변경 감지용 스냅샷 (에이전트 한 단계 전/후 비교 → "파일 생성됨/편집됨" 표시)
   function snapshot(){
     const o = {};
-    for(const k in state.fs){ const e = state.fs[k]; if(e.type === "file" && !k.startsWith("/cmds/") && !k.startsWith("/package/")) o[k] = (e.updatedAt || 0) + ":" + (e.size || 0) + ":" + (e.content && e.content.length || 0); }
+    for(const k in state.fs){ const e = state.fs[k]; if(e.type === "file" && !k.startsWith("/cmds/") && !k.startsWith("/package/") && !k.startsWith("/trash/") && !k.startsWith("/backup/")) o[k] = (e.updatedAt || 0) + ":" + (e.size || 0) + ":" + (e.content && e.content.length || 0); }
     return o;
   }
   function diffSnapshot(before){
@@ -466,7 +648,9 @@
     return mode === "code" ? BUILTIN_CMDS.concat(CODE_EXTRA_CMDS) : BUILTIN_CMDS;
   }
 
-  global.LinuxFS = {
+  const api = global.LinuxFS = {
+    setLock, lockRoot, userDelete, trashList, trashRestore, trashPurge, trashEmpty, backupList, backupRestore, backupDelete, flushBackups, purgeExpired, asAI, asUser,
+    clearLockConsent(){ consent.clear(); }, onLockRequest: null, TRASH_MS, BACKUP_MS,
     ls, pwd, cd, mkdir, touch, writeFile, readFile, rm, mv, cp, find, grep, head, tail,
     pkgInstall, pkgList, pkgIsInstalled,
     convertImage, saveUploaded, usageSummary, resetAll, availableCmds,
@@ -537,7 +721,7 @@
 
   global.ChoiminiToolRunner = {
     isFsTool(name){ return SHELL_TOOLS.has(name) || FS_TOOLS.has(name) || CODE_ONLY_TOOLS.has(name) || name === "convert_image"; },
-    run: runToolCall
+    run: (call, mode) => global.LinuxFS.asAI(() => runToolCall(call, mode))
   };
 
 })(window);
