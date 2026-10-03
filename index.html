@@ -160,6 +160,21 @@ details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
 .mode-row{display:flex;justify-content:flex-end;margin-bottom:6px;}
 .mode-switch{display:inline-flex;border:1px solid var(--border);background:var(--panel-2);border-radius:20px;padding:3px;gap:2px;}
 .mode-btn{border:none;background:transparent;color:var(--text-dim);font-size:11.5px;font-weight:700;letter-spacing:.02em;padding:5px 12px;border-radius:16px;cursor:pointer;transition:background .15s,color .15s;}
+.app-promo{position:fixed;right:16px;bottom:16px;z-index:90;max-width:330px;background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.45);padding:14px 16px;display:none;}
+.app-promo.show{display:block;animation:promoIn .25s ease;}
+@keyframes promoIn{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+.app-promo b{display:block;font-size:14px;margin-bottom:4px;padding-right:22px;}
+.app-promo p{margin:0;font-size:12.5px;color:var(--text-dim);line-height:1.5;}
+.app-promo .x{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;}
+.app-promo .later{margin-top:8px;background:none;border:none;color:var(--text-dim);font-size:11.5px;text-decoration:underline;cursor:pointer;padding:0;}
+@media(max-width:560px){.app-promo{left:12px;right:12px;bottom:12px;max-width:none;}}
+.exec-row{display:none;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+.exec-row.show{display:flex;}
+.exec-lbl{font-size:11px;color:var(--text-dim);}
+.exec-row select{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:16px;padding:4px 8px;font-size:11.5px;font-weight:700;}
+.mode-btn.active[data-exec="local"]{background:#6c8cff;color:#fff;}
+.mode-btn.active[data-exec="linux"]{background:#b48cff;color:#fff;}
+.exec-row select.full{border-color:#f0575c;color:#f0575c;}
 .mode-btn.active[data-mode="nobrain"]{background:var(--accent);color:#fff;}
 .mode-btn.active[data-mode="work"]{background:#3ddc84;color:#06341c;}
 .mode-btn.active[data-mode="code"]{background:#ff9f43;color:#3a2100;}
@@ -305,39 +320,76 @@ code.md-code{background:var(--panel-2);border:1px solid var(--border);border-rad
 .chat-item{user-select:none;-webkit-user-select:none;}
 .chat-item .pin{font-size:11px;margin-right:4px;}
 .file-preview .fp-name{cursor:pointer;}
-#lfsModal .modal{max-width:760px;width:96vw;}
-.lfs-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;}
-.lfs-bar button{padding:6px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;font-size:12.5px;}
-.lfs-bar button:hover{border-color:var(--accent);}
-.lfs-tabs{display:flex;gap:6px;margin-bottom:10px;}
-.lfs-tabs button{flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;font-size:13px;}
-.lfs-tabs button.on{border-color:var(--accent);background:var(--accent);color:#fff;}
-.lfs-quick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
-.lfs-quick button{padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:none;color:var(--text-dim);cursor:pointer;font-size:12px;}
-.lfs-quick button:hover{color:var(--text);border-color:var(--accent);}
-.lfs-search{flex:1;min-width:140px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:12.5px;}
-.lfs-bar select{padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:12.5px;}
-.lfs-path .crumb{cursor:pointer;color:var(--accent);}
-.lfs-selbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding:6px 8px;border-radius:10px;background:var(--panel-2);}
-.lfs-selbar button{padding:5px 9px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;font-size:12px;}
-.lfs-selbar button.danger,.lfs-bar button.danger{color:#f0575c;}
-.lfs-row.sel{background:rgba(124,92,255,.15);}
-.lfs-row .dt{color:var(--text-dim);font-size:11px;min-width:64px;text-align:right;}
-.lfs-row .sub{color:var(--text-dim);font-size:11.5px;margin-top:2px;word-break:break-all;}
-.lfs-list.drag{outline:2px dashed var(--accent);}
-.lfs-foot,.lfs-hint{color:var(--text-dim);font-size:11.5px;margin-top:8px;}
-@media(max-width:560px){.lfs-row .dt{display:none;}}
-.lfs-path{font-size:12.5px;color:var(--text-dim);word-break:break-all;margin:4px 0 8px;}
-.lfs-list{border:1px solid var(--border);border-radius:10px;max-height:52vh;overflow:auto;}
-.lfs-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;}
+#lfsModal .modal{max-width:920px;width:96vw;}
+#lfsModal .modal-body{padding:0;}
+.lfs-wrap{display:flex;min-height:min(560px,72vh);max-height:78vh;}
+.lfs-side{width:176px;flex:none;border-right:1px solid var(--border);padding:12px 8px;display:flex;flex-direction:column;gap:2px;overflow:auto;}
+.lfs-side .cap{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--text-dim);padding:8px 10px 4px;text-transform:uppercase;}
+.lfs-nav{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;color:var(--text);padding:7px 10px;border-radius:8px;font-size:13px;cursor:pointer;}
+.lfs-nav:hover{background:var(--panel-2);}
+.lfs-nav.on{background:rgba(124,92,255,.16);color:var(--text);font-weight:600;}
+.lfs-nav .ic{width:18px;text-align:center;opacity:.9;}
+.lfs-nav .ct{margin-left:auto;font-size:11px;color:var(--text-dim);}
+.lfs-side .sep{height:1px;background:var(--border);margin:8px 6px;}
+.lfs-usage{margin-top:auto;padding:10px 10px 4px;font-size:11px;color:var(--text-dim);}
+.lfs-usage .bar{height:5px;border-radius:4px;background:var(--panel-2);overflow:hidden;margin-top:6px;}
+.lfs-usage .bar i{display:block;height:100%;background:var(--accent);border-radius:4px;}
+.lfs-main{flex:1;min-width:0;display:flex;flex-direction:column;padding:12px 14px;gap:8px;}
+.lfs-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.lfs-path{flex:1;min-width:120px;font-size:13px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lfs-path .crumb{cursor:pointer;color:var(--text);padding:2px 4px;border-radius:5px;}
+.lfs-path .crumb:hover{background:var(--panel-2);}
+.lfs-path .sl{opacity:.45;margin:0 1px;}
+.lfs-tools{display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
+.lfs-ib{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;font-size:12.5px;white-space:nowrap;}
+.lfs-ib:hover{border-color:var(--accent);}
+.lfs-ib.icon{width:30px;padding:0;justify-content:center;}
+.lfs-ib.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.lfs-ib.danger{color:#f0575c;}
+.lfs-search{flex:1;min-width:120px;height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:12.5px;}
+.lfs-head select{height:30px;padding:0 8px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:12.5px;}
+.lfs-selbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px 8px;border-radius:10px;background:rgba(124,92,255,.10);font-size:12.5px;}
+.lfs-selbar b{margin-right:auto;}
+.lfs-list{flex:1;min-height:120px;overflow:auto;border:1px solid var(--border);border-radius:10px;}
+.lfs-list.selmode .lfs-row:not(.wide):not(.empty){grid-template-columns:18px 22px minmax(0,1fr) 74px 84px 30px;}
+.lfs-row{display:grid;grid-template-columns:22px minmax(0,1fr) 74px 84px 30px;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;}
 .lfs-row:last-child{border-bottom:none;}
 .lfs-row:hover{background:var(--panel-2);}
-.lfs-row .n{flex:1;word-break:break-all;}
-.lfs-row .sz{color:var(--text-dim);font-size:11.5px;}
-.lfs-row .x{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;}
-.lfs-row .x:hover{color:#f0575c;}
-#lfsEditor textarea{width:100%;min-height:46vh;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;resize:vertical;box-sizing:border-box;}
-#lfsEditor img{max-width:100%;max-height:50vh;display:block;margin:8px auto;}
+.lfs-row.sel{background:rgba(124,92,255,.14);}
+.lfs-row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lfs-row .sz,.lfs-row .dt{color:var(--text-dim);font-size:11.5px;text-align:right;white-space:nowrap;}
+.lfs-row .x{width:28px;height:26px;border-radius:7px;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:15px;opacity:0;}
+.lfs-row:hover .x,.lfs-row .x:focus{opacity:1;}
+.lfs-row .x:hover{background:var(--panel);color:var(--text);}
+.lfs-row.empty{display:block;cursor:default;color:var(--text-dim);text-align:center;padding:28px 10px;}
+.lfs-row.empty:hover{background:none;}
+.lfs-row .ck{margin:0;}
+.lfs-row .lk{font-size:11px;margin-right:4px;}
+.lfs-row .sub{color:var(--text-dim);font-size:11.5px;margin-top:2px;white-space:normal;}
+.lfs-row.wide{grid-template-columns:22px minmax(0,1fr) auto;}
+.lfs-row.wide .acts{display:flex;gap:4px;}
+.lfs-row.wide .acts button{height:28px;padding:0 9px;border-radius:7px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;font-size:12px;}
+.lfs-row.wide .acts button:hover{border-color:var(--accent);}
+.lfs-row.wide .acts button.d{color:#f0575c;}
+.lfs-note{font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:8px;}
+.lfs-note span{flex:1;}
+.lfs-list.drag{outline:2px dashed var(--accent);outline-offset:-4px;}
+#lfsEdBody textarea{width:100%;min-height:52vh;box-sizing:border-box;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font:12.5px/1.55 Consolas,"SFMono-Regular",Menlo,monospace;resize:vertical;}
+#lfsEdBody img{max-width:100%;border-radius:8px;}
+.lfs-edhead{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.lfs-edhead b{flex:1;min-width:120px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+@media(max-width:640px){
+  .lfs-wrap{flex-direction:column;max-height:none;}
+  .lfs-side{width:auto;flex-direction:row;border-right:none;border-bottom:1px solid var(--border);padding:8px;overflow-x:auto;gap:4px;}
+  .lfs-side .cap,.lfs-side .sep{display:none;}
+  .lfs-nav{width:auto;flex:none;padding:6px 10px;border:1px solid var(--border);border-radius:999px;font-size:12px;}
+  .lfs-usage{display:none;}
+  .lfs-row{grid-template-columns:22px minmax(0,1fr) 64px 30px;}
+  .lfs-list.selmode .lfs-row:not(.wide):not(.empty){grid-template-columns:18px 22px minmax(0,1fr) 64px 30px;}
+  .lfs-row .dt{display:none;}
+  .lfs-row .x{opacity:1;}
+  .lfs-ib{padding:0 8px;font-size:12px;}
+}
 #pvCons{display:none;flex-direction:column;height:34%;border-top:1px solid var(--border);background:#0b0d12;}
 #pvCons.show{display:flex;}
 #pvConsOut{flex:1;overflow:auto;padding:8px 10px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-all;}
@@ -423,6 +475,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 #choiminiLoginGate .clg-mini { background:#3b82f6; color:#fff; border:none; border-radius:10px; padding:0 14px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
 #choiminiLoginGate .clg-mini:disabled { opacity:.5; cursor:default; }
 #choiminiLoginGate .clg-error { margin-top: 12px; font-size: 12.5px; color: #f0575c; min-height: 16px; }
+#choiminiLoginGate .clg-mail-link { display:inline-block; margin-top:8px; padding:7px 14px; border-radius:9px; background:#3b82f6; color:#fff; font-weight:600; text-decoration:none; }
 
 </style>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2716%27 fill=%27%23635bff%27/%3E%3Ctext x=%2732%27 y=%2745%27 font-size=%2738%27 font-family=%27sans-serif%27 font-weight=%27700%27 text-anchor=%27middle%27 fill=%27white%27%3E%EC%B5%9C%3C/text%3E%3C/svg%3E">
@@ -458,7 +511,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="./choimini-auth.js?v=20261009"></script>
+<script src="./choimini-auth.js?v=20261012"></script>
 <script src="./choimini-browser.js?v=20261001"></script>
 <script src="./choimini-linuxfs.js?v=20261011"></script>
 <script src="./choimini-shell.js?v=20261005"></script>
@@ -578,6 +631,24 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
     <div class="composer">
       <div class="composer-inner">
         <div class="file-preview-row" id="filePreviewRow"></div>
+        <div class="app-promo" id="appPromo" role="dialog" aria-label="앱 안내">
+          <button class="x" id="appPromoClose" aria-label="닫기">✕</button>
+          <b id="appPromoTitle"></b><p id="appPromoDesc"></p>
+          <button class="later" id="appPromoLater">7일 동안 보지 않기</button>
+        </div>
+        <div class="exec-row" id="execRow">
+          <span class="exec-lbl">작업 위치</span>
+          <div class="mode-switch" id="execSwitch">
+            <button class="mode-btn" type="button" data-exec="local" title="내 컴퓨터에서 직접 작업 (보안문자·작업 폴더·AI 권한 적용)">Local</button>
+            <button class="mode-btn" type="button" data-exec="linux" title="브라우저 안 가상 Linux 샌드박스에서 작업">Linux</button>
+          </div>
+          <span class="exec-lbl" id="permLbl">AI 권한</span>
+          <select id="permSel" title="AI 권한 (Local 에서 적용)">
+            <option value="manual">수동 승인</option>
+            <option value="auto">자동 승인</option>
+            <option value="full">전체 승인 (보안문자)</option>
+          </select>
+        </div>
         <div class="mode-row">
           <div class="mode-switch" id="modeSwitch">
             <button class="mode-btn" type="button" data-mode="nobrain">NO BRAIN</button>
@@ -603,14 +674,6 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
     <div class="modal-header"><h3>AI / 모델 설정</h3><button class="modal-close" data-close="settingsModal">✕</button></div>
     <div class="modal-body">
       <div class="model-grid" id="modelGrid"></div>
-
-      <div class="field-group" id="terminalModeGroup" style="display:none;">
-        <label>터미널 사용 방식 (데스크톱)</label>
-        <select id="terminalModeSelect" style="width:100%;">
-          <option value="local">실제 로컬 터미널 (내 컴퓨터에서 실행)</option>
-          <option value="virtual">가상 Linux_Local (브라우저 안 격리 환경)</option>
-        </select>
-      </div>
 
       <div class="field-group">
         <label>기억력 · <span id="memoryLevelLabel">중간</span></label>
@@ -699,42 +762,67 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
   <div class="modal">
     <div class="modal-header"><h3>Linux Local</h3><button class="modal-close" data-close="lfsModal">✕</button></div>
     <div class="modal-body">
-      <div class="lfs-tabs" id="lfsTabs">
-        <button data-tab="files" class="on">📁 파일</button><button data-tab="trash">🗑 휴지통 <span id="lfsTrashN"></span></button><button data-tab="backup">📦 백업 <span id="lfsBkN"></span></button>
-      </div>
-      <div id="lfsBrowser">
-        <div class="lfs-quick" id="lfsQuick">
-          <button data-p="/user">🏠 user</button><button data-p="/user/projects">🗂 projects</button><button data-p="/user/download">⬇ download</button><button data-p="/user/documents">📄 documents</button><button data-p="/user/desktop">🖥 desktop</button><button data-p="/tmp">tmp</button>
-        </div>
-        <div class="lfs-bar">
-          <button id="lfsUp">⬆ 위로</button><button id="lfsNewFile">＋ 새 파일</button><button id="lfsNewDir">＋ 새 폴더</button>
-          <button id="lfsUpload">업로드</button><button id="lfsSelToggle">☑ 선택</button><button id="lfsRefresh">새로고침</button>
-          <input type="file" id="lfsUploadInput" multiple style="display:none">
-        </div>
-        <div class="lfs-bar">
-          <input id="lfsSearch" class="lfs-search" placeholder="🔍 이 폴더에서 검색 (Enter: 하위 폴더 포함)"><button id="lfsSearchAll" title="하위 폴더 포함 검색">하위 포함</button>
-          <select id="lfsSort"><option value="name">이름순</option><option value="size">크기순</option><option value="date">최근 수정순</option></select>
-        </div>
-        <div class="lfs-path" id="lfsPath">/</div>
-        <div class="lfs-selbar" id="lfsSelBar" style="display:none">
-          <b id="lfsSelN">0개 선택</b><button id="lfsSelAll">전체</button><button id="lfsSelLock">🔒 잠금</button><button id="lfsSelUnlock">🔓 해제</button><button id="lfsSelZip">⬇ ZIP</button><button id="lfsSelDel" class="danger">🗑 삭제</button><button id="lfsSelCancel">취소</button>
-        </div>
-        <div class="lfs-list" id="lfsList"></div>
-        <div class="lfs-foot" id="lfsFoot"></div>
-        <div class="lfs-hint">행을 길게 누르거나 우클릭 / ⋯ 로 이름 변경·이동·복사·잠금·다운로드를 할 수 있어요. 🔒 잠긴 항목은 최미나이가 고치려면 동의가 필요해요.</div>
-      </div>
-      <div id="lfsTrash" style="display:none">
-        <div class="lfs-bar"><span class="lfs-hint" style="flex:1;margin:0">삭제한 파일·프로젝트는 14일 동안 보관돼요. 그 뒤엔 자동으로 완전히 삭제돼요.</span><button id="lfsTrashEmpty" class="danger">휴지통 비우기</button></div>
-        <div class="lfs-list" id="lfsTrashList"></div>
-      </div>
-      <div id="lfsBackup" style="display:none">
-        <div class="lfs-bar"><span class="lfs-hint" style="flex:1;margin:0">최미나이가 명령어로 지운 파일은 &lt;프로젝트명&gt;.zip 으로 묶여 7일 동안 보관돼요. 그 뒤엔 자동 삭제돼요.</span></div>
-        <div class="lfs-list" id="lfsBackupList"></div>
-      </div>
-      <div id="lfsEditor" style="display:none">
-        <div class="lfs-bar"><b id="lfsEdName" style="flex:1;word-break:break-all"></b>
-          <button id="lfsEdSave">저장</button><button id="lfsEdPv">👁 미리보기</button><button id="lfsEdLock">🔒 잠금</button><button id="lfsEdDl">다운로드</button><button id="lfsEdDel">삭제</button><button id="lfsEdClose">목록으로</button></div>
-        <div id="lfsEdBody"></div>
+      <div class="lfs-wrap">
+        <nav class="lfs-side" id="lfsSide">
+          <div class="cap">위치</div>
+          <div id="lfsQuick" style="display:contents">
+            <button class="lfs-nav" data-p="/user"><span class="ic">🏠</span>user</button>
+            <button class="lfs-nav" data-p="/user/projects"><span class="ic">🗂</span>projects</button>
+            <button class="lfs-nav" data-p="/user/download"><span class="ic">⬇</span>download</button>
+            <button class="lfs-nav" data-p="/user/documents"><span class="ic">📄</span>documents</button>
+            <button class="lfs-nav" data-p="/user/desktop"><span class="ic">🖥</span>desktop</button>
+            <button class="lfs-nav" data-p="/tmp"><span class="ic">⏱</span>tmp</button>
+          </div>
+          <div class="sep"></div>
+          <div class="cap">보관</div>
+          <div id="lfsTabs" style="display:contents">
+            <button data-tab="files" style="display:none"></button>
+            <button class="lfs-nav" data-tab="trash"><span class="ic">🗑</span>휴지통<span class="ct" id="lfsTrashN"></span></button>
+            <button class="lfs-nav" data-tab="backup"><span class="ic">📦</span>백업<span class="ct" id="lfsBkN"></span></button>
+          </div>
+          <div class="lfs-usage" id="lfsUsage"><span id="lfsFoot"></span><div class="bar"><i id="lfsUsageBar" style="width:0"></i></div></div>
+        </nav>
+        <section class="lfs-main">
+          <div id="lfsBrowser" style="display:contents">
+            <div class="lfs-head">
+              <button class="lfs-ib icon" id="lfsUp" title="상위 폴더">↑</button>
+              <div class="lfs-path" id="lfsPath">/</div>
+              <div class="lfs-tools">
+                <button class="lfs-ib" id="lfsNewFile" title="새 파일">＋<span class="t">파일</span></button>
+                <button class="lfs-ib" id="lfsNewDir" title="새 폴더">＋<span class="t">폴더</span></button>
+                <button class="lfs-ib" id="lfsUpload" title="업로드 (파일을 목록에 끌어다 놓아도 돼요)">⤒<span class="t">업로드</span></button>
+                <button class="lfs-ib icon" id="lfsSelToggle" title="여러 개 선택">☑</button>
+                <button class="lfs-ib icon" id="lfsRefresh" title="새로고침">⟳</button>
+                <input type="file" id="lfsUploadInput" multiple style="display:none">
+              </div>
+            </div>
+            <div class="lfs-head">
+              <input id="lfsSearch" class="lfs-search" placeholder="이 폴더에서 검색 · Enter: 하위 폴더까지">
+              <button class="lfs-ib" id="lfsSearchAll" title="하위 폴더까지 검색">하위 포함</button>
+              <select id="lfsSort" title="정렬"><option value="name">이름순</option><option value="size">크기순</option><option value="date">최근 수정순</option></select>
+            </div>
+            <div class="lfs-selbar" id="lfsSelBar" style="display:none">
+              <b id="lfsSelN">0개 선택</b><button class="lfs-ib" id="lfsSelAll">전체</button><button class="lfs-ib" id="lfsSelLock">🔒 잠금</button><button class="lfs-ib" id="lfsSelUnlock">🔓 해제</button><button class="lfs-ib" id="lfsSelZip">⬇ ZIP</button><button class="lfs-ib danger" id="lfsSelDel">삭제</button><button class="lfs-ib" id="lfsSelCancel">취소</button>
+            </div>
+            <div class="lfs-list" id="lfsList"></div>
+          </div>
+          <div id="lfsTrash" style="display:none;flex-direction:column;gap:8px;flex:1;min-height:0">
+            <div class="lfs-note"><span>지운 파일·프로젝트는 14일 동안 보관된 뒤 자동으로 삭제돼요.</span><button class="lfs-ib danger" id="lfsTrashEmpty">비우기</button></div>
+            <div class="lfs-list" id="lfsTrashList"></div>
+          </div>
+          <div id="lfsBackup" style="display:none;flex-direction:column;gap:8px;flex:1;min-height:0">
+            <div class="lfs-note"><span>최미나이가 명령어로 지운 파일을 &lt;프로젝트명&gt;.zip 으로 7일 동안 보관해요.</span></div>
+            <div class="lfs-list" id="lfsBackupList"></div>
+          </div>
+          <div id="lfsEditor" style="display:none;flex-direction:column;gap:8px;flex:1;min-height:0">
+            <div class="lfs-edhead">
+              <button class="lfs-ib icon" id="lfsEdClose" title="목록으로">←</button>
+              <b id="lfsEdName"></b>
+              <button class="lfs-ib" id="lfsEdSave">저장</button><button class="lfs-ib" id="lfsEdPv">미리보기</button><button class="lfs-ib icon" id="lfsEdLock" title="잠금">🔒</button><button class="lfs-ib icon" id="lfsEdDl" title="다운로드">⬇</button><button class="lfs-ib icon danger" id="lfsEdDel" title="삭제">🗑</button>
+            </div>
+            <div id="lfsEdBody" style="flex:1;min-height:0;overflow:auto"></div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -1058,10 +1146,28 @@ function isWorkMode(){ return (settings.mode||"") === "work"; }
 /* 데스크톱 앱 터미널 방식. "local" = 앱이 제공하는 실제 로컬 터미널(DesktopBridge.callTool), "virtual" = 브라우저 안 가상 Linux_Local.
    데스크톱 앱(DesktopBridge 주입)이 아니면 항상 가상 Linux_Local 이다. */
 function desktopTerminalAvailable(){ return !!(window.DesktopBridge && typeof window.DesktopBridge.callTool === "function"); }
+/* 작업 위치: Local(내 컴퓨터, 앱이 도구 실행) / Linux(브라우저 안 가상 샌드박스). 호스트 앱이 "Local 켜짐"을 CHOIMINI_MODE==='code' 로 알려준다.
+   Local 은 WORK/CODE 모드에서만 의미가 있다 (NO BRAIN 은 항상 Linux). */
 function useLocalTerminal(){
-  return desktopTerminalAvailable() && (settings && settings.terminalMode) !== "virtual" && (window.CHOIMINI_MODE === "code" || isCodeMode());
+  return desktopTerminalAvailable() && window.CHOIMINI_MODE === "code" && ((settings.mode||"") === "work" || (settings.mode||"") === "code");
 }
-function isCodeMode(){ return (settings.mode||"") === "code" || window.CHOIMINI_MODE === "code"; }
+function isCodeMode(){ return (settings.mode||"") === "code"; }
+function execPref(){ return settings.execTarget === "linux" ? "linux" : "local"; }
+function requestLocal(on){
+  if(!desktopTerminalAvailable() || typeof window.DesktopBridge.setLocal !== "function") return Promise.resolve(false);
+  return Promise.resolve(window.DesktopBridge.setLocal(!!on)).catch(()=>false).then(ok=>{ updateExecUI(); return ok; });
+}
+function updateExecUI(){
+  const row = document.getElementById("execRow"); if(!row) return;
+  const desk = desktopTerminalAvailable() && typeof window.DesktopBridge.setLocal === "function";
+  const mode = settings.mode || (settings.noBrain === false ? "work" : "nobrain");
+  row.classList.toggle("show", desk && mode !== "nobrain");
+  const local = window.CHOIMINI_MODE === "code";
+  row.querySelectorAll("[data-exec]").forEach(b=>b.classList.toggle("active", (b.dataset.exec === "local") === local));
+  const perm = window.CHOIMINI_PERM || "manual", sel = document.getElementById("permSel");
+  sel.value = perm; sel.classList.toggle("full", perm === "full");
+  sel.style.display = document.getElementById("permLbl").style.display = local ? "" : "none";
+}
 
 /* GitHub 에 올린 모듈 파일이 서로 안 맞을 때(예: 파일 이름을 바꿔 올림) 조용히 실패하지 않도록 알려준다. */
 function checkModules(){
@@ -1087,7 +1193,7 @@ function init(){
     settings.models[p] = JSON.parse(JSON.stringify(DEFAULT_MODELS[p]));
   }
   if(typeof settings.noBrain !== "boolean") settings.noBrain = true;
-  if(!settings.mode) settings.mode = settings.noBrain ? "nobrain" : "work";
+  if(!settings.mode) settings.mode = settings.noBrain === false ? "work" : "nobrain"; // 처음 접속(저장된 설정 없음/불완전)이면 항상 NO BRAIN
   if(settings.terminalMode !== "local" && settings.terminalMode !== "virtual") settings.terminalMode = "local";
   settings.noBrain = (settings.mode === "nobrain"); // mode를 기준값으로 재동기화
   if(typeof settings.memory !== "boolean") settings.memory = true;
@@ -1625,21 +1731,7 @@ function syncSettingsUI(){
 
 /* 기억력 세부 단계(1~5): 높을수록 더 많은 과거 대화를 참고하되 토큰을 더 씀.
    settings.memory(불리언)는 예전 코드와의 호환을 위해 level>1일 때 true로 계속 동기화만 해둠. */
-function updateTerminalUI(){
-  const g = document.getElementById("terminalModeGroup"), sel = document.getElementById("terminalModeSelect");
-  if(!g || !sel) return;
-  g.style.display = desktopTerminalAvailable() ? "" : "none";
-  sel.value = settings.terminalMode === "virtual" ? "virtual" : "local";
-}
-(function(){
-  const sel = document.getElementById("terminalModeSelect");
-  if(!sel) return;
-  sel.addEventListener("change", ()=>{
-    settings.terminalMode = sel.value === "virtual" ? "virtual" : "local";
-    saveJSON(LS.settings, settings);
-    toast(settings.terminalMode === "virtual" ? "🖥️ 가상 Linux_Local 터미널 사용" : "💻 실제 로컬 터미널 사용");
-  });
-})();
+function updateTerminalUI(){ updateExecUI(); }
 function updateMemoryUI(){
   updateTerminalUI();
   const slider = document.getElementById("memoryLevelSlider");
@@ -2004,7 +2096,7 @@ async function redeemCode(rawCode){
     const res = await fetch(REDEEM_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + (tok || SUPABASE_ANON_KEY) },
-      body: JSON.stringify(Object.assign({ code, deviceId: getDeviceId(), phase }, extra || {}))
+      body: JSON.stringify(Object.assign({ code, deviceId: getDeviceId(), phase, platform: window.CHOIMINI_APP || "web" }, extra || {}))
     });
     return { res, data: await res.json() };
   };
@@ -2025,6 +2117,7 @@ async function redeemCode(rawCode){
     toast("⚠️ 코드 확인 중 오류남 (네트워크 확인)");
     return;
   }
+  if(info && info.wrongPlatform){ toast(info.platform === "android" ? "📱 이 코드는 Android 앱에서만 사용할 수 있어요" : "🖥️ 이 코드는 Desktop 앱에서만 사용할 수 있어요"); return; }
   if(info && info.needLogin){ toast("🔑 이 코드는 로그인 후 사용할 수 있음"); return; }
   if(info && info.soldout){ toast("😢 선착순 마감된 코드임"); return; }
   if(info && info.alreadyRedeemed){ toast("⚠️ 이미 사용한 코드임"); return; }
@@ -2046,6 +2139,7 @@ async function redeemCode(rawCode){
       toast("⚠️ 교환 중 오류남 (네트워크 확인)");
       return;
     }
+    if(d && d.wrongPlatform){ toast("이 코드는 " + (d.platform === "android" ? "Android" : "Desktop") + " 앱에서만 사용할 수 있어요"); return; }
     if(d && d.soldout){ toast("😢 선착순 마감된 코드임"); return; }
     if(d && d.needLogin){ toast("🔑 이 코드는 로그인 후 사용할 수 있음"); return; }
     if(d && d.alreadyRedeemed){ toast(d.daily ? "⚠️ 오늘은 이미 사용함" : "⚠️ 이미 사용한 코드임"); return; }
@@ -2692,7 +2786,7 @@ function noBrainReply(){
 
 async function generateReply(chat, signal, onDelta){
   // Code 모드에서 <NO BRAIN>(짧은 필러 답변)이면 코딩을 못 하므로, Code 모드는 항상 일반 응답 경로로 보낸다.
-  if(settings.noBrain && window.CHOIMINI_MODE !== "code"){
+  if(settings.noBrain){
     const cost = randomNoBrainCost(); // 이번 응답에 적용될 랜덤 2~5 토큰 비용 (항상 차감됨)
     const provider = settings.provider;
     const apiKey = resolveApiKey(provider);
@@ -3619,22 +3713,40 @@ document.getElementById("adCodeRedeemInput").addEventListener("keydown", (e)=>{
    settings.mode 가 3단계 사고 모드의 기준값이고, settings.noBrain 은 하위호환용으로 계속
    settings.mode==="nobrain" 과 동기화해 둔다(기존 generateReply 등의 조건이 이 값을 봄). */
 function updateNoBrainUI(){
-  const mode = settings.mode || (settings.noBrain ? "nobrain" : "work");
+  const mode = settings.mode || (settings.noBrain === false ? "work" : "nobrain");
   document.querySelectorAll("#modeSwitch .mode-btn").forEach(b=>{
     b.classList.toggle("active", b.dataset.mode === mode);
   });
+  try{ updateExecUI(); }catch(_){}
 }
 function applyMode(mode){
   settings.mode = mode;
   settings.noBrain = (mode === "nobrain");
   saveJSON(LS.settings, settings);
   updateNoBrainUI();
+  if(desktopTerminalAvailable()){
+    if(mode === "nobrain"){ if(window.CHOIMINI_MODE === "code") requestLocal(false); }
+    else if(execPref() === "local" && window.CHOIMINI_MODE !== "code"){
+      requestLocal(true).then(ok=>{
+        if(!ok){ toast("Local 을 켜지 못해 Linux 샌드박스에서 작업해요 (위의 Local 버튼으로 다시 켤 수 있어요)"); }
+      });
+    }
+  }
 }
 document.querySelectorAll("#modeSwitch .mode-btn").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     const target = btn.dataset.mode;
-    const current = settings.mode || (settings.noBrain ? "nobrain" : "work");
+    const current = settings.mode || (settings.noBrain === false ? "work" : "nobrain");
     if(target === current) return;
+    if(current === "nobrain" && target !== "nobrain" && desktopTerminalAvailable() && execPref() === "local" && typeof window.DesktopBridge.setLocal === "function"){
+      // 데스크톱 + Local: 앱의 보안문자(Local 인증)가 사이트 캡차를 대신한다. 인증을 못 하면 NO BRAIN 유지
+      settings.mode = target; settings.noBrain = false; // 임시로 모드를 바꿔 두고 Local 요청
+      requestLocal(true).then(ok=>{
+        if(ok){ applyMode(target); toast(target === "code" ? "💻 <CODE> · Local 작업" : "🛠️ <WORK> · Local 작업"); }
+        else{ settings.mode = current; settings.noBrain = (current === "nobrain"); updateNoBrainUI(); toast("인증 취소됨 · <NO BRAIN> 유지"); }
+      });
+      return;
+    }
     if(current === "nobrain" && target !== "nobrain"){
       // NO BRAIN에서 벗어날 때만 jCAPTCHA 인증 필요
       startCaptcha(
@@ -3845,11 +3957,17 @@ function lfsPreviewable(name){ return /\.(html?|svg|zip|apk|jar|png|jpe?g|gif|we
 function lfsSetTab(tab){
   lfsTab = tab; lfsOpen = null;
   document.querySelectorAll("#lfsTabs button").forEach(b=>b.classList.toggle("on", b.dataset.tab === tab));
-  document.getElementById("lfsBrowser").style.display = tab === "files" ? "" : "none";
-  document.getElementById("lfsTrash").style.display = tab === "trash" ? "" : "none";
-  document.getElementById("lfsBackup").style.display = tab === "backup" ? "" : "none";
+  document.getElementById("lfsBrowser").style.display = tab === "files" ? "contents" : "none";
+  document.getElementById("lfsTrash").style.display = tab === "trash" ? "flex" : "none";
+  document.getElementById("lfsBackup").style.display = tab === "backup" ? "flex" : "none";
+  lfsMarkNav();
   document.getElementById("lfsEditor").style.display = "none";
   if(tab === "files") renderLfs(); else if(tab === "trash") renderLfsTrash(); else renderLfsBackup();
+}
+function lfsMarkNav(){
+  let best = null;
+  document.querySelectorAll("#lfsQuick [data-p]").forEach(b=>{ const p = b.dataset.p; if(lfsTab === "files" && (lfsCwd === p || lfsCwd.startsWith(p + "/")) && (!best || p.length > best.dataset.p.length)) best = b; });
+  document.querySelectorAll("#lfsQuick [data-p]").forEach(b=>b.classList.toggle("on", b === best));
 }
 function lfsUpdateCounts(){
   try{
@@ -3862,13 +3980,13 @@ function lfsCrumbs(){
   const parts = lfsCwd.split("/").filter(Boolean); let cur = "";
   const add = (label, path)=>{ const s = document.createElement("span"); s.className = "crumb"; s.textContent = label; s.addEventListener("click", ()=>{ lfsCwd = path; lfsSel.clear(); renderLfs(); }); box.appendChild(s); };
   add("/", "/");
-  parts.forEach(p=>{ cur += "/" + p; const sep = document.createElement("span"); sep.textContent = " › "; box.appendChild(sep); add(p, cur); });
+  parts.forEach((p, i)=>{ cur += "/" + p; if(i){ const sep = document.createElement("span"); sep.className = "sl"; sep.textContent = "/"; box.appendChild(sep); } add(p, cur); });
 }
 function renderLfs(){
   if(lfsBlocked(lfsCwd)) lfsCwd = "/user";
   lfsUpdateCounts();
   const list = document.getElementById("lfsList"); list.innerHTML = "";
-  lfsCrumbs();
+  lfsCrumbs(); lfsMarkNav();
   const q = (document.getElementById("lfsSearch").value || "").trim().toLowerCase();
   const sortBy = document.getElementById("lfsSort").value;
   let rows = [];
@@ -3882,13 +4000,15 @@ function renderLfs(){
   }catch(e){ lfsCwd = "/user"; }
   rows.sort((a, b)=> ((b.type === "dir") - (a.type === "dir")) || (sortBy === "size" ? (b.size||0) - (a.size||0) : sortBy === "date" ? ((b.st&&b.st.updatedAt||b.st&&b.st.createdAt||0) - (a.st&&a.st.updatedAt||a.st&&a.st.createdAt||0)) : a.name.localeCompare(b.name)));
   document.getElementById("lfsSelBar").style.display = lfsSelMode ? "" : "none";
+  list.classList.toggle("selmode", lfsSelMode);
+  document.getElementById("lfsSelToggle").classList.toggle("on", lfsSelMode);
   document.getElementById("lfsSelN").textContent = lfsSel.size + "개 선택";
-  if(!rows.length){ list.innerHTML = `<div class="lfs-row" style="cursor:default;color:var(--text-dim)">${q ? "검색 결과가 없어요" : "(비어 있음) — 파일을 여기로 끌어다 놓으면 업로드돼요"}</div>`; }
+  if(!rows.length){ list.innerHTML = `<div class="lfs-row empty">${q ? "검색 결과가 없어요" : "비어 있어요<br><span style='font-size:11.5px'>파일을 여기로 끌어다 놓으면 업로드돼요</span>"}</div>`; }
   rows.forEach(r=>{
     const row = document.createElement("div"); row.className = "lfs-row" + (lfsSel.has(r.full) ? " sel" : "");
     const locked = r.st && (r.st.locked || LinuxFS.lockRoot(r.full));
     const kids = r.type === "dir" ? LinuxFS.dirChildren(r.full).length : null;
-    row.innerHTML = `${lfsSelMode ? `<input type="checkbox" class="ck" ${lfsSel.has(r.full) ? "checked" : ""}>` : ""}<span>${lfsIcon(r.name, r.type === "dir")}</span><span class="n">${locked ? "🔒 " : ""}${escapeHtml(r.name)}</span><span class="sz">${r.type === "dir" ? kids + "개" : lfsFmt(r.size)}</span><span class="dt">${lfsDate(r.st && (r.st.updatedAt || r.st.createdAt))}</span><button class="x" title="더보기">⋯</button>`;
+    row.innerHTML = `${lfsSelMode ? `<input type="checkbox" class="ck" ${lfsSel.has(r.full) ? "checked" : ""}>` : ""}<span>${lfsIcon(r.name, r.type === "dir")}</span><span class="n" title="${escapeHtml(r.full)}">${locked ? '<span class="lk" title="잠김">🔒</span>' : ""}${escapeHtml(r.name)}</span><span class="sz">${r.type === "dir" ? kids + "개" : lfsFmt(r.size)}</span><span class="dt">${lfsDate(r.st && (r.st.updatedAt || r.st.createdAt))}</span><button class="x" title="더보기">⋯</button>`;
     const menu = (x, y)=>lfsRowMenu(r, x, y);
     row.addEventListener("click", e=>{
       if(row._lpFired) return;
@@ -3901,7 +4021,7 @@ function renderLfs(){
     bindLongPress(row, menu);
     list.appendChild(row);
   });
-  try{ const u = LinuxFS.usageSummary(); document.getElementById("lfsFoot").textContent = `파일 ${u.fileCount}개 · 작은 파일 저장 ${lfsFmt(u.usedBytes)} / ${lfsFmt(u.capBytes)} 사용 중`; }catch(_){}
+  try{ const u = LinuxFS.usageSummary(); document.getElementById("lfsFoot").textContent = `파일 ${u.fileCount}개 · ${lfsFmt(u.usedBytes)} / ${lfsFmt(u.capBytes)}`; document.getElementById("lfsUsageBar").style.width = Math.min(100, u.usedBytes / Math.max(1, u.capBytes) * 100) + "%"; }catch(_){}
 }
 function lfsRowMenu(r, x, y){
   const locked = !!(r.st && r.st.locked), inherited = !locked && LinuxFS.lockRoot(r.full);
@@ -3939,7 +4059,7 @@ function lfsDelete(full, isDir){
   const locked = LinuxFS.lockRoot(full);
   if(!confirm(`${full}${isDir ? " (폴더 전체)" : ""}을(를) 휴지통으로 보낼까요?\n14일 동안 보관되고 그 뒤 자동 삭제돼요.` + (locked ? "\n\n🔒 잠긴 항목이에요." : ""))) return;
   try{ lfsU(()=>LinuxFS.userDelete(full)); toast("휴지통으로 이동했어요"); }catch(e){ toast("삭제 실패: " + e.message); }
-  if(lfsOpen && (lfsOpen === full || lfsOpen.startsWith(full + "/"))){ lfsOpen = null; document.getElementById("lfsEditor").style.display = "none"; document.getElementById("lfsBrowser").style.display = ""; }
+  if(lfsOpen && (lfsOpen === full || lfsOpen.startsWith(full + "/"))){ lfsOpen = null; document.getElementById("lfsEditor").style.display = "none"; document.getElementById("lfsBrowser").style.display = "contents"; }
   lfsSel.delete(full); renderLfs();
 }
 function lfsEdit(full){
@@ -3947,10 +4067,10 @@ function lfsEdit(full){
   const st = LinuxFS.stat(full); if(!st){ toast("파일을 찾을 수 없어요"); return; }
   lfsOpen = full;
   document.getElementById("lfsBrowser").style.display = "none";
-  document.getElementById("lfsEditor").style.display = "";
+  document.getElementById("lfsEditor").style.display = "flex";
   const locked = !!LinuxFS.lockRoot(full);
   document.getElementById("lfsEdName").textContent = (locked ? "🔒 " : "") + full + " (" + lfsFmt(st.size) + ")";
-  document.getElementById("lfsEdLock").textContent = st.locked ? "🔓 잠금 해제" : "🔒 잠금";
+  document.getElementById("lfsEdLock").textContent = st.locked ? "🔓" : "🔒"; document.getElementById("lfsEdLock").title = st.locked ? "잠금 해제" : "잠금 (최미나이 편집 시 동의 필요)";
   document.getElementById("lfsEdPv").style.display = lfsPreviewable(full) ? "" : "none";
   const body = document.getElementById("lfsEdBody"); body.innerHTML = "";
   const save = document.getElementById("lfsEdSave");
@@ -4003,10 +4123,12 @@ function renderLfsTrash(){
   lfsUpdateCounts();
   const box = document.getElementById("lfsTrashList"); box.innerHTML = "";
   const items = LinuxFS.trashList();
-  if(!items.length){ box.innerHTML = '<div class="lfs-row" style="cursor:default;color:var(--text-dim)">휴지통이 비어 있어요</div>'; return; }
+  document.getElementById("lfsTrashEmpty").style.display = items.length ? "" : "none";
+  if(!items.length){ box.innerHTML = '<div class="lfs-row empty">휴지통이 비어 있어요</div>'; return; }
   items.forEach(t=>{
-    const row = document.createElement("div"); row.className = "lfs-row";
-    row.innerHTML = `<span>${t.isProject ? "🗂" : lfsIcon(t.name, t.type === "dir")}</span><span class="n">${escapeHtml(t.name)}<div class="sub">${t.isProject ? "프로젝트 · " : ""}${escapeHtml(t.origPath)} · 파일 ${t.files}개 · ${lfsFmt(t.size)} · ${lfsDate(t.trashedAt)} 삭제 · <b>${lfsDaysLeft(t.expiresAt)}일 후 자동 삭제</b></div></span><button class="x" data-a="restore" title="복원">↩ 복원</button><button class="x" data-a="del" title="영구 삭제">🗑</button>`;
+    const row = document.createElement("div"); row.className = "lfs-row wide";
+    const left = lfsDaysLeft(t.expiresAt);
+    row.innerHTML = `<span>${t.isProject ? "🗂" : lfsIcon(t.name, t.type === "dir")}</span><span class="n">${escapeHtml(t.name)}<div class="sub">${escapeHtml(t.origPath)} · ${t.files}개 · ${lfsFmt(t.size)} · ${left}일 남음</div></span><span class="acts"><button data-a="restore">복원</button><button data-a="del" class="d" title="완전히 삭제">삭제</button></span>`;
     row.querySelector('[data-a=restore]').addEventListener("click", ()=>{ try{ const to = lfsU(()=>LinuxFS.trashRestore(t.id)); toast("복원됨: " + to); }catch(e){ toast("복원 실패: " + e.message); } renderLfsTrash(); });
     row.querySelector('[data-a=del]').addEventListener("click", ()=>{ if(!confirm(`"${t.name}"을(를) 완전히 삭제할까요? 되돌릴 수 없어요.`)) return; lfsU(()=>LinuxFS.trashPurge(t.id)); toast("영구 삭제됨"); renderLfsTrash(); });
     box.appendChild(row);
@@ -4018,10 +4140,11 @@ async function renderLfsBackup(){
   lfsUpdateCounts();
   const box = document.getElementById("lfsBackupList"); box.innerHTML = "";
   const items = LinuxFS.backupList();
-  if(!items.length){ box.innerHTML = '<div class="lfs-row" style="cursor:default;color:var(--text-dim)">백업이 없어요. 최미나이가 명령어로 파일을 지우면 여기에 자동으로 모여요</div>'; return; }
+  if(!items.length){ box.innerHTML = '<div class="lfs-row empty">백업이 없어요<br><span style="font-size:11.5px">최미나이가 명령어로 파일을 지우면 여기에 자동으로 모여요</span></div>'; return; }
   items.forEach(b=>{
     const row = document.createElement("div"); row.className = "lfs-row";
-    row.innerHTML = `<span>📦</span><span class="n">${escapeHtml(b.name)}<div class="sub">파일 ${b.fileCount}개 · ${lfsFmt(b.size)} · ${lfsDate(b.updatedAt)} 업데이트 · <b>${lfsDaysLeft(b.expiresAt)}일 후 자동 삭제</b></div></span><button class="x" data-a="pv" title="내용 보기">👁</button><button class="x" data-a="restore" title="복원">↩ 복원</button><button class="x" data-a="dl" title="다운로드">⬇</button><button class="x" data-a="del" title="삭제">🗑</button>`;
+    row.className = "lfs-row wide";
+    row.innerHTML = `<span>📦</span><span class="n">${escapeHtml(b.name)}<div class="sub">${b.fileCount}개 · ${lfsFmt(b.size)} · ${lfsDate(b.updatedAt)} · ${lfsDaysLeft(b.expiresAt)}일 남음</div></span><span class="acts"><button data-a="pv">보기</button><button data-a="restore">복원</button><button data-a="dl" title="다운로드">⬇</button><button data-a="del" class="d" title="삭제">삭제</button></span>`;
     row.querySelector('[data-a=pv]').addEventListener("click", ()=>previewFile(b.path));
     row.querySelector('[data-a=dl]').addEventListener("click", ()=>downloadFile(b.path));
     row.querySelector('[data-a=restore]').addEventListener("click", async ()=>{
@@ -4182,19 +4305,52 @@ document.getElementById("chatList").addEventListener("click", ()=>{ if(window.in
 document.getElementById("newChatBtn").addEventListener("click", ()=>{ if(window.innerWidth<=760) closeSidebar(); });
 checkMobile();
 
-/* Desktop 의 Chat/Code 전환 알림 (choimini-mode 이벤트) */
+/* 앱 안내 팝업: 웹 브라우저로 접속했을 때만 (이미 전용 앱이면 표시하지 않음). 컴퓨터 → Desktop, Android 폰 → Android */
+function showAppPromo(){
+  try{
+    if(window.CHOIMINI_APP && window.CHOIMINI_APP !== "web") return; // Desktop/Android 앱 안에서는 숨김
+    if(window.DesktopBridge || window.AndroidBridge) return;
+    const ua = navigator.userAgent || "";
+    if(/ChoiminiAndroid|ChoiminiDesktop/.test(ua)) return;
+    const android = /Android/i.test(ua), ios = /iPhone|iPad|iPod/i.test(ua);
+    if(ios) return; // iOS 앱은 없음
+    const kind = android ? "android" : "desktop";
+    try{ if(sessionStorage.getItem("choimini.promo.closed")) return; const t = Number(localStorage.getItem("choimini.promo.until") || 0); if(t > Date.now()) return; }catch(_){}
+    document.getElementById("appPromoTitle").textContent = kind === "android" ? "Android 앱에서 더 편리하게 작업해보세요!" : "Desktop 앱에서 더 편리하게 작업해보세요!";
+    document.getElementById("appPromoDesc").textContent = kind === "android" ? "앱에서 코드 ANDROID 를 입력하면 500토큰을 받아요 (1회)." : "앱에서 코드 DESKTOP 을 입력하면 1,000토큰을 받아요 (1회).";
+    const el = document.getElementById("appPromo");
+    const close = (days)=>{ el.classList.remove("show"); try{ sessionStorage.setItem("choimini.promo.closed", "1"); if(days) localStorage.setItem("choimini.promo.until", String(Date.now() + days * 86400000)); }catch(_){} };
+    document.getElementById("appPromoClose").addEventListener("click", ()=>close(0));
+    document.getElementById("appPromoLater").addEventListener("click", ()=>close(7));
+    setTimeout(()=>el.classList.add("show"), 1200);
+  }catch(e){ console.warn("[appPromo]", e); }
+}
+/* Desktop: 작업 위치(Local/Linux)·AI 권한 토글, 그리고 호스트 앱의 상태 알림 */
+document.querySelectorAll("#execSwitch [data-exec]").forEach(b=>b.addEventListener("click", ()=>{
+  const want = b.dataset.exec;
+  settings.execTarget = want; saveJSON(LS.settings, settings);
+  if(want === "local"){ if(window.CHOIMINI_MODE !== "code") requestLocal(true).then(ok=>{ if(!ok) toast("Local 을 켜지 못했어요 (로그인·보안문자 필요)"); updateExecUI(); }); }
+  else requestLocal(false);
+  updateExecUI();
+}));
+document.getElementById("permSel").addEventListener("change", e=>{
+  try{ window.DesktopBridge.setPerm(e.target.value); }catch(_){}
+  setTimeout(updateExecUI, 300); // 앱이 거절/보안문자 취소하면 원래 값으로 되돌린다 (앱의 상태가 기준)
+});
 window.addEventListener("choimini-mode", function(e){
   const m = e && e.detail && e.detail.mode;
-  toast(m === "code" ? "💻 Code 모드" : "💬 Chat 모드");
+  toast(m === "code" ? "💻 Local · 내 컴퓨터에서 작업" : "🐧 Linux · 브라우저 샌드박스에서 작업");
+  updateExecUI();
 });
+window.addEventListener("choimini-perm", function(){ updateExecUI(); });
 
 /* ---------------- boot ---------------- */
 // Google 로그인 필수: choimini-auth.js가 로그인 게이트를 띄우고,
 // 로그인 완료 후에만 앱을 초기화한다.
 if (window.ChoiminiAuth) {
-  ChoiminiAuth.onReady(function(){ init(); });
+  ChoiminiAuth.onReady(function(){ init(); showAppPromo(); });
 } else {
-  init();
+  init(); showAppPromo();
 }
 })();
 </script>
