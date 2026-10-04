@@ -1159,14 +1159,20 @@ function requestLocal(on){
 }
 function updateExecUI(){
   const row = document.getElementById("execRow"); if(!row) return;
-  const desk = desktopTerminalAvailable() && typeof window.DesktopBridge.setLocal === "function";
-  const mode = settings.mode || (settings.noBrain === false ? "work" : "nobrain");
-  row.classList.toggle("show", desk && mode !== "nobrain");
-  const local = window.CHOIMINI_MODE === "code";
-  row.querySelectorAll("[data-exec]").forEach(b=>b.classList.toggle("active", (b.dataset.exec === "local") === local));
+  const hasApp = desktopTerminalAvailable();
+  const desk = hasApp && typeof window.DesktopBridge.setLocal === "function";
+  row.classList.add("show"); /* 항상 표시: 앱/모드에 따라 안내만 달라진다 */
+  const local = desk && window.CHOIMINI_MODE === "code";
+  row.querySelectorAll("[data-exec]").forEach(b=>{
+    b.classList.toggle("active", (b.dataset.exec === "local") === local);
+    if(b.dataset.exec === "local") b.style.opacity = desk ? "" : ".5";
+  });
   const perm = window.CHOIMINI_PERM || "manual", sel = document.getElementById("permSel");
   sel.value = perm; sel.classList.toggle("full", perm === "full");
-  sel.style.display = document.getElementById("permLbl").style.display = local ? "" : "none";
+  sel.disabled = !local;
+  sel.style.opacity = local ? "" : ".5";
+  sel.title = local ? "AI 권한" : (desk ? "Local 로 바꾸면 설정할 수 있어요" : "Desktop 앱의 Local 에서만 적용돼요");
+  const lbl = document.getElementById("permLbl"); if(lbl) lbl.style.display = "";
 }
 
 /* GitHub 에 올린 모듈 파일이 서로 안 맞을 때(예: 파일 이름을 바꿔 올림) 조용히 실패하지 않도록 알려준다. */
@@ -4328,6 +4334,10 @@ function showAppPromo(){
 /* Desktop: 작업 위치(Local/Linux)·AI 권한 토글, 그리고 호스트 앱의 상태 알림 */
 document.querySelectorAll("#execSwitch [data-exec]").forEach(b=>b.addEventListener("click", ()=>{
   const want = b.dataset.exec;
+  if(want === "local" && !(desktopTerminalAvailable() && typeof window.DesktopBridge.setLocal === "function")){
+    toast(desktopTerminalAvailable() ? "앱이 구버전이에요. Choimini Desktop 을 최신 버전으로 업데이트해 주세요" : "Local 은 Choimini Desktop 앱에서만 쓸 수 있어요 (지금은 Linux 샌드박스)");
+    return;
+  }
   settings.execTarget = want; saveJSON(LS.settings, settings);
   if(want === "local"){ if(window.CHOIMINI_MODE !== "code") requestLocal(true).then(ok=>{ if(!ok) toast("Local 을 켜지 못했어요 (로그인·보안문자 필요)"); updateExecUI(); }); }
   else requestLocal(false);
