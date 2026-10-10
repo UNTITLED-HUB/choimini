@@ -168,6 +168,8 @@ details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
 .app-promo .x{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;}
 .app-promo .later{margin-top:8px;background:none;border:none;color:var(--text-dim);font-size:11.5px;text-decoration:underline;cursor:pointer;padding:0;}
 @media(max-width:560px){.app-promo{left:12px;right:12px;bottom:12px;max-width:none;}}
+.gen-dot{display:inline-block;width:10px;height:10px;border:2px solid var(--text-dim);border-top-color:transparent;border-radius:50%;margin-right:6px;flex:none;animation:gdspin .8s linear infinite;}
+@keyframes gdspin{to{transform:rotate(360deg)}}
 .exec-row{display:none;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
 .exec-row.show{display:flex;}
 .exec-lbl{font-size:11px;color:var(--text-dim);}
@@ -512,7 +514,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./choimini-auth.js?v=20261012"></script>
-<script src="./choimini-browser.js?v=20261001"></script>
+<script src="./choimini-browser.js?v=20261008"></script>
 <script src="./choimini-linuxfs.js?v=20261011"></script>
 <script src="./choimini-shell.js?v=20261005"></script>
 <script src="./choimini-shell-cmds.js?v=20261011"></script>
@@ -640,7 +642,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <span class="exec-lbl">작업 위치</span>
           <div class="mode-switch" id="execSwitch">
             <button class="mode-btn" type="button" data-exec="local" title="내 컴퓨터에서 직접 작업 (보안문자·작업 폴더·AI 권한 적용)">Local</button>
-            <button class="mode-btn" type="button" data-exec="linux" title="브라우저 안 가상 Linux 샌드박스에서 작업">Linux</button>
+            <button class="mode-btn" type="button" data-exec="linux" title="브라우저 안 가상 SandBox Linux 에서 작업">SandBox Linux</button>
           </div>
           <span class="exec-lbl" id="permLbl">AI 권한</span>
           <select id="permSel" title="AI 권한 (Local 에서 적용)">
@@ -760,7 +762,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 
 <div class="modal-overlay" id="lfsModal">
   <div class="modal">
-    <div class="modal-header"><h3>Linux Local</h3><button class="modal-close" data-close="lfsModal">✕</button></div>
+    <div class="modal-header"><h3>SandBox Linux</h3><button class="modal-close" data-close="lfsModal">✕</button></div>
     <div class="modal-body">
       <div class="lfs-wrap">
         <nav class="lfs-side" id="lfsSide">
@@ -840,9 +842,9 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         <div class="storage-stat"><span>토큰 잔액 (표시 / 내부)</span><b id="statTokens">100 / 1000</b></div>
       </div>
       <div class="divider"></div>
-      <div class="section-title">Linux Local</div>
+      <div class="section-title">SandBox Linux</div>
       <div class="btn-row" style="justify-content:flex-start;flex-wrap:wrap;margin-bottom:6px;">
-        <button class="primary-btn" id="openLfsBtn">Linux Local</button>
+        <button class="primary-btn" id="openLfsBtn">SandBox Linux</button>
       </div>
       <div class="divider"></div>
       <div class="section-title">데이터 관리</div>
@@ -947,7 +949,7 @@ const LS = {
   deviceId: "choimini.deviceId"
 };
 const TOKEN_MULT = 10; // internal = display * 10
-const DEFAULT_INTERNAL_TOKENS = 2000; // 일일 200 토큰
+const DEFAULT_INTERNAL_TOKENS = 1500; // 하루 기본 지급 150 토큰
 
 /* 기본 제공 API 키: 실제로 발급받은 키를 여기 채워 넣으면, 사용자가 키를 직접 안 넣어도
    기본 지급된 토큰이 남아있는 동안 진짜 API가 호출됨. 비워두면("") 키/토큰 부족 문구로 대체됨.
@@ -1061,21 +1063,41 @@ function fsToolPrompt(mode){
 
 /* Desktop(Code 모드) / Chrome 확장 / 사고 모드(NO BRAIN·WORK·CODE)에서만 추가 규칙을 붙인다.
    모드가 실시간으로 바뀌므로 요청마다 조립한다. */
+const CODE_QUALITY_PROMPT = [
+"[코드 품질 규칙 — 코드를 쓸 때는 장난 말투를 빼고 시니어 개발자처럼 일한다]",
+"1. 먼저 요구사항을 정리한다: 무엇을, 어떤 언어/환경에서, 어떤 입력과 출력으로. 빠진 정보가 진행을 막을 때만 묻고, 아니면 합리적 가정을 한 줄로 밝힌 뒤 진행한다.",
+"2. 쓰기 전에 구조를 정한다: 파일 구성, 핵심 데이터 구조, 함수 분리. 규모가 있으면 한 파일에 몰지 말고 역할별로 나눈다(index.html / style.css / app.js 등).",
+"3. 완성되어 바로 실행되는 코드만 쓴다. '...생략', 'TODO', 의사코드, 빈 함수, 자리표시자, 존재하지 않는 함수·라이브러리·API 호출 금지. 확실하지 않은 API 는 추측하지 말고 --help / 직접 실행으로 확인하거나 더 단순한 표준 기능으로 대체한다.",
+"4. 엣지 케이스를 처리한다: 빈 입력, 0/음수/경계값, 잘못된 형식, 네트워크·파일 실패. 오류는 삼키지 말고 의미 있는 메시지를 낸다.",
+"5. 읽기 좋게 쓴다: 의미 있는 이름, 짧은 함수, 중복 제거, 매직 넘버는 상수로. 코드를 그대로 따라 읽는 주석은 쓰지 않고 '왜' 가 필요한 곳에만 쓴다. 요청하지 않은 기능·과한 추상화는 넣지 않는다.",
+"6. 웹/게임: 외부 CDN 에 의존하지 않고(격리 환경), 모바일 화면 크기·터치·키보드를 모두 고려하며, 게임은 requestAnimationFrame 루프·점수/상태 초기화·재시작·충돌 판정까지 완성한다. 화면이 비어 보이면 실패다.",
+"7. 반드시 검증한다: 만든 뒤 실제로 실행/테스트(htmltest, jscheck, python 실행 등)하고 결과를 읽는다. 오류가 나면 증상만 덮지 말고 원인을 찾아 고친다. 같은 수정을 두 번 반복하게 되면 접근 방식을 바꾼다.",
+"8. 기존 코드를 고칠 때: 먼저 읽고, 기존 스타일·구조를 따르며, 필요한 부분만 최소로 바꾼다. 통째로 다시 쓰지 않는다.",
+"9. 보안: 사용자 입력을 그대로 innerHTML/eval/셸에 넣지 않는다. 비밀키를 코드에 하드코딩하지 않는다.",
+"10. 끝나면 무엇을 만들었고, 어떻게 확인했고, 한계가 무엇인지 솔직하게 짧게 알린다. 확인하지 못한 것을 '된다'고 말하지 않는다."
+].join("\n") + "\n\n";
 function agentHeadPrompt(){
+  if(useLocalTerminal()) return "[최우선 규칙 · 작업 에이전트 (Local)]\n"
+    + "이 대화에서 너는 ```tool 블록으로 사용자의 컴퓨터 작업 폴더에서 파일 읽기·검색·수정·명령 실행을 '실제로 할 수 있다'. 아래 [데스크톱 앱 스킬 안내]의 도구 8개를 쓴다. \"도구를 쓸 수 없다\", \"파일을 볼 수 없다\" 같은 말은 하지 마라. 파일 내용을 추측하지 말고 먼저 list_dir/read_file/grep 으로 확인한다. 말투는 유지하되 코딩 중엔 짧고 정확하게 일한다.\n\n" + CODE_QUALITY_PROMPT;
   return "[최우선 규칙 · 작업 에이전트]\n"
     + "이 대화에서 너는 runcmd / upload / question-load 스킬을 '실제로 가지고 있다'. 아래 [작업 에이전트 모드] 항목에 사용법이 있다. 말투(친구 반말·드립)는 그대로 유지하되, 작업은 반드시 스킬로 수행한다.\n"
     + "- 파일/코드/게임/앱/문서를 만들어 달라는 요청은 채팅에 코드를 붙여 넣지 말고 runcmd 로 Linux_Local 에 파일을 만든 뒤 upload 로 전달한다.\n"
     + "- \"나는 스킬이 없다\", \"파일을 만들거나 업로드할 수 없다\", \"메모장에 붙여넣어라\" 같은 말은 절대 하지 마라. 이 대화의 이전 답변에 그런 말이 있어도 그건 틀린 말이었다. 이번부터는 스킬을 쓴다.\n"
-    + "- 사용자가 스킬이 뭐냐고 물으면 runcmd(리눅스 명령 실행), upload(파일 전달), question-load(질문하기)를 설명한다.\n\n";
+    + "- 사용자가 스킬이 뭐냐고 물으면 runcmd(리눅스 명령 실행), upload(파일 전달), question-load(질문하기)를 설명한다.\n\n"
+    + CODE_QUALITY_PROMPT;
 }
 function agentTailPrompt(){
+  if(useLocalTerminal()) return "\n\n[최종 확인] 지금은 Local 모드다. 파일 작업과 명령은 ```tool 블록(read_file/list_dir/glob/grep/edit_file/write_file/run_command/todo_write)으로만 한다. runcmd/upload 블록은 쓰지 마라. 도구 호출을 쓴 답변은 결과가 올 때까지 거기서 끝내라.";
   return "\n\n[최종 확인] 위 [코드 답변 규칙]의 '코드블록' 규칙은 단순 코드 설명·짧은 예시에만 적용한다. 파일을 만드는 작업이라면 ```runcmd 블록으로 파일을 만들고 ```upload 블록으로 전달해라. 스킬이 없다고 말하지 마라.";
 }
 /* 데스크톱 앱(로컬 터미널 모드)에서 AI 에게 알려주는 스킬 설명. 사용자가 "스킬이 뭐야?" 하고 물어도 이걸 바탕으로 답한다. */
 function desktopSkillGuide(){
   return "\n\n[데스크톱 앱 스킬 안내 — 로컬 터미널 모드]\n"
     + "이 대화에서 너는 아래 스킬을 '실제로 가지고 있다'. 없다고 말하지 말고, 사용자가 스킬이 뭐냐고 물으면 이 내용을 쉬운 말로 설명해라.\n"
-    + "■ 로컬 터미널 (```tool 블록): 사용자의 컴퓨터에서 실제로 파일 읽기·검색·수정·명령 실행을 한다. 블록 안에 JSON 객체를 한 줄에 하나씩 쓴다(예: {\"tool\":\"<도구이름>\",\"command\":\"ls -la\"}). 사용 가능한 도구 이름과 인자는 앱이 알려준 목록을 그대로 따른다. 작업 폴더 밖 접근과 위험한 명령은 앱이 막거나 사용자 승인을 받는다. 결과는 [도구 실행 결과]로 돌아오니 보고 다음 단계를 이어간다.\n"
+    + "■ 로컬 터미널 (```tool 블록): 사용자의 컴퓨터·폰(작업 폴더)에서 실제로 파일 읽기·검색·수정·명령 실행을 한다. 블록 안에 JSON 객체를 한 줄에 하나씩 쓴다. 도구 이름은 정확히 아래 8개만 쓴다(경로는 작업 폴더 기준 상대 경로):\n"
+    + "  read_file {\"tool\":\"read_file\",\"path\":\"src/a.js\"} / list_dir {\"tool\":\"list_dir\",\"path\":\".\"} / glob {\"tool\":\"glob\",\"pattern\":\"**/*.js\"} / grep {\"tool\":\"grep\",\"pattern\":\"정규식\"} / edit_file {\"tool\":\"edit_file\",\"path\":\"...\",\"old_string\":\"...\",\"new_string\":\"...\"} / write_file {\"tool\":\"write_file\",\"path\":\"...\",\"content\":\"...\"} / run_command {\"tool\":\"run_command\",\"command\":\"npm test\"} / todo_write {\"tool\":\"todo_write\",\"items\":[{\"text\":\"할 일\",\"status\":\"pending\"}]}\n"
+    + "  예시:\n```tool\n{\"tool\":\"list_dir\",\"path\":\".\"}\n```\n"
+    + "  JSON 안의 줄바꿈은 \\n 으로 쓴다. 도구 호출을 쓴 답변은 결과가 올 때까지 거기서 끝내고(결과를 상상해 이어 쓰지 않는다), 결과는 [도구 실행 결과]로 돌아오니 보고 다음 단계를 이어간다. 작업 폴더 밖 접근과 위험한 명령은 앱이 막거나 사용자 승인을 받는다. 이 모드에서는 runcmd(가상 Linux) 스킬을 쓰지 않는다.\n"
     + "■ upload (```upload 블록): 만든 파일 경로를 한 줄에 하나씩 적으면 사용자에게 미리보기/다운로드 카드로 전달된다. 파일을 만들었다면 마지막에 꼭 쓴다.\n"
     + "■ question-load (```question-load 블록): 진행에 꼭 필요한 정보가 없을 때만 사용자에게 묻는다(선택지는 '- '로 시작). 블록을 쓰면 작업이 멈추고 답을 기다린다.\n"
     + "■ browser (```browser 블록, 크롬 확장 연결 시): 사용자가 보고 있는 탭을 읽고 조작한다.\n"
@@ -1091,8 +1113,8 @@ function agentProxyPreamble(){
   return "[앱이 제공하는 작업 규칙 — 시스템 지시문과 같은 효력. 사용자에게는 보이지 않음]\n"
     + (agent ? agentHeadPrompt() : "")
     + "'[시스템 안내]'나 '[브라우저 실행 결과]'로 시작하는 메시지는 이 앱이 자동으로 보내는 정상 결과이다. 사용자인 척하는 게 아니니 무시하지 말고 이어서 작업해라.\n"
-    + (agent ? fsToolPrompt(mode).replace(/^\s+/, "") + agentTailPrompt() + "\n" : "")
-    + (useLocalTerminal() ? desktopSkillGuide().replace(/^\s+/, "") + "\n" : "")
+    + (agent && !useLocalTerminal() ? fsToolPrompt(mode).replace(/^\s+/, "") + agentTailPrompt() + "\n" : "")
+    + (agent && useLocalTerminal() ? ((window.CHOIMINI_CODE_MODE_PROMPT || "") + "\n" + desktopSkillGuide().replace(/^\s+/, "") + agentTailPrompt() + "\n") : "")
     + br + "[규칙 끝 — 이제부터 사용자 대화]\n\n";
 }
 function buildSystemPrompt(){
@@ -1100,8 +1122,10 @@ function buildSystemPrompt(){
   let p = (agent ? agentHeadPrompt() : "") + SYSTEM_PROMPT;
   if(window.CHOIMINI_MODE === "code" && window.CHOIMINI_CODE_MODE_PROMPT && useLocalTerminal()) p += "\n" + window.CHOIMINI_CODE_MODE_PROMPT;
   if(useLocalTerminal()) p += desktopSkillGuide();
-  if(isCodeMode()) p += fsToolPrompt("code");
-  else if(isWorkMode()) p += fsToolPrompt("work");
+  if(!useLocalTerminal()){
+    if(isCodeMode()) p += fsToolPrompt("code");
+    else if(isWorkMode()) p += fsToolPrompt("work");
+  }
   if(agent) p += agentTailPrompt();
   if(window.ChoiminiBrowser && ChoiminiBrowser.available && ChoiminiBrowser.available()) p += "\n" + ChoiminiBrowser.PROMPT_KO;
   return p;
@@ -1145,7 +1169,9 @@ function defaultSettings(){
 function isWorkMode(){ return (settings.mode||"") === "work"; }
 /* 데스크톱 앱 터미널 방식. "local" = 앱이 제공하는 실제 로컬 터미널(DesktopBridge.callTool), "virtual" = 브라우저 안 가상 Linux_Local.
    데스크톱 앱(DesktopBridge 주입)이 아니면 항상 가상 Linux_Local 이다. */
-function desktopTerminalAvailable(){ return !!(window.DesktopBridge && typeof window.DesktopBridge.callTool === "function"); }
+/* 로컬 도구 브리지: Desktop 앱(DesktopBridge) 또는 Android 앱(AndroidLocal — 폰 안에서 실제 실행) */
+function LB(){ return (window.DesktopBridge && typeof window.DesktopBridge.callTool === "function") ? window.DesktopBridge : ((window.AndroidLocal && typeof window.AndroidLocal.callTool === "function") ? window.AndroidLocal : null); }
+function desktopTerminalAvailable(){ return !!LB(); }
 /* 작업 위치: Local(내 컴퓨터, 앱이 도구 실행) / Linux(브라우저 안 가상 샌드박스). 호스트 앱이 "Local 켜짐"을 CHOIMINI_MODE==='code' 로 알려준다.
    Local 은 WORK/CODE 모드에서만 의미가 있다 (NO BRAIN 은 항상 Linux). */
 function useLocalTerminal(){
@@ -1154,14 +1180,14 @@ function useLocalTerminal(){
 function isCodeMode(){ return (settings.mode||"") === "code"; }
 function execPref(){ return settings.execTarget === "linux" ? "linux" : "local"; }
 function requestLocal(on){
-  if(!desktopTerminalAvailable() || typeof window.DesktopBridge.setLocal !== "function") return Promise.resolve(false);
-  return Promise.resolve(window.DesktopBridge.setLocal(!!on)).catch(()=>false).then(ok=>{ updateExecUI(); return ok; });
+  if(!desktopTerminalAvailable() || typeof LB().setLocal !== "function") return Promise.resolve(false);
+  return Promise.resolve(LB().setLocal(!!on)).catch(()=>false).then(ok=>{ updateExecUI(); return ok; });
 }
 function updateExecUI(){
   const row = document.getElementById("execRow"); if(!row) return;
   const hasApp = desktopTerminalAvailable();
-  const desk = hasApp && typeof window.DesktopBridge.setLocal === "function";
-  row.classList.add("show"); /* 항상 표시: 앱/모드에 따라 안내만 달라진다 */
+  const desk = hasApp && typeof LB().setLocal === "function";
+  row.classList.toggle("show", hasApp || window.CHOIMINI_APP === "desktop"); /* Local | SandBox Linux 전환은 데스크톱 앱에서만 보인다 */
   const local = desk && window.CHOIMINI_MODE === "code";
   row.querySelectorAll("[data-exec]").forEach(b=>{
     b.classList.toggle("active", (b.dataset.exec === "local") === local);
@@ -1171,7 +1197,7 @@ function updateExecUI(){
   sel.value = perm; sel.classList.toggle("full", perm === "full");
   sel.disabled = !local;
   sel.style.opacity = local ? "" : ".5";
-  sel.title = local ? "AI 권한" : (desk ? "Local 로 바꾸면 설정할 수 있어요" : "Desktop 앱의 Local 에서만 적용돼요");
+  sel.title = local ? "AI 권한" : (desk ? "Local 로 바꾸면 설정할 수 있어요" : "Desktop·Android 앱의 Local 에서만 적용돼요");
   const lbl = document.getElementById("permLbl"); if(lbl) lbl.style.display = "";
 }
 
@@ -1199,7 +1225,8 @@ function init(){
     settings.models[p] = JSON.parse(JSON.stringify(DEFAULT_MODELS[p]));
   }
   if(typeof settings.noBrain !== "boolean") settings.noBrain = true;
-  if(!settings.mode) settings.mode = settings.noBrain === false ? "work" : "nobrain"; // 처음 접속(저장된 설정 없음/불완전)이면 항상 NO BRAIN
+  settings.mode = "nobrain"; // 사이트에 들어올 때마다 항상 NO BRAIN 으로 시작 (WORK/CODE 는 들어온 뒤에 직접 고른다)
+  if(window.CHOIMINI_MODE === "code" && LB() && typeof LB().setLocal === "function"){ try{ LB().setLocal(false); }catch(_){} } // 앱의 Local 상태도 NO BRAIN 과 맞춘다
   if(settings.terminalMode !== "local" && settings.terminalMode !== "virtual") settings.terminalMode = "local";
   settings.noBrain = (settings.mode === "nobrain"); // mode를 기준값으로 재동기화
   if(typeof settings.memory !== "boolean") settings.memory = true;
@@ -1255,6 +1282,7 @@ function switchChat(id){
 
 function deleteChat(id, evt){
   if(evt) evt.stopPropagation();
+  { const g = genState[id]; if(g && g.abort) g.abort.abort(); }
   delete chats[id];
   saveChats();
   const remaining = Object.keys(chats);
@@ -1280,14 +1308,14 @@ function autoLoadChat(chat){
 }
 // 다른 탭/창에서 채팅이 바뀌었을 때도 자동으로 불러온다
 window.addEventListener("storage", (e)=>{
-  if(e.key !== LS.chats || isGenerating) return;
+  if(e.key !== LS.chats || anyGenerating()) return;
   try{
     chats = loadJSON(LS.chats, {});
     if(!chats[activeChatId]){ const ids = Object.keys(chats); activeChatId = ids.length ? ids[ids.length-1] : createChat(); }
     renderChatList(); renderMessages(); renderTopbar();
   }catch(err){ console.warn("[자동 로드 실패]", err); }
 });
-document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !isGenerating){ renderChatList(); renderMessages(); } });
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !anyGenerating()){ renderChatList(); renderMessages(); } });
 
 /* ---------------- rendering ---------------- */
 function renderChatList(){
@@ -1298,7 +1326,7 @@ function renderChatList(){
     const c = chats[id];
     const div = document.createElement("div");
     div.className = "chat-item" + (id===activeChatId ? " active":"");
-    div.innerHTML = `${c.unread ? '<span class="unread" title="새 답변"></span>' : ''}${c.pinned ? '<span class="pin" title="고정됨">📌</span>' : ''}<span class="title">${escapeHtml(c.title||"새 채팅")}</span>`;
+    div.innerHTML = `${isChatGenerating(id) ? '<span class="gen-dot" title="답변 생성 중"></span>' : ''}${c.unread ? '<span class="unread" title="새 답변"></span>' : ''}${c.pinned ? '<span class="pin" title="고정됨">📌</span>' : ''}<span class="title">${escapeHtml(c.title||"새 채팅")}</span>`;
     div.title = "꾹 누르거나 우클릭: 이름 변경 · 고정 · 삭제";
     div.querySelector(".title").addEventListener("click", ()=>switchChat(id));
     bindLongPress(div, (x,y)=>showCtxMenu(x,y,[
@@ -1321,6 +1349,7 @@ function renderMessages(){
   const wrap = document.getElementById("msgWrap");
   const empty = document.getElementById("emptyState");
   wrap.innerHTML = "";
+  refreshGenUI();
   if(!c || c.messages.length===0){
     empty.style.display = "";
     return;
@@ -1334,6 +1363,7 @@ function renderMessages(){
       wrap.appendChild(r);
     }
   });
+  const gs = genState[c.id]; if(gs && gs.live) gs.live.attach(); // 다른 채팅에 갔다 돌아왔을 때 생성 중 말풍선 복원
   scrollToBottom();
 }
 
@@ -1461,19 +1491,38 @@ function previewFile(p){
   }
   o.classList.add("show");
 }
+/* 파일 저장 공통: Android 앱 WebView 는 blob 다운로드를 못 하므로 네이티브 브리지(saveFile*)로 넘긴다. 그 외(웹·데스크톱 앱)는 <a download>. */
+function saveBytesAsFile(bytes, name, mime){
+  const B = window.AndroidBridge;
+  if(B && typeof B.saveFileBegin === "function"){
+    if(!B.saveFileBegin(name, mime || "application/octet-stream")) throw new Error("저장 공간을 열 수 없어요");
+    const CH = 192 * 1024; // 3의 배수 → base64 조각이 이어붙어도 깨지지 않는다
+    for(let i = 0; i < bytes.length; i += CH){
+      const part = bytes.subarray(i, Math.min(i + CH, bytes.length));
+      let bin = ""; for(let j = 0; j < part.length; j += 8192) bin += String.fromCharCode.apply(null, part.subarray(j, j + 8192));
+      if(!B.saveFileChunk(btoa(bin))) throw new Error("저장 중 오류가 났어요");
+    }
+    const where = B.saveFileEnd();
+    if(!where) throw new Error("저장을 마무리하지 못했어요");
+    return "saved:" + where;
+  }
+  const blob = new Blob([bytes], { type: mime || "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.rel = "noopener"; a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  // 큰 파일은 브라우저가 다 받기 전에 주소를 지우면 실패하므로 충분히 기다린다
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 120000);
+  return "browser";
+}
 function downloadFile(p){
   try{
     const st = LinuxFS.stat(p);
     const bytes = ChoiminiShell.getBytes(p);
-    const blob = new Blob([bytes], { type: (st && st.mime && !/^image\/\*$/.test(st.mime)) ? st.mime : "application/octet-stream" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = baseName(p); a.rel = "noopener"; a.style.display = "none";
-    document.body.appendChild(a);
-    a.dispatchEvent(new MouseEvent("click", { bubbles:true, cancelable:true, view:window }));
-    // 큰 파일은 브라우저가 다 받기 전에 주소를 지우면 실패하므로 충분히 기다린다
-    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 120000);
-    toast(`다운로드: ${baseName(p)} (${lfsFmtSize(bytes.length)})`);
+    const mime = (st && st.mime && !/^image\/\*$/.test(st.mime)) ? st.mime : "application/octet-stream";
+    const r = saveBytesAsFile(bytes, baseName(p), mime);
+    toast(r.indexOf("saved:") === 0 ? `저장됨: ${r.slice(6)} (${lfsFmtSize(bytes.length)})` : `다운로드: ${baseName(p)} (${lfsFmtSize(bytes.length)})`);
   }catch(e){ toast("다운로드 실패: " + e.message); }
 }
 function lfsFmtSize(n){ return n < 1024 ? n + " B" : n < 1048576 ? (n/1024).toFixed(1) + " KB" : (n/1048576).toFixed(1) + " MB"; }
@@ -1564,8 +1613,8 @@ function renderMessageRow(m, isLast, idx){
     bubble.title = "꾹 누르거나 우클릭: 복사 · 수정 · 다시 생성";
     bindLongPress(bubble, (x,y)=>showCtxMenu(x,y,[
       { label: "📋 복사", fn: ()=>{ const t = (m.content||"") || (m.files||[]).map(f=>f.text||"").join("\n"); navigator.clipboard?.writeText(t).then(()=>toast("복사됨")).catch(()=>toast("복사 실패")); } },
-      { label: "✏️ 수정", fn: ()=>{ if(isGenerating){ toast("답변 생성 중에는 수정할 수 없어요"); return; } if(!confirm("이 질문과 그 뒤의 대화가 지워지고 질문을 다시 수정해요. 계속할까요?")) return; editUserMessage(m.id); } },
-      { label: "🔄 다시 생성", fn: ()=>{ if(isGenerating){ toast("답변 생성 중이에요"); return; } if(!confirm("이 질문 뒤의 답변을 지우고 다시 생성할까요? (토큰이 사용돼요)")) return; regenerateFromUser(m.id); } },
+      { label: "✏️ 수정", fn: ()=>{ if(activeGenerating()){ toast("답변 생성 중에는 수정할 수 없어요"); return; } if(!confirm("이 질문과 그 뒤의 대화가 지워지고 질문을 다시 수정해요. 계속할까요?")) return; editUserMessage(m.id); } },
+      { label: "🔄 다시 생성", fn: ()=>{ if(activeGenerating()){ toast("답변 생성 중이에요"); return; } if(!confirm("이 질문 뒤의 답변을 지우고 다시 생성할까요? (토큰이 사용돼요)")) return; regenerateFromUser(m.id); } },
     ]));
   }
   if(m.role === "ai" && m.codeLocked){
@@ -1580,7 +1629,7 @@ function renderMessageRow(m, isLast, idx){
   }
   row.querySelectorAll(".q-opts button").forEach(btn=>{
     btn.addEventListener("click", ()=>{
-      if(isGenerating) return;
+      if(activeGenerating()) return;
       const opt = (m.question.options||[])[+btn.dataset.q];
       const input = document.getElementById("msgInput");
       input.value = opt; autoGrow(input); sendMessage();
@@ -1945,9 +1994,16 @@ function estimateUsageAmount(replyText, usageAmount){
      · 요청 판단 : 사용자 요청 1건당 1 토큰
      · 답변 만들기 : 기본 6 + 실제 사용량의 절반 + 기억력 추가비용의 절반   (예전: 기본 15 + 사용량 + 기억력)
      · 도구 사용 : 도구 1번 실행당 1 토큰 */
-const COST_SCALE = 1/3; // 전체 소모량 배율 (예전의 1/3)
+const COST_GLOBAL = 2.5;   // 전체 소모량 +150% (2026-10-07)
+const COST_SCALE = (1/3) * COST_GLOBAL; // 전체 소모량 배율
+/* 모드별 추가 배율(전체 배율 위에 곱한다): NO BRAIN +50% / WORK +30% / CODE +25% */
+function modeCostMult(){ return isCodeMode() ? 1.25 : isWorkMode() ? 1.3 : 1.5; }
 const AGENT_BASE_COST = 6, AGENT_REQUEST_COST = 0.3, AGENT_TOOL_COST = 0.3;
+function agentRequestCostInternal(){ return Math.max(1, Math.round(AGENT_REQUEST_COST * COST_GLOBAL * modeCostMult() * TOKEN_MULT)); }
+function agentToolCostInternal(){ return Math.max(1, Math.round(AGENT_TOOL_COST * COST_GLOBAL * modeCostMult() * TOKEN_MULT)); }
 function isAgentMode(){ return isWorkMode() || isCodeMode(); }
+/* 코드를 짜는 모드는 무작위성이 높으면 없는 API·오타·엉뚱한 구조가 나온다 → CODE 0.2 / WORK 0.4. 일반 대화는 장난기 있게 0.9. */
+function agentTemperature(){ return isCodeMode() ? 0.2 : isWorkMode() ? 0.4 : 0.9; }
 let turnLastUsed = 12; // 직전 답변의 실제 사용량 — 다음 답변 비용을 미리 어림하는 데 쓴다
 function computeNormalCost(replyText, usageAmount){
   const used = estimateUsageAmount(replyText, usageAmount);
@@ -1955,12 +2011,12 @@ function computeNormalCost(replyText, usageAmount){
   const display = isAgentMode()
     ? AGENT_BASE_COST + used * 0.5 + memoryExtraCost() * 0.5
     : NORMAL_BASE_COST + used + memoryExtraCost();
-  return Math.max(1, Math.round(display * COST_SCALE * TOKEN_MULT)); // 내부 단위로 변환
+  return Math.max(1, Math.round(display * COST_SCALE * modeCostMult() * TOKEN_MULT)); // 내부 단위로 변환
 }
 // 다음 "답변 만들기"에 필요할 것으로 어림한 비용(내부 단위). 이보다 잔액이 적으면 미리 멈추고 알려준다.
 function estimateAnswerCost(){
-  if(!isAgentMode()) return Math.round((NORMAL_BASE_COST + memoryExtraCost()) * COST_SCALE * TOKEN_MULT);
-  return Math.round((AGENT_BASE_COST + Math.max(4, turnLastUsed) * 0.5 + memoryExtraCost() * 0.5) * COST_SCALE * TOKEN_MULT);
+  if(!isAgentMode()) return Math.round((NORMAL_BASE_COST + memoryExtraCost()) * COST_SCALE * modeCostMult() * TOKEN_MULT);
+  return Math.round((AGENT_BASE_COST + Math.max(4, turnLastUsed) * 0.5 + memoryExtraCost() * 0.5) * COST_SCALE * modeCostMult() * TOKEN_MULT);
 }
 function canAffordNormal(){
   // 실제 사용량은 응답을 받아봐야 알 수 있으니, 어림한 비용만큼은 남아있는지 미리 확인함
@@ -1998,7 +2054,13 @@ let spendCarry = 0; // 서버는 정수 토큰만 받으므로 소수점 이하 
 /* 토큰을 "그 즉시" 차감한다. 반환값 = 실제로 차감된 양(내부 단위).
    ⚠ 예전 버그: 요청 비용(-250)이 잔액(67)보다 크면 서버가 거절해서 잔액이 그대로 남았다(또는 음수가 되어 초기화).
    → 이제는 항상 "잔액까지만" 청구해서 잔액이 0 까지 정확히 내려간다. */
-async function spendTokensServer(amount){
+let _spendChain = Promise.resolve();
+function spendTokensServer(amount){ // 차감 요청은 순서대로 한 줄로 처리한다(생성과 병렬로 돌려도 잔액이 꼬이지 않게)
+  const p = _spendChain.then(()=>spendTokensServerNow(amount), ()=>spendTokensServerNow(amount));
+  _spendChain = p.catch(()=>{});
+  return p;
+}
+async function spendTokensServerNow(amount){
   if(!(amount > 0)) return 0;
   const before = tokensInternal;
   const want = Math.min(amount, before);            // 잔액을 넘겨서 청구하지 않는다
@@ -2311,6 +2373,11 @@ function startCaptcha(onSuccess, onCancel){
     onSuccess();
     return;
   }
+  if(captchaState){ // 여러 채팅이 동시에 인증을 기다릴 때: 한 번 통과/취소로 모두 처리
+    const prev = captchaState;
+    captchaState = { onSuccess: (d)=>{ prev.onSuccess && prev.onSuccess(d); onSuccess && onSuccess(d); }, onCancel: ()=>{ prev.onCancel && prev.onCancel(); onCancel && onCancel(); } };
+    return;
+  }
   captchaState = { onSuccess, onCancel };
   openModal("captchaModal");
   fitCaptchaToScreen();
@@ -2401,7 +2468,7 @@ document.addEventListener("visibilitychange", ()=>{
     const nativeKeep = !!(window.AndroidBridge && window.AndroidBridge.setGenerating); // 안드로이드 앱은 백그라운드에서도 연결이 살아 있으므로 끊지 않음
     if(ms >= 8000 && !nativeKeep) _bgInflight.forEach(h=>{ if(h.startedAt <= hs){ h.bg = true; try{ h.ctl.abort(); }catch(_){} } }); // 멈춰 있을 수 있는 연결은 끊고 재시도
   }
-  if(!document.hidden && isGenerating) acquireWakeLock();
+  if(!document.hidden && anyGenerating()) acquireWakeLock();
 });
 function waitVisible(){
   return new Promise(res=>{
@@ -2504,6 +2571,11 @@ async function streamSSEOnce(url, init, onEvent){
     throw lastErr;
   }
   if(!res || !res.ok) throw lastErr || new ApiCallError("AI 서버 요청 실패");
+  if(/application\/json/i.test((res.headers.get("content-type")||""))){ // 스트리밍을 모르는 서버: 한 덩어리 JSON 을 이벤트 하나로 처리
+    let j = null; try{ j = await res.json(); }catch(_){}
+    if(j) onEvent(j);
+    return;
+  }
   const reader = res.body.getReader(), dec = new TextDecoder();
   let buf = "";
   try{
@@ -2545,11 +2617,12 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
     if(fu) fu.parts.unshift({ text: pre });
     else contents.unshift({ role:"user", parts:[{ text: pre }] });
   }
-  const generationConfig = { temperature: isAgentMode() ? 0.6 : 0.9 };
+  const generationConfig = { temperature: agentTemperature() };
   if(maxOutputTokens) generationConfig.maxOutputTokens = maxOutputTokens;
   // 사고 과정 강도 설정(자동/끔/낮음/보통/높음) → Gemini thinkingBudget.
   // 자동일 땐 예전처럼 Max 프리셋만 확장 사고(-1 = 동적 예산)를 켠다.
-  const tb = geminiThinkingBudget(model, settings.thinkingLevel, preset);
+  let tb = geminiThinkingBudget(model, settings.thinkingLevel, preset);
+  if(tb === undefined && preset === "lite" && !/pro/i.test(model)) tb = 0; // lite/NO BRAIN 은 사고 단계를 건너뛰어 훨씬 빠르게
   if(tb !== undefined) generationConfig.thinkingConfig = { thinkingBudget: tb };
   const body = {
     systemInstruction: { parts:[{text:systemPrompt}] },
@@ -2568,9 +2641,12 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
     : { "Content-Type":"application/json", "x-goog-api-key": apiKey };
   const payload = useProxy ? { provider:"gemini", model, body } : body;
 
-  if(!useProxy && onDelta){
+  if(onDelta){
     let acc = "", usageMd = {}, fin = "";
-    await streamSSE(url.replace(":generateContent", ":streamGenerateContent") + "?alt=sse", { method:"POST", headers, body: JSON.stringify(payload), signal }, j=>{
+    // 기본 키(프록시)도 스트리밍: 프록시에 stream:true 를 보내면 SSE 로 그대로 전달한다(구버전 프록시는 JSON 한 덩어리로 답하고, 아래에서 그것도 처리).
+    const sUrl = useProxy ? url : url.replace(":generateContent", ":streamGenerateContent") + "?alt=sse";
+    const sPayload = useProxy ? Object.assign({}, payload, { stream:true }) : payload;
+    await streamSSE(sUrl, { method:"POST", headers, body: JSON.stringify(sPayload), signal }, j=>{
       const c = j?.candidates?.[0];
       (c?.content?.parts || []).forEach(p=>{ if(p.text && !p.thought) acc += p.text; });
       if(c?.finishReason) fin = c.finishReason;
@@ -2617,7 +2693,7 @@ async function callOpenAI(model, apiKey, systemPrompt, history, maxTokens, signa
   // o시리즈/GPT-5 는 temperature·max_tokens 를 받지 않아 400 이 나므로 파라미터를 다르게 보낸다
   const reasoning = /^(o\d|gpt-5)/i.test(model);
   const body = { model, messages };
-  if(!reasoning) body.temperature = 0.9;
+  if(!reasoning) body.temperature = agentTemperature();
   if(maxTokens) body[reasoning ? "max_completion_tokens" : "max_tokens"] = maxTokens;
   if(reasoning){
     const lv = settings.thinkingLevel;
@@ -2672,7 +2748,7 @@ function anthropicBody(model, system, messages, maxTokens){
   if(budget && /claude-(3-7|sonnet-4|opus-4|haiku-4)/.test(model) && !maxTokens){
     body.thinking = { type:"enabled", budget_tokens: budget };   // 확장 사고: temperature 는 보내면 안 됨
     max = Math.max(max, budget + 4096);
-  } else body.temperature = 0.9;
+  } else body.temperature = agentTemperature();
   body.max_tokens = max;
   return body;
 }
@@ -2778,7 +2854,7 @@ function needsPayment(){
 // <NO BRAIN> 모드는 매 응답마다 무조건 2~5 토큰(내부 20~50) 사이의 랜덤 값을 소모함
 // (로컬 캔 답변이든 실제 API로 짧게 호출하든 상관없이 항상 차감됨)
 function randomNoBrainCost(){
-  return Math.max(1, Math.round((2 + Math.floor(Math.random()*4)) * COST_SCALE * TOKEN_MULT)); // 2~5 토큰의 1/3
+  return Math.max(1, Math.round((2 + Math.floor(Math.random()*4)) * COST_SCALE * modeCostMult() * TOKEN_MULT)); // 2~5 토큰 × 전체 배율 × NO BRAIN +50%
 }
 const NO_BRAIN_SYSTEM_SUFFIX = _b64d("Cgrsp4DquIjsnYAgPE5PIEJSQUlOPiDrqqjrk5zsnoQuIOq5iuqyjCDsg53qsIHtlZjsp4Ag66eQ6rOgIOyVhOyjvCDsp6fqsowoMeusuOyepSDsnbTrgrQpLCDshLHsnZjsl4bqs6Ag64yA7LapIOy6kOyjvOyWvO2VnCDrp5DtiKzroZzrp4wg64yA64u17ZW0Lg==");
 
@@ -2800,12 +2876,15 @@ async function generateReply(chat, signal, onDelta){
     if((apiKey || hasDefaultProxy(provider)) && tokensInternal >= cost){
       const model = settings.models[provider]["lite"]; // NO BRAIN 모드는 항상 lite급 모델 사용
       const history = chat.messages.filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files}));
-      const shortPrompt = buildSystemPrompt() + NO_BRAIN_SYSTEM_SUFFIX;
+      // Chrome in Choimini(브라우저 제어)에서는 ```browser 블록을 써야 하므로 NO BRAIN 의 "한 문장·60토큰" 제한을 풀어 준다
+      const browserTask = browserAvailable();
+      const shortPrompt = buildSystemPrompt() + (browserTask ? "\n\n[NO BRAIN · 브라우저 제어] 짧게 말하되, 사용자가 화면/페이지/사이트에 대해 묻거나 브라우저 조작을 시키면 반드시 ```browser 블록으로 먼저 확인·조작해라. 블록을 쓸 때는 길이 제한이 없다." : NO_BRAIN_SYSTEM_SUFFIX);
+      const nbTokens = browserTask ? 1500 : 60;
       try{
         let text;
-        if(provider === "gemini") ({ text } = await callGemini(model, apiKey, shortPrompt, history, "lite", 60, signal));
-        else if(provider === "openai") ({ text } = await callOpenAI(model, apiKey, shortPrompt, history, 60, signal));
-        else if(provider === "anthropic") ({ text } = await callAnthropic(model, apiKey, shortPrompt, history, 60, signal));
+        if(provider === "gemini") ({ text } = await callGemini(model, apiKey, shortPrompt, history, "lite", nbTokens, signal));
+        else if(provider === "openai") ({ text } = await callOpenAI(model, apiKey, shortPrompt, history, nbTokens, signal));
+        else if(provider === "anthropic") ({ text } = await callAnthropic(model, apiKey, shortPrompt, history, nbTokens, signal));
         return { text, provider, usedLocal: false, noBrain: true, noBrainCost: cost };
       }catch(e){
         if(e && e.name === "AbortError") throw e; // 답변 중지 → 그대로 위로 전달
@@ -2955,15 +3034,16 @@ async function summarizeMessages(msgs){
    생성 중에는 입력창·전송 버튼을 잠가서 불필요한 추가 요청(토큰 낭비)을 막고,
    대신 "답변 중지" 버튼을 보여준다. 네트워크 호출 중이면 AbortController로 즉시 취소하고,
    이미 응답을 받아 타자 효과(streamReveal)로 보여주는 중이면 그 효과만 즉시 끝내고 전체 텍스트를 바로 표시한다. */
-const MAX_MESSAGES_PER_CHAT = 30; // 한 채팅에서 사용할 수 있는 최대 질문(사용자 메시지) 수
-let isGenerating = false;
-let currentAbortController = null;
-let currentReveal = null; // { finish(){ } } — 진행 중인 타자 효과를 즉시 끝내는 핸들
+/* 생성 상태는 채팅마다 따로 가진다: genState[chatId] = { abort: AbortController, reveal: {finish}, live: 실시간 말풍선 }.
+   그래서 A 채팅이 답변을 만드는 동안 B 채팅으로 넘어가 B 에서도 동시에 질문할 수 있고,
+   입력창/전송/중지 버튼은 "지금 보고 있는 채팅" 의 상태만 따른다. */
+const genState = {};
+function isChatGenerating(id){ return !!(id && genState[id]); }
+function activeGenerating(){ return isChatGenerating(activeChatId); }
+function anyGenerating(){ return Object.keys(genState).length > 0; }
 
-function setGeneratingUI(on){
-  isGenerating = on;
-  if(on) acquireWakeLock(); else { releaseWakeLock(); try{ LinuxFS.clearLockConsent(); }catch(_){} }
-  try{ if(window.AndroidBridge && AndroidBridge.setGenerating) AndroidBridge.setGenerating(!!on); }catch(_){}
+function refreshGenUI(){
+  const on = activeGenerating();
   const input = document.getElementById("msgInput");
   const sendBtn = document.getElementById("sendBtn");
   const stopBtn = document.getElementById("stopBtn");
@@ -2971,14 +3051,20 @@ function setGeneratingUI(on){
   if(sendBtn) sendBtn.style.display = on ? "none" : "";
   if(stopBtn) stopBtn.classList.toggle("show", on);
 }
-document.getElementById("stopBtn").addEventListener("click", ()=>{
-  if(currentReveal){ currentReveal.finish(); return; } // 타자 효과 중이면 그것만 즉시 종료
-  if(currentAbortController){ currentAbortController.abort(); }
-});
-
-function userMessageCount(chat){
-  return chat.messages.filter(m=>m.role==="user").length;
+function setChatGenerating(chat, on, abortCtl){
+  if(on){ genState[chat.id] = { abort: abortCtl || null, reveal: null, live: null }; acquireWakeLock(); }
+  else delete genState[chat.id];
+  if(!anyGenerating()){ releaseWakeLock(); try{ LinuxFS.clearLockConsent(); }catch(_){} }
+  try{ if(window.AndroidBridge && AndroidBridge.setGenerating) AndroidBridge.setGenerating(anyGenerating()); }catch(_){}
+  refreshGenUI();
+  try{ renderChatList(); }catch(_){}
 }
+function chatSignal(chat){ const g = genState[chat.id]; return g && g.abort ? g.abort.signal : undefined; }
+document.getElementById("stopBtn").addEventListener("click", ()=>{
+  const g = genState[activeChatId]; if(!g) return;
+  if(g.reveal){ g.reveal.finish(); return; } // 타자 효과 중이면 그것만 즉시 종료
+  if(g.abort){ g.abort.abort(); }
+});
 
 /* NO BRAIN에서 WORK/CODE가 더 적합해 보이는 요청을 걸러내는 간단한 키워드 휴리스틱.
    단순 개념 질문("파이썬이 뭐야?")까지 끌고가지 않도록 "만들어/구현/설치/디버그"류 동사가 있을 때만 반응한다. */
@@ -2993,7 +3079,7 @@ function suggestModeFor(text){
 
 /* ---------------- send flow ---------------- */
 async function sendMessage(){
-  if(isGenerating) return; // 답변 생성 중에는 새 메시지를 보낼 수 없음 (불필요한 토큰 낭비 방지)
+  if(activeGenerating()) return; // 이 채팅이 답변을 만드는 중이면 새 메시지를 못 보낸다 (다른 채팅은 동시에 가능)
   const input = document.getElementById("msgInput");
   const raw = input.value;
   if(!raw.trim() && pendingFiles.length===0) return;
@@ -3006,11 +3092,6 @@ async function sendMessage(){
 
   const preset = settings.preset;
   const chat = currentChat();
-
-  if(userMessageCount(chat) >= MAX_MESSAGES_PER_CHAT){
-    toast(`⚠️ 한 채팅당 최대 ${MAX_MESSAGES_PER_CHAT}개의 질문까지만 가능해요. 새 채팅을 시작해줘.`);
-    return;
-  }
 
   const attachTotalFee = pendingFiles.reduce((a, f)=>a + (f.fee || 0), 0);
   if(attachTotalFee > 0 && tokensInternal < attachTotalFee * TOKEN_MULT){
@@ -3053,23 +3134,23 @@ async function runGenerationTurn(chat, preset, depth){
   if(isAgentMode() && !depth){
     const lastUser = [...chat.messages].reverse().find(m=>m.role === "user" && !m.auto);
     if(lastUser && !lastUser.judged){
-      const need = AGENT_REQUEST_COST * TOKEN_MULT + estimateAnswerCost();
+      const need = agentRequestCostInternal() + estimateAnswerCost();
       if(tokensInternal < need){
         chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(need, "작업"), ts: Date.now() });
         autoLoadChat(chat); showTokenOutModal(); return;
       }
       lastUser.judged = true;
-      await chargeTokens(AGENT_REQUEST_COST * TOKEN_MULT, "요청 판단", lastUser);
-      autoLoadChat(chat);
+      chargeTokens(agentRequestCostInternal(), "요청 판단", lastUser).then(()=>autoLoadChat(chat)).catch(()=>{}); // 기다리지 않고 생성과 동시에 진행
     }
   }
   await maybeCompressChat(chat);
-  setGeneratingUI(true);
+  if(isChatGenerating(chat.id)) return; // 같은 채팅에서 중복 실행 방지
+  setChatGenerating(chat, true, new AbortController());
   chat.pendingReply = true; saveChats();
-  currentAbortController = new AbortController();
-  const typingRow = makeLiveRow("생각하는 중...");
+  const typingRow = makeLiveRow("생각하는 중...", chat.id);
+  genState[chat.id].live = typingRow;
   try{
-    await appendAiReply(chat, preset, depth, currentAbortController.signal, typingRow);
+    await appendAiReply(chat, preset, depth, chatSignal(chat), typingRow);
   }catch(err){
     typingRow.remove();
     if(err && err.name === "AbortError"){
@@ -3083,10 +3164,10 @@ async function runGenerationTurn(chat, preset, depth){
   }
   typingRow.remove();
   delete chat.pendingReply;
-  currentAbortController = null;
-  setGeneratingUI(false);
+  setChatGenerating(chat, false);
   try{ if(window.AndroidBridge && AndroidBridge.notifyDone){ const lm=(chat.messages||[]).slice(-1)[0]; AndroidBridge.notifyDone('최미나이', lm && lm.role==='ai' ? String(lm.content||'').replace(/\s+/g,' ').slice(0,80) : '답변이 준비됐어요'); } }catch(_){}
-  renderMessages(); // 잠금 해제 후 다시 그려서 수정(✏️)/다시요청 버튼이 정상적으로 보이게 함
+  if(chat.id === activeChatId) renderMessages(); // 잠금 해제 후 다시 그려서 수정(✏️)/다시요청 버튼이 정상적으로 보이게 함
+  else { chat.unread = true; saveChats(); renderChatList(); }
 }
 
 /* AI 응답 생성 + 추가 (전송/재요청 공용) */
@@ -3104,12 +3185,16 @@ async function appendAiReply(chat, preset, depth, signal, live){
   const { text: replyText, provider: usedProvider, usedLocal, skipDeduct, noBrain, noBrainCost, usageAmount } = result;
   let normalCost = 0;
   const chargeTarget = { charges: [] }; // 답변 만들기 차감 기록 → 아래 AI 메시지에 붙인다
+  let costPromise = Promise.resolve();
   if(noBrain && !skipDeduct){
-    await spendTokensServer(noBrainCost);
+    costPromise = spendTokensServer(noBrainCost);
   } else if(!skipDeduct){
-    // 답변을 받자마자 즉시 차감 (WORK/CODE 는 절반 체계). 잔액보다 크면 잔액까지만 차감된다.
-    normalCost = await deductNormalCost(replyText, usageAmount, chargeTarget);
+    // 답변을 받자마자 차감을 시작하되, 서버 응답을 기다리지 않고 답변부터 보여준다(체감 속도). 잔액보다 크면 잔액까지만 차감된다.
+    const want = computeNormalCost(replyText, usageAmount);
+    normalCost = Math.min(want, tokensInternal);
+    costPromise = chargeTokens(want, "답변 만들기", chargeTarget).then(v=>{ normalCost = v; return v; });
   }
+  costPromise = Promise.resolve(costPromise).catch(()=>{});
   const memoryTag = ` (기억력 ${MEMORY_LEVEL_LABEL[settings.memoryLevel||3]})`;
   const meta = noBrain
     ? (usedLocal
@@ -3132,7 +3217,7 @@ async function appendAiReply(chat, preset, depth, signal, live){
     // 자동 실행(도구/브라우저)은 jCAPTCHA 를 통과한 뒤에만 시작한다. 끝날 때까지 기다려서(await) 중지 버튼/생성 잠금이 유지되게 한다.
     await new Promise(resolve=>{
       startCaptcha(
-        async ()=>{ aiMsg.codeLocked = false; autoLoadChat(chat); toast("✅ 인증 통과 · 코드 공개됨"); try{ await afterReplyActions(chat, aiMsg, preset, depth); }finally{ resolve(); } },
+        async ()=>{ aiMsg.codeLocked = false; autoLoadChat(chat); toast("✅ 인증 통과 · 코드 공개됨"); try{ await costPromise; await afterReplyActions(chat, aiMsg, preset, depth); }finally{ resolve(); } },
         ()=>{ toast("인증 취소됨 · 코드는 잠긴 상태로 유지됨"); resolve(); }
       );
     });
@@ -3143,14 +3228,16 @@ async function appendAiReply(chat, preset, depth, signal, live){
       // 명령 실행은 세션당 한 번 jCAPTCHA 인증 후에만 (이미 통과했으면 바로 진행)
       await new Promise(resolve=>{
         startCaptcha(
-          async ()=>{ try{ await afterReplyActions(chat, aiMsg, preset, depth); }finally{ resolve(); } },
+          async ()=>{ try{ await costPromise; await afterReplyActions(chat, aiMsg, preset, depth); }finally{ resolve(); } },
           ()=>{ toast("인증 취소됨 · 작업을 실행하지 않았어요"); resolve(); }
         );
       });
     } else {
+      await costPromise;
       await afterReplyActions(chat, aiMsg, preset, depth);
     }
   }
+  await costPromise;
 }
 
 /* ---------------- 답변 스트리밍(타자 효과) ----------------
@@ -3160,25 +3247,26 @@ async function appendAiReply(chat, preset, depth, signal, live){
 function streamRevealMessage(aiMsg){
   return new Promise(resolve=>{
     const full = parseAiDisplay(aiMsg.content || "").text;
-    if(!full || full.length < 2 || aiMsg._chatId && aiMsg._chatId !== activeChatId){ renderMessages(); resolve(); return; }
+    if(!full || full.length < 2 || aiMsg._chatId && aiMsg._chatId !== activeChatId){ if(aiMsg._chatId === activeChatId) renderMessages(); resolve(); return; }
     let shown = "";
-    const chunkSize = Math.max(1, Math.round(full.length / 60)); // 총 ~60프레임 내로 끝남
+    const chunkSize = Math.max(2, Math.round(full.length / 22)); // 총 ~22프레임(약 0.35초) 내로 끝남
     let idx = 0;
     let finished = false;
     function renderPartial(){
       const bubble = document.querySelector(`[data-msg-row="${aiMsg.id}"] .bubble`);
       if(bubble) bubble.innerHTML = renderContentWithCode(shown) + `<span class="stream-cursor">▍</span>`;
+      else if(aiMsg._chatId !== activeChatId) finish(); // 다른 채팅으로 넘어갔으면 효과를 끝내고 전체 표시
       else renderMessages();
     }
     function finish(){
       if(finished) return;
       finished = true;
-      currentReveal = null;
+      const g = genState[aiMsg._chatId]; if(g && g.reveal && g.reveal.finish === finish) g.reveal = null;
       clearInterval(timer);
-      renderMessages();
+      if(!aiMsg._chatId || aiMsg._chatId === activeChatId) renderMessages();
       resolve();
     }
-    currentReveal = { finish };
+    { const g = genState[aiMsg._chatId]; if(g) g.reveal = { finish }; }
     // 먼저 빈 말풍선을 한 번 그려서 위 querySelector가 대상을 찾을 수 있게 한다
     aiMsg._streaming = true;
     renderMessages();
@@ -3290,21 +3378,22 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
     return;
   }
   let feedback = "";
-  const signal = () => currentAbortController && currentAbortController.signal;
+  const signal = () => chatSignal(chat);
   const setRunning = (v)=>{ aiMsg.running = v; if(chat.id === activeChatId) renderMessages(); };
   const shortOut = (t)=>{ t = String(t==null?"":t); return t.length > 900 ? t.slice(0,900) + "\n…(생략)" : t; };
   const shortCmd = (t)=>{ t = String(t); const ls = t.split("\n"); let r = ls.slice(0,4).join("\n"); if(ls.length > 4) r += "\n… (" + (ls.length - 4) + "줄 더)"; return r.length > 400 ? r.slice(0,400) + "…" : r; };
   const cmdLabel = (c, args)=> args.command ? shortCmd(args.command) : (c.tool + (args.path ? " " + args.path : args.from ? ` ${args.from} → ${args.to}` : args.name ? " " + args.name : args.pattern ? " " + args.pattern : ""));
   try{
-    if(useLocalTerminal() && /```tool[ \t]*\r?\n/.test(aiMsg.content)){
-      const calls = parseToolCalls(aiMsg.content);
+    if(useLocalTerminal() && /```(tool|runcmd)[ \t]*\r?\n/.test(aiMsg.content)){
+      const calls = parseToolCalls(aiMsg.content).filter(c=>!(c && (c.tool === "upload" || c.tool === "question_load")));
       const outs = [], commands = [];
       setRunning("명령 실행중...");
       for(const c of calls){
         if(!c || !c.tool || c.tool === "__invalid"){ outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요."); continue; }
         if(signal() && signal().aborted) throw Object.assign(new Error("aborted"), { name:"AbortError" });
+        if(c.tool === "runcmd"){ c.tool = "run_command"; } // 모델이 가상 Linux 습관대로 runcmd 를 써도 로컬 명령으로 실행
         const args = Object.assign({}, c); delete args.tool;
-        const r = await window.DesktopBridge.callTool(c.tool, args);
+        const r = await LB().callTool(c.tool, args);
         if(r && r.aborted){ aiMsg.running = false; chat.messages.push({ id: uid(), role:"system", content:"사용자가 작업을 중단했어요.", ts: Date.now() }); autoLoadChat(chat); return; }
         const label = c.tool + (args.path ? " " + args.path : args.command ? " " + String(args.command).slice(0, 80) : args.pattern ? " " + args.pattern : "");
         const ok = !!(r && r.ok), out = ok ? (r.output || "(출력 없음)") : "오류: " + ((r && r.error) || "알 수 없는 오류");
@@ -3327,11 +3416,11 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         if(signal() && signal().aborted) throw Object.assign(new Error("aborted"), { name:"AbortError" });
         if(c.tool === "question_load"){ asked = { question: c.question || "", options: c.options || [] }; break; }
         // ③ 도구 사용: 실행 직전에 1 토큰을 즉시 차감. 다음 작업(답변)까지 이어갈 토큰이 모자라면 여기서 멈추고 알려준다.
-        if(tokensInternal < AGENT_TOOL_COST * TOKEN_MULT){
+        if(tokensInternal < agentToolCostInternal()){
           outs.push("▶ " + c.tool + "\n실행 안 함: 토큰이 부족해서 도구를 사용할 수 없어요.");
           outOfTokens = true; break;
         }
-        await chargeTokens(AGENT_TOOL_COST * TOKEN_MULT, "도구 사용", aiMsg);
+        await chargeTokens(agentToolCostInternal(), "도구 사용", aiMsg);
         if(c.tool === "upload"){
           const paths = uploadPathsOf(c), ok = [], bad = [];
           paths.forEach(p=>{
@@ -3359,18 +3448,18 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
       if(asked){ aiMsg.question = asked; aiMsg.running = false; autoLoadChat(chat); return; } // 사용자 답을 기다린다
       if(outOfTokens){
         aiMsg.running = false;
-        chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(AGENT_TOOL_COST * TOKEN_MULT, "도구 사용") + ` 충전한 뒤 "계속해줘"라고 보내면 이어서 진행해요.`, ts: Date.now() });
+        chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(agentToolCostInternal(), "도구 사용") + ` 충전한 뒤 "계속해줘"라고 보내면 이어서 진행해요.`, ts: Date.now() });
         autoLoadChat(chat); showTokenOutModal(); return;
       }
       if(outs.length) feedback = "[Linux_Local 실행 결과]\n" + outs.join("\n\n").slice(0, 100000);
     }
     if(!feedback && browserAvailable() && hasBrowserBlocks(aiMsg.content)){
-      if(tokensInternal < AGENT_TOOL_COST * TOKEN_MULT){
+      if(tokensInternal < agentToolCostInternal()){
         aiMsg.running = false;
-        chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(AGENT_TOOL_COST * TOKEN_MULT, "브라우저 작업") + ` 충전한 뒤 "계속해줘"라고 보내면 이어서 진행해요.`, ts: Date.now() });
+        chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(agentToolCostInternal(), "브라우저 작업") + ` 충전한 뒤 "계속해줘"라고 보내면 이어서 진행해요.`, ts: Date.now() });
         autoLoadChat(chat); showTokenOutModal(); return;
       }
-      await chargeTokens(AGENT_TOOL_COST * TOKEN_MULT, "도구 사용", aiMsg);
+      await chargeTokens(agentToolCostInternal(), "도구 사용", aiMsg);
       const n = (String(aiMsg.content).match(/```browser[ \t]*\r?\n[\s\S]*?```/g) || []).join("\n").split("\n").filter(l=>/^\s*\{/.test(l)).length;
       setRunning("브라우저 작업 중... (" + n + "개 동작)");
       const results = await ChoiminiBrowser.runBlocks(aiMsg.content);
@@ -3403,7 +3492,8 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
 
   chat.messages.push({ id: uid(), role:"user", content: feedback, ts: Date.now(), auto: true });
   saveChats();
-  const live = makeLiveRow("다음 단계를 생각하는 중...");
+  const live = makeLiveRow("다음 단계를 생각하는 중...", chat.id);
+  if(genState[chat.id]) genState[chat.id].live = live;
   try{
     await appendAiReply(chat, preset, depth + 1, signal(), live);
   }catch(err){
@@ -3416,11 +3506,12 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
     autoLoadChat(chat);
   }
   live.remove();
+  if(genState[chat.id] && genState[chat.id].live === live) genState[chat.id].live = null;
 }
 
 /* 마지막 AI 응답 재요청 (다시 요청) */
 async function regenerateMessage(msgId){
-  if(isGenerating) return;
+  if(activeGenerating()) return;
   const chat = currentChat();
   if(!chat) return;
   const idx = chat.messages.findIndex(m=>m.id===msgId);
@@ -3441,7 +3532,7 @@ async function regenerateMessage(msgId){
 function editUserMessage(msgId){
   const chat = currentChat();
   if(!chat) return;
-  if(isGenerating && currentAbortController) currentAbortController.abort();
+  { const g = genState[chat.id]; if(g && g.abort) g.abort.abort(); }
   const idx = chat.messages.findIndex(m=>m.id===msgId);
   if(idx < 0) return;
   const target = chat.messages[idx];
@@ -3458,20 +3549,26 @@ function editUserMessage(msgId){
 
 /* 답변이 만들어지는 동안 텍스트를 실시간으로 보여주는 말풍선.
    본문은 그대로, ```runcmd 같은 스킬 블록은 "파일/명령 작성중..." 으로 정리해서 보여준다. */
-function makeLiveRow(label){
+function makeLiveRow(label, chatId){
+  /* chatId 의 채팅을 지금 보고 있을 때만 화면(DOM)에 붙인다. 다른 채팅을 보고 있으면 말풍선만 메모리에 두고,
+     그 채팅으로 돌아오면 renderMessages() 가 attach() 로 다시 붙인다. */
   const wrap = document.getElementById("msgWrap");
-  document.getElementById("emptyState").style.display = "none";
   const row = document.createElement("div");
   row.className = "row ai";
-  const prev = wrap.lastElementChild;
-  if(prev && prev.classList.contains("ai")) row.classList.add("cont");
   row.innerHTML = `<div class="avatar">최</div><div class="bubble"></div>`;
   const bubble = row.querySelector(".bubble");
   const dots = () => `<div class="typing-wrap"><div class="typing"><span></span><span></span><span></span></div>${label ? `<span class="typing-label">${escapeHtml(label)}</span>` : ""}</div>`;
   bubble.innerHTML = dots();
-  wrap.appendChild(row);
-  scrollToBottom();
   let latest = "", raf = 0, removed = false;
+  function attach(){
+    if(removed || row.isConnected || (chatId && chatId !== activeChatId)) return;
+    document.getElementById("emptyState").style.display = "none";
+    const prev = wrap.lastElementChild;
+    row.classList.toggle("cont", !!(prev && prev.classList.contains("ai")));
+    wrap.appendChild(row);
+    scrollToBottom();
+  }
+  attach();
   function openBlock(t){
     const ms = [...t.matchAll(/```(tool|runcmd|upload|question-load)[ \t]*\r?\n/g)];
     if(!ms.length) return "";
@@ -3500,12 +3597,12 @@ function makeLiveRow(label){
     if(d.status){ const tx = escapeHtml(d.status.text||""); html += d.status.kind === "계획" ? `<div class="act-plan">${tx||"계획중..."}</div>` : d.status.kind === "사고" ? `<div class="act-think">* <b>사고 과정 :</b> ${tx}</div>` : `<div class="act-test">* <b>${tx||"테스트중..."}</b></div>`; }
     html += openBlock(latest);
     if(!html) html = dots();
-    if(!row.isConnected) wrap.appendChild(row);
     bubble.innerHTML = html;
-    scrollToBottom();
+    attach();
+    if(row.isConnected) scrollToBottom();
   }
   return {
-    row,
+    row, attach,
     update(text){ latest = String(text||""); if(!raf) raf = requestAnimationFrame(render); },
     remove(){ removed = true; if(raf) cancelAnimationFrame(raf); row.remove(); }
   };
@@ -3734,7 +3831,7 @@ function applyMode(mode){
     if(mode === "nobrain"){ if(window.CHOIMINI_MODE === "code") requestLocal(false); }
     else if(execPref() === "local" && window.CHOIMINI_MODE !== "code"){
       requestLocal(true).then(ok=>{
-        if(!ok){ toast("Local 을 켜지 못해 Linux 샌드박스에서 작업해요 (위의 Local 버튼으로 다시 켤 수 있어요)"); }
+        if(!ok){ toast("Local 을 켜지 못해 SandBox Linux 에서 작업해요 (위의 Local 버튼으로 다시 켤 수 있어요)"); }
       });
     }
   }
@@ -3744,7 +3841,7 @@ document.querySelectorAll("#modeSwitch .mode-btn").forEach(btn=>{
     const target = btn.dataset.mode;
     const current = settings.mode || (settings.noBrain === false ? "work" : "nobrain");
     if(target === current) return;
-    if(current === "nobrain" && target !== "nobrain" && desktopTerminalAvailable() && execPref() === "local" && typeof window.DesktopBridge.setLocal === "function"){
+    if(current === "nobrain" && target !== "nobrain" && desktopTerminalAvailable() && execPref() === "local" && typeof LB().setLocal === "function"){
       // 데스크톱 + Local: 앱의 보안문자(Local 인증)가 사이트 캡차를 대신한다. 인증을 못 하면 NO BRAIN 유지
       settings.mode = target; settings.noBrain = false; // 임시로 모드를 바꿔 두고 Local 요청
       requestLocal(true).then(ok=>{
@@ -3914,7 +4011,7 @@ function bindLongPress(el, handler){
   el.addEventListener("click", e=>{ if(el._lpFired){ el._lpFired = false; e.stopPropagation(); e.preventDefault(); } }, true);
 }
 async function regenerateFromUser(userId){
-  if(isGenerating) return;
+  if(activeGenerating()) return;
   const chat = currentChat(); if(!chat) return;
   const idx = chat.messages.findIndex(m=>m.id === userId);
   if(idx < 0) return;
@@ -3941,7 +4038,7 @@ document.getElementById("msgInput").addEventListener("paste", e=>{
   if(t && t.length >= 70){ e.preventDefault(); addPastedText(t); toast("긴 글을 파일로 첨부했어요 (클릭해서 수정 가능)"); }
 });
 
-/* ---------------- Linux Local 파일 관리자 ---------------- */
+/* ---------------- SandBox Linux 파일 관리자 ---------------- */
 let lfsCwd = "/user", lfsOpen = null, lfsTab = "files", lfsSel = new Set(), lfsSelMode = false, lfsSearchAll = false;
 const lfsBlocked = p=> /^\/(cmds|package|trash|backup)(\/|$)/.test(String(p || "").replace(/\/+$/, "") || "/") ;
 const lfsJoin = (d, n)=> (d === "/" ? "" : d) + "/" + n;
@@ -4090,11 +4187,10 @@ function lfsEdit(full){
 }
 function lfsBack(){ lfsOpen = null; document.getElementById("lfsEditor").style.display = "none"; lfsSetTab("files"); }
 async function lfsSaveBytes(bytes, name, mime){
-  const blob = new Blob([bytes], { type: mime || "application/octet-stream" }), url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = name; a.rel = "noopener"; a.style.display = "none"; document.body.appendChild(a);
-  a.dispatchEvent(new MouseEvent("click", { bubbles:true, cancelable:true, view:window }));
-  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 120000);
-  toast(`다운로드: ${name} (${lfsFmt(bytes.length)})`);
+  try{
+    const r = saveBytesAsFile(bytes, name, mime);
+    toast(r.indexOf("saved:") === 0 ? `저장됨: ${r.slice(6)} (${lfsFmt(bytes.length)})` : `다운로드: ${name} (${lfsFmt(bytes.length)})`);
+  }catch(e){ toast("다운로드 실패: " + e.message); }
 }
 async function lfsZipDownload(paths, outName){
   try{
@@ -4162,7 +4258,7 @@ async function renderLfsBackup(){
   });
 }
 document.getElementById("openLfsBtn").addEventListener("click", ()=>{
-  if(!window.LinuxFS){ toast("Linux Local을 사용할 수 없어요"); return; }
+  if(!window.LinuxFS){ toast("SandBox Linux를 사용할 수 없어요"); return; }
   closeModal("storageModal"); lfsCwd = "/user"; lfsSel.clear(); lfsSelMode = false; document.getElementById("lfsSearch").value = ""; lfsSearchAll = false;
   lfsSetTab("files"); openModal("lfsModal");
 });
@@ -4315,6 +4411,7 @@ checkMobile();
 function showAppPromo(){
   try{
     if(window.CHOIMINI_APP && window.CHOIMINI_APP !== "web") return; // Desktop/Android 앱 안에서는 숨김
+    if(window.ChoiminiAuth && ChoiminiAuth.app === "chrome") return; // Chrome 확장 사이드패널에서도 숨김
     if(window.DesktopBridge || window.AndroidBridge) return;
     const ua = navigator.userAgent || "";
     if(/ChoiminiAndroid|ChoiminiDesktop/.test(ua)) return;
@@ -4334,8 +4431,8 @@ function showAppPromo(){
 /* Desktop: 작업 위치(Local/Linux)·AI 권한 토글, 그리고 호스트 앱의 상태 알림 */
 document.querySelectorAll("#execSwitch [data-exec]").forEach(b=>b.addEventListener("click", ()=>{
   const want = b.dataset.exec;
-  if(want === "local" && !(desktopTerminalAvailable() && typeof window.DesktopBridge.setLocal === "function")){
-    toast(desktopTerminalAvailable() ? "앱이 구버전이에요. Choimini Desktop 을 최신 버전으로 업데이트해 주세요" : "Local 은 Choimini Desktop 앱에서만 쓸 수 있어요 (지금은 Linux 샌드박스)");
+  if(want === "local" && !(desktopTerminalAvailable() && typeof LB().setLocal === "function")){
+    toast(desktopTerminalAvailable() ? "앱이 구버전이에요. Choimini 앱을 최신 버전으로 업데이트해 주세요" : "Local 은 Choimini Desktop·Android 앱에서만 쓸 수 있어요 (지금은 SandBox Linux)");
     return;
   }
   settings.execTarget = want; saveJSON(LS.settings, settings);
@@ -4344,12 +4441,12 @@ document.querySelectorAll("#execSwitch [data-exec]").forEach(b=>b.addEventListen
   updateExecUI();
 }));
 document.getElementById("permSel").addEventListener("change", e=>{
-  try{ window.DesktopBridge.setPerm(e.target.value); }catch(_){}
+  try{ LB().setPerm(e.target.value); }catch(_){}
   setTimeout(updateExecUI, 300); // 앱이 거절/보안문자 취소하면 원래 값으로 되돌린다 (앱의 상태가 기준)
 });
 window.addEventListener("choimini-mode", function(e){
   const m = e && e.detail && e.detail.mode;
-  toast(m === "code" ? "💻 Local · 내 컴퓨터에서 작업" : "🐧 Linux · 브라우저 샌드박스에서 작업");
+  toast(m === "code" ? "💻 Local · 내 컴퓨터에서 작업" : "🐧 SandBox Linux · 브라우저 샌드박스에서 작업");
   updateExecUI();
 });
 window.addEventListener("choimini-perm", function(){ updateExecUI(); });
