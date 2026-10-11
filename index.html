@@ -53,7 +53,7 @@ input,textarea,select{font-family:inherit;color:inherit;}
 .footer-btn:hover{background:var(--sidebar-active);}
 
 /* MAIN */
-.main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg);}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg);position:relative;}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg);gap:12px;flex-wrap:wrap;}
 .topbar-left{display:flex;align-items:center;gap:10px;}
 .topbar-title{font-weight:600;font-size:15px;color:var(--text);}
@@ -113,6 +113,23 @@ details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
 .act-line.created b{color:#3ddc84;} .act-line.edited b{color:#ffb14a;} .act-line.deleted b{color:#ff6b6b;}
 .spin{display:inline-block;width:11px;height:11px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-1px;margin-right:6px;}
 @keyframes spin{to{transform:rotate(360deg);}}
+.pkg-chip{position:absolute;left:50%;transform:translateX(-50%);bottom:92px;max-width:92%;display:none;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--panel);border:1px solid var(--border);box-shadow:0 2px 10px rgba(0,0,0,.18);font-size:12px;z-index:30;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pkg-chip.show{display:flex;}.pkg-chip .spin{width:10px;height:10px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:pkgspin .8s linear infinite;flex:none;}
+.pkg-chip.ok{border-color:#3a3;}.pkg-chip.err{border-color:#c44;}.pkg-chip.ok .spin,.pkg-chip.err .spin{display:none;}
+@keyframes pkgspin{to{transform:rotate(360deg)}}
+.main-tabs{display:none;gap:2px;margin-left:10px;background:var(--panel-2);border:1px solid var(--border);border-radius:999px;padding:2px;}
+.main-tabs.show{display:inline-flex;}.main-tabs button{border:0;background:transparent;color:var(--text);opacity:.65;font-size:12px;padding:4px 11px;border-radius:999px;cursor:pointer;}
+.main-tabs button.active{background:var(--accent);color:#fff;opacity:1;}
+#chminalPane{display:none;flex:1;min-height:0;flex-direction:column;padding:8px 12px calc(12px + env(safe-area-inset-bottom));gap:8px;}
+#chminalPane.show{display:flex;}
+.chm-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;}
+.chm-bar select,.chm-bar button{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-size:12px;}
+.chm-out{flex:1;min-height:0;overflow:auto;background:#0d1117;color:#d6deeb;border-radius:10px;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
+.chm-out .cmd{color:#8bd5ff;margin-top:8px}.chm-out .ai{color:#c9a8ff;margin-top:8px}.chm-out .err{color:#ff8b8b}.chm-out .meta{color:#7d8590;font-size:11px}
+.chm-in{display:flex;gap:6px;align-items:center;background:#0d1117;border-radius:10px;padding:6px 8px;}
+.chm-in span{color:#7ee787;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.chm-in input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#e6edf3;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;}
+.chm-in button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:6px 12px;font-size:12px;}
 .file-card{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 2px;padding:9px 12px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border);font-size:13px;}
 .file-card .fname{font-weight:700;flex:1;min-width:120px;word-break:break-all;}
 .file-card button{padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;font-size:12px;}
@@ -613,6 +630,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <div class="topbar-left">
         <button class="icon-btn" id="sidebarToggle" style="display:none;">☰</button>
         <span class="topbar-title" id="chatTitle">새 채팅</span>
+        <div class="main-tabs" id="mainTabs"><button data-tab="chat" class="active">채팅</button><button data-tab="chminal">Chminal</button></div>
       </div>
       <div class="topbar-right">
         <button class="model-pill" id="modelPillBtn">
@@ -630,6 +648,16 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <div class="msg-wrap" id="msgWrap"></div>
     </div>
 
+    <div class="pkg-chip" id="pkgChip"><span class="spin"></span><span id="pkgChipText"></span></div>
+    <div id="chminalPane">
+      <div class="chm-bar">
+        <select id="chmShell" title="셸"></select>
+        <span id="chmInfo" style="opacity:.65;flex:1;min-width:80px"></span>
+        <button id="chmClear">지우기</button>
+      </div>
+      <div class="chm-out" id="chmOut"></div>
+      <form class="chm-in" id="chmForm"><span id="chmPrompt">$</span><input id="chmInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" placeholder="명령어 입력"><button type="submit" id="chmRun">실행</button></form>
+    </div>
     <div class="composer">
       <div class="composer-inner">
         <div class="file-preview-row" id="filePreviewRow"></div>
@@ -760,6 +788,33 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 </div>
 
 
+
+<div class="modal-overlay" id="wsModal">
+  <div class="modal">
+    <div class="modal-header"><h3>Local 작업공간</h3><button class="modal-close" data-close="wsModal">✕</button></div>
+    <div class="modal-body">
+      <div id="wsDesc" style="font-size:12px;opacity:.75;margin-bottom:4px"></div>
+      <div style="font-size:12px;opacity:.6;margin-bottom:8px">폰의 <b>파일</b> 앱 → 왼쪽 메뉴(≡) → <b>최미나이 작업공간</b> 에서도 이 폴더를 열고, 복사·공유할 수 있어요.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <button class="lfs-ib icon" id="wsUp" title="상위 폴더">↑</button>
+        <div id="wsPath" style="flex:1;min-width:100px;font-family:monospace;font-size:13px;word-break:break-all">~</div>
+        <button class="lfs-ib" id="wsNewDir" title="새 폴더">＋<span class="t">폴더</span></button>
+        <button class="lfs-ib" id="wsUpload" title="폰의 파일을 작업공간으로">⤒<span class="t">올리기</span></button>
+        <button class="lfs-ib" id="wsOpenFiles" title="폰의 파일 앱에서 이 폴더 열기">📂<span class="t">파일 앱</span></button>
+        <button class="lfs-ib icon" id="wsRefresh" title="새로고침">⟳</button>
+        <input type="file" id="wsUploadInput" multiple style="display:none">
+      </div>
+      <div id="wsList"></div>
+      <div id="wsViewer" style="display:none;margin-top:10px">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><b id="wsViewName" style="flex:1;word-break:break-all"></b>
+          <button class="lfs-ib" id="wsViewSave">저장</button><button class="lfs-ib" id="wsViewClose">닫기</button></div>
+        <textarea id="wsViewText" style="width:100%;min-height:220px;font-family:monospace;font-size:12px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;box-sizing:border-box"></textarea>
+        <img id="wsViewImg" style="display:none;max-width:100%;border-radius:8px">
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="lfsModal">
   <div class="modal">
     <div class="modal-header"><h3>SandBox Linux</h3><button class="modal-close" data-close="lfsModal">✕</button></div>
@@ -845,6 +900,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <div class="section-title">SandBox Linux</div>
       <div class="btn-row" style="justify-content:flex-start;flex-wrap:wrap;margin-bottom:6px;">
         <button class="primary-btn" id="openLfsBtn">SandBox Linux</button>
+        <button class="primary-btn" id="openWsBtn" style="display:none">Local 작업공간</button>
       </div>
       <div class="divider"></div>
       <div class="section-title">데이터 관리</div>
@@ -1098,7 +1154,8 @@ function desktopSkillGuide(){
     + "  read_file {\"tool\":\"read_file\",\"path\":\"src/a.js\"} / list_dir {\"tool\":\"list_dir\",\"path\":\".\"} / glob {\"tool\":\"glob\",\"pattern\":\"**/*.js\"} / grep {\"tool\":\"grep\",\"pattern\":\"정규식\"} / edit_file {\"tool\":\"edit_file\",\"path\":\"...\",\"old_string\":\"...\",\"new_string\":\"...\"} / write_file {\"tool\":\"write_file\",\"path\":\"...\",\"content\":\"...\"} / run_command {\"tool\":\"run_command\",\"command\":\"npm test\"} / todo_write {\"tool\":\"todo_write\",\"items\":[{\"text\":\"할 일\",\"status\":\"pending\"}]}\n"
     + "  예시:\n```tool\n{\"tool\":\"list_dir\",\"path\":\".\"}\n```\n"
     + "  JSON 안의 줄바꿈은 \\n 으로 쓴다. 도구 호출을 쓴 답변은 결과가 올 때까지 거기서 끝내고(결과를 상상해 이어 쓰지 않는다), 결과는 [도구 실행 결과]로 돌아오니 보고 다음 단계를 이어간다. 작업 폴더 밖 접근과 위험한 명령은 앱이 막거나 사용자 승인을 받는다. 이 모드에서는 runcmd(가상 Linux) 스킬을 쓰지 않는다.\n"
-    + "■ upload (```upload 블록): 만든 파일 경로를 한 줄에 하나씩 적으면 사용자에게 미리보기/다운로드 카드로 전달된다. 파일을 만들었다면 마지막에 꼭 쓴다.\n"
+    + "■ upload (```upload 블록): 만든 파일 경로를 한 줄에 하나씩 적으면 사용자에게 미리보기/다운로드 카드로 전달된다(Local 의 파일도 가능 — 자동으로 복사해서 보여준다). 파일을 만들었다면 마지막에 꼭 쓴다.\n"
+    + "■ 파일 이동 (Local ↔ SandBox Linux, 앱의 Local 일 때): {\"tool\":\"to_sandbox\",\"from\":\"Local경로\",\"to\":\"/user/경로\"} / {\"tool\":\"from_sandbox\",\"from\":\"/user/경로\",\"to\":\"Local경로\"}.\n"
     + "■ question-load (```question-load 블록): 진행에 꼭 필요한 정보가 없을 때만 사용자에게 묻는다(선택지는 '- '로 시작). 블록을 쓰면 작업이 멈추고 답을 기다린다.\n"
     + "■ browser (```browser 블록, 크롬 확장 연결 시): 사용자가 보고 있는 탭을 읽고 조작한다.\n"
     + "■ 진행 규칙: 매 단계 맨 앞에 지금 무엇을 할지 한두 문장으로 먼저 말하고 블록을 쓴다. 다 끝나면 도구 없이 1~2문장으로 결과를 알린다. 설정에서 '가상 Linux_Local'을 고르면 내 컴퓨터가 아니라 브라우저 안 격리 환경(runcmd 스킬)에서 실행된다.\n";
@@ -1266,10 +1323,17 @@ function createChat(){
   return id;
 }
 
-function saveChats(){
+function saveChatsNow(){
   try{ localStorage.setItem(LS.chats, JSON.stringify(chats, (k, v)=> (k === "dataUrl" || k === "binUrl" || k === "fullText") && typeof v === "string" && v.length > 1500000 ? undefined : (k === "text" && typeof v === "string" && v.length > 1500000 ? v.slice(0, 1500000) : v))); }
   catch(e){ toast("저장 실패: 브라우저 저장공간이 가득 찼을 수 있음"); }
 }
+/* 저장 최적화: 긴 채팅은 JSON 직렬화가 무거운데 스트리밍·도구 실행 중 여러 번 불리므로 0.4초로 모아서 한 번만 쓴다.
+   앱이 닫히거나 백그라운드로 가기 직전에는 즉시 저장한다. */
+let _saveChatsTimer = 0;
+function saveChats(){ if(_saveChatsTimer) return; _saveChatsTimer = setTimeout(()=>{ _saveChatsTimer = 0; saveChatsNow(); }, 400); }
+function flushChats(){ if(_saveChatsTimer){ clearTimeout(_saveChatsTimer); _saveChatsTimer = 0; saveChatsNow(); } }
+window.addEventListener("pagehide", flushChats);
+document.addEventListener("visibilitychange", ()=>{ if(document.hidden) flushChats(); });
 
 function switchChat(id){
   activeChatId = id;
@@ -1604,7 +1668,9 @@ function renderMessageRow(m, isLast, idx){
 
   inner += chargeChipsHtml(m);
   if(m.meta && !(m.role === "ai" && parseAiDisplay(m.content).hasTools)){
-    inner += `<span class="meta">${escapeHtml(m.meta)}</span>`;
+    // 토큰 소모량은 위의 🪙 칩에 이미 나오므로, 메타 줄에서는 빼서 한 번만 보이게 한다
+    const metaShown = (m.charges && m.charges.length) ? m.meta.replace(/\s*·\s*-[\d.]+\s*토큰/, "") : m.meta;
+    inner += `<span class="meta">${escapeHtml(metaShown)}</span>`;
   }
   bubble.innerHTML = inner;
   row.appendChild(avatar);
@@ -1902,6 +1968,16 @@ async function handleFiles(fileList){
     if(wantFS && !isImg && !isText){ try{ binUrl = await fileToDataURL(f); }catch(e){ console.warn("[첨부] 원본 읽기 실패", e); } }
     const entry = { name:f.name, type:f.type||"application/octet-stream", isImg, dataUrl, text, size:f.size, fee: attachFee(f.size) };
     if(binUrl) entry.binUrl = binUrl;
+    // 안드로이드 Local 이면 원본을 Local 작업공간(uploads/)에 복사 → 최미나이가 run_command 등으로 바로 쓸 수 있다
+    if(useLocalTerminal() && window.AndroidLocal && typeof window.AndroidLocal.ws === "function"){
+      if(f.size > 6*1024*1024){ toast(f.name + ": 6MB 보다 커서 Local 작업공간에는 복사하지 못했어요"); }
+      else try{
+        const u8 = new Uint8Array(await f.arrayBuffer()); let s = ""; for(let i=0;i<u8.length;i+=0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i+0x8000));
+        const lp = "uploads/" + String(f.name).replace(/[\\/:*?"<>|]/g, "_");
+        const r = await window.AndroidLocal.ws("write", { path: lp, b64: btoa(s) });
+        if(r && r.ok) entry.localPath = lp; else toast(f.name + ": Local 에 복사하지 못했어요 (" + ((r && r.error) || "오류") + ")");
+      }catch(e){ console.warn("[첨부→Local]", e); }
+    }
     pendingFiles.push(entry);
     // WORK/CODE 모드에서는 업로드한 파일을 가상 Linux_Local(user/download/)에도 저장해서
     // AI가 fs_* 도구로 실제로 읽고/변환하고/수정할 수 있게 한다.
@@ -1985,7 +2061,7 @@ const NORMAL_BASE_COST = 15; // 표시 기준, 프리셋 무관 고정
 const MEMORY_LEVEL_EXTRA_COST = { 1:0, 2:2, 3:5, 4:8, 5:12 };
 function memoryExtraCost(){ return MEMORY_LEVEL_EXTRA_COST[settings.memoryLevel||3] ?? 5; }
 function estimateUsageAmount(replyText, usageAmount){
-  if(typeof usageAmount === "number" && usageAmount > 0) return Math.max(1, Math.round(usageAmount));
+  if(typeof usageAmount === "number" && usageAmount > 0) return Math.min(300, Math.max(1, Math.round(usageAmount))); // 한 번의 답변 상한(비정상적으로 큰 사용량 보고 방지)
   // 실사용 토큰 정보가 없으면(로컬 대체 응답 등) 답변 길이로 대략 추정
   return Math.max(1, Math.round((replyText||"").length / 8));
 }
@@ -2072,7 +2148,7 @@ async function spendTokensServerNow(amount){
     tokensInternal = sanitizeTokens(newInternal);
     saveJSON(LS.tokens, tokensInternal);
     renderTokens();
-    return Math.max(0, before - tokensInternal);
+    return Math.min(want, Math.max(0, before - tokensInternal)); // 서버 잔액과 맞추느라 생긴 차이는 '소모량'이 아니다 → 청구한 만큼만 표시
   };
   try{
     if(window.ChoiminiAuth && ChoiminiAuth.isLoggedIn()){
@@ -2598,9 +2674,11 @@ async function streamSSEOnce(url, init, onEvent){
     throw new ApiCallError("AI 응답을 받는 도중 연결이 끊겼어요. 다시 시도하는 중...", { retryable:true, dev: e.message||String(e) });
   }
 }
+/* 사고 과정(thinking) 토큰은 눈에 안 보이는 내부 작업이라 소모량에는 35% 만 반영한다. 에이전트(WORK/CODE)에서 '자동'이면 사고량도 4096 으로 제한 → 도구를 여러 번 쓰는 작업이 비싸지지 않게. */
+const THOUGHT_COST_W = 0.35;
 function geminiThinkingBudget(model, level, preset){
   const pro = /pro/i.test(model);
-  if(!level || level === "auto") return preset === "max" ? -1 : undefined;
+  if(!level || level === "auto") return preset === "max" ? -1 : (isAgentMode() ? 4096 : undefined);
   if(level === "off") return pro ? 128 : 0; // Pro 계열은 사고를 완전히 끌 수 없어서 최소값
   return { low:1024, medium:8192, high:24576 }[level];
 }
@@ -2654,7 +2732,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
       onDelta(acc);
     }, ()=>{ acc = ""; usageMd = {}; fin = ""; });
     if(!acc){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty stream " + fin }); e.empty = true; throw e; }
-    const raw = (usageMd.candidatesTokenCount||0) + (usageMd.thoughtsTokenCount||0);
+    const raw = (usageMd.candidatesTokenCount||0) + (usageMd.thoughtsTokenCount||0) * THOUGHT_COST_W;
     return { text: acc, usageAmount: raw > 0 ? raw / 15 : null, streamed:true };
   }
   const data = await fetchJsonWithRetry(url, { method:"POST", headers, body: JSON.stringify(payload), signal });
@@ -2666,12 +2744,14 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   }
   // 실제 API가 보고하는 사용량(사고 과정 포함)을 그대로 "사고 과정에서 사용된 양"으로 반영
   const usage = data?.usageMetadata || {};
-  const rawTokens = (usage.candidatesTokenCount||0) + (usage.thoughtsTokenCount||0);
+  const rawTokens = (usage.candidatesTokenCount||0) + (usage.thoughtsTokenCount||0) * THOUGHT_COST_W;
   return { text, usageAmount: rawTokens > 0 ? rawTokens / 15 : null };
 }
+/* Local 작업공간에 복사된 첨부파일이면 AI 에게 그 경로를 알려준다(이미지·바이너리 포함) */
+function localAttachHint(m){ const L = (m.files||[]).filter(f=>f.localPath); return L.length ? "\n\n[Local 작업공간에 첨부파일 저장됨: " + L.map(f=>f.localPath).join(", ") + " — run_command/read_file 로 바로 사용할 수 있어요]" : ""; }
 function buildGeminiParts(m){
   const parts = [];
-  if(m.content) parts.push({ text: m.content });
+  if(m.content || localAttachHint(m)) parts.push({ text: (m.content||"") + localAttachHint(m) });
   (m.files||[]).forEach(f=>{
     if(f.isImg && f.dataUrl){
       const [, mime, b64] = f.dataUrl.match(/^data:(.+?);base64,(.*)$/) || [];
@@ -2727,7 +2807,7 @@ async function callOpenAI(model, apiKey, systemPrompt, history, maxTokens, signa
 function buildOpenAIContent(m){
   const hasImg = (m.files||[]).some(f=>f.isImg);
   if(!hasImg){
-    let t = m.content || "";
+    let t = (m.content || "") + localAttachHint(m);
     (m.files||[]).forEach(f=>{ if(f.text) t += `\n\n[첨부파일: ${f.name}]\n${f.text}`; });
     return t;
   }
@@ -2791,7 +2871,7 @@ async function callAnthropic(model, apiKey, systemPrompt, history, maxTokens, si
 }
 function buildAnthropicContent(m){
   const arr = [];
-  if(m.content) arr.push({type:"text", text:m.content});
+  if(m.content || localAttachHint(m)) arr.push({type:"text", text:(m.content||"") + localAttachHint(m)});
   (m.files||[]).forEach(f=>{
     if(f.isImg && f.dataUrl){
       const match = f.dataUrl.match(/^data:(.+?);base64,(.*)$/);
@@ -3210,6 +3290,8 @@ async function appendAiReply(chat, preset, depth, signal, live){
   const hasCode = containsCodeBlock(disp.text);
   const aiMsg = { id: uid(), role:"ai", content: replyText, meta, ts: Date.now(), codeLocked: hasCode, _chatId: chat.id, charges: chargeTarget.charges };
   chat.messages.push(aiMsg);
+  // 실시간 말풍선(live)은 진짜 메시지가 생기는 순간 치운다 — 안 치우면 같은 답변이 live + 진짜 메시지로 두 번 보인다
+  if(live){ try{ live.remove(); }catch(_){} if(genState[chat.id] && genState[chat.id].live === live) genState[chat.id].live = null; }
   autoLoadChat(chat); // 답변이 만들어질 때마다 채팅 자동 저장 + 불러오기
   const autoRun = disp.hasTools && (isWorkMode() || isCodeMode());
   if(hasCode){
@@ -3369,6 +3451,68 @@ function uploadPathsOf(c){
   return [].concat(p || []).map(x=>String(x).trim()).filter(Boolean);
 }
 
+
+
+/* 패키지 설치 상태: 팝업 대신 채팅 아래에 작은 칩으로 보여준다 (앱 네이티브 설치 + run_command 의 apk/pip/npm 설치) */
+let _pkgChipTimer = 0;
+window.__choiminiPkgStatus = function(msg, state){
+  const el = document.getElementById("pkgChip"); if(!el) return;
+  document.getElementById("pkgChipText").textContent = (state === "ok" ? "✓ " : state === "err" ? "⚠ " : "📦 ") + msg;
+  el.className = "pkg-chip show" + (state === "ok" ? " ok" : state === "err" ? " err" : "");
+  clearTimeout(_pkgChipTimer);
+  if(state !== "run") _pkgChipTimer = setTimeout(()=>{ el.classList.remove("show"); }, state === "err" ? 8000 : 3500);
+};
+const PKG_INSTALL_RE = /\b(apk\s+add|apt(?:-get)?\s+install|pip3?\s+install|npm\s+(?:i|install)|pnpm\s+(?:i|add)|yarn\s+add|cargo\s+install|gem\s+install)\b([^\n;&|]*)/;
+function pkgInstallLabel(cmd){ const m = PKG_INSTALL_RE.exec(cmd || ""); if(!m) return ""; const names = (m[2]||"").split(/\s+/).filter(x=>x && !x.startsWith("-")).slice(0,4).join(" "); return (m[1].split(/\s+/)[0]) + " " + (names || "패키지") + " 설치 중…"; }
+
+/* ---------- Local(폰/PC) ↔ SandBox Linux(브라우저 가상 리눅스) 파일 이동 ----------
+   · upload      : Local 의 파일을 SandBox 의 /user/uploads/ 로 복사하고 사용자에게 미리보기/다운로드 카드로 보여준다
+   · to_sandbox  : Local 파일 → SandBox 경로   {"tool":"to_sandbox","from":"local/a.zip","to":"/user/a.zip"}
+   · from_sandbox: SandBox 파일 → Local 경로   {"tool":"from_sandbox","from":"/user/a.txt","to":"a.txt"}
+   바이너리는 base64 로 오간다(앱 쪽 read_file_b64 / write_file_b64 도구). */
+const XFER_MAX_BYTES = 6 * 1024 * 1024;
+const XFER_MIME = { png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", gif:"image/gif", webp:"image/webp", pdf:"application/pdf", zip:"application/zip", apk:"application/vnd.android.package-archive", mp3:"audio/mpeg", mp4:"video/mp4", json:"application/json", html:"text/html", txt:"text/plain", md:"text/markdown", csv:"text/csv", js:"text/javascript", css:"text/css" };
+function xferB64ToBytes(b64){ const bin = atob(b64), u = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+function xferBytesToB64(u){ let s = ""; for(let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+async function localReadFileB64(path){
+  const r = await LB().callTool("read_file_b64", { path });
+  if(!r || !r.ok) throw new Error((r && r.error) || "Local 파일을 읽지 못했어요 (앱을 최신 버전으로 업데이트해 보세요)");
+  const j = JSON.parse(r.output); return xferB64ToBytes(j.b64);
+}
+async function localToSandbox(from, to){
+  if(!window.LinuxFS) throw new Error("SandBox Linux 를 사용할 수 없어요");
+  const bytes = await localReadFileB64(from);
+  if(bytes.length > XFER_MAX_BYTES) throw new Error("파일이 너무 커요 (6MB 초과): " + from);
+  const name = baseName(from), dest = to || ("/user/uploads/" + name);
+  const ext = (name.split(".").pop() || "").toLowerCase(), mime = XFER_MIME[ext] || "application/octet-stream";
+  let isText = false;
+  try{ new TextDecoder("utf-8", { fatal:true }).decode(bytes); isText = !bytes.includes(0); }catch(_){}
+  const content = isText ? new TextDecoder().decode(bytes) : ("data:" + mime + ";base64," + xferBytesToB64(bytes));
+  return LinuxFS.writeFile(dest, content, isText ? (mime.startsWith("text/") || /json|javascript/.test(mime) ? mime : "text/plain") : mime);
+}
+async function sandboxToLocal(from, to){
+  if(!window.LinuxFS || !LinuxFS.isFile(from)) throw new Error("SandBox 에 그런 파일이 없어요: " + from);
+  const c = LinuxFS.readFile(from);
+  const m = /^data:[^,]*;base64,/.exec(c);
+  const b64 = m ? c.slice(m[0].length) : xferBytesToB64(new TextEncoder().encode(c));
+  const dest = to || baseName(from);
+  const r = await LB().callTool("write_file_b64", { path: dest, b64 });
+  if(!r || !r.ok) throw new Error((r && r.error) || "Local 에 쓰지 못했어요");
+  return dest;
+}
+async function transferFiles(c, uploadedOut){
+  if(c.tool === "upload"){
+    const paths = uploadPathsOf(c), ok = [], bad = [];
+    for(const p of paths){
+      try{ const sp = await localToSandbox(p); ok.push(sp); if(!uploadedOut.includes(sp)) uploadedOut.push(sp); }
+      catch(e){ bad.push(p + " (" + (e && e.message || e) + ")"); }
+    }
+    return (ok.length ? "업로드됨: " + ok.map(baseName).join(", ") + " (사용자 화면에 미리보기/다운로드 카드로 보여줬어요)" : "오류: 업로드할 파일을 못 올렸어요") + (bad.length ? "\n실패: " + bad.join("; ") : "");
+  }
+  if(c.tool === "to_sandbox"){ if(!c.from) throw new Error('"from"(Local 경로)이 필요해요'); const d = await localToSandbox(String(c.from), c.to ? String(c.to) : ""); return "Local → SandBox 복사됨: " + d; }
+  if(!c.from) throw new Error('"from"(SandBox 경로)이 필요해요'); const d = await sandboxToLocal(String(c.from), c.to ? String(c.to) : ""); return "SandBox → Local 복사됨: " + d;
+}
+
 async function afterReplyActions(chat, aiMsg, preset, depth){
   if(depth >= agentMaxSteps()){
     if(hasToolBlocks(aiMsg.content||"")){
@@ -3384,23 +3528,34 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
   const shortCmd = (t)=>{ t = String(t); const ls = t.split("\n"); let r = ls.slice(0,4).join("\n"); if(ls.length > 4) r += "\n… (" + (ls.length - 4) + "줄 더)"; return r.length > 400 ? r.slice(0,400) + "…" : r; };
   const cmdLabel = (c, args)=> args.command ? shortCmd(args.command) : (c.tool + (args.path ? " " + args.path : args.from ? ` ${args.from} → ${args.to}` : args.name ? " " + args.name : args.pattern ? " " + args.pattern : ""));
   try{
-    if(useLocalTerminal() && /```(tool|runcmd)[ \t]*\r?\n/.test(aiMsg.content)){
-      const calls = parseToolCalls(aiMsg.content).filter(c=>!(c && (c.tool === "upload" || c.tool === "question_load")));
-      const outs = [], commands = [];
+    if(useLocalTerminal() && /```(tool|runcmd|upload)[ \t]*\r?\n/.test(aiMsg.content)){
+      const calls = parseToolCalls(aiMsg.content).filter(c=>!(c && c.tool === "question_load"));
+      const outs = [], commands = [], localUploaded = [];
       setRunning("명령 실행중...");
       for(const c of calls){
         if(!c || !c.tool || c.tool === "__invalid"){ outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요."); continue; }
         if(signal() && signal().aborted) throw Object.assign(new Error("aborted"), { name:"AbortError" });
         if(c.tool === "runcmd"){ c.tool = "run_command"; } // 모델이 가상 Linux 습관대로 runcmd 를 써도 로컬 명령으로 실행
+        if(c.tool === "upload" || c.tool === "to_sandbox" || c.tool === "from_sandbox"){ // Local ↔ SandBox Linux 파일 이동 / 사용자에게 파일 카드 전달
+          let msg, okT = true;
+          try{ msg = await transferFiles(c, localUploaded); }catch(e){ okT = false; msg = "오류: " + (e && e.message || e); }
+          commands.push({ cmd: c.tool + " " + (uploadPathsOf(c).join(", ") || c.from || ""), ok: okT, out: shortOut(msg) });
+          outs.push("▶ " + c.tool + "\n" + msg);
+          continue;
+        }
         const args = Object.assign({}, c); delete args.tool;
+        const pkgLbl = c.tool === "run_command" ? pkgInstallLabel(args.command) : "";
+        if(pkgLbl){ window.__choiminiPkgStatus(pkgLbl, "run"); setRunning("📦 " + pkgLbl); }
         const r = await LB().callTool(c.tool, args);
+        if(c.tool === "run_command" && window.__chminalAi){ try{ window.__chminalAi(args.command, r && (r.ok ? r.output : r.error), !!(r && r.ok), args.shell); }catch(_){} }
+        if(pkgLbl) window.__choiminiPkgStatus(r && r.ok ? "설치 완료" : "설치 실패 — 결과를 확인해 볼게요", r && r.ok ? "ok" : "err");
         if(r && r.aborted){ aiMsg.running = false; chat.messages.push({ id: uid(), role:"system", content:"사용자가 작업을 중단했어요.", ts: Date.now() }); autoLoadChat(chat); return; }
         const label = c.tool + (args.path ? " " + args.path : args.command ? " " + String(args.command).slice(0, 80) : args.pattern ? " " + args.pattern : "");
         const ok = !!(r && r.ok), out = ok ? (r.output || "(출력 없음)") : "오류: " + ((r && r.error) || "알 수 없는 오류");
         commands.push({ cmd: cmdLabel(c, args), ok, out: shortOut(out) });
         outs.push("▶ " + label + "\n" + out);
       }
-      aiMsg.activity = { commands, created:[], edited:[], deleted:[], uploaded:[] };
+      aiMsg.activity = { commands, created:[], edited:[], deleted:[], uploaded: localUploaded };
       if(outs.length) feedback = "[도구 실행 결과]\n" + outs.join("\n\n").slice(0, 100000);
     }
     // 순수 브라우저(또는 Desktop 이 아닌 경우)에서 WORK/CODE 모드면 가상 Linux_Local 스킬(runcmd / upload / question-load / ```tool)을 실행한다.
@@ -3698,7 +3853,17 @@ document.getElementById("attachBtn").addEventListener("click", ()=>{
   fi.value = "";
   fi.click();
 });
-// 네이티브(Android)가 고른 파일을 넘겨줄 때 호출: [{ name, type, base64 }]
+// 네이티브(Android)가 파일을 조각으로 넘겨준다(큰 파일도 안전): begin → chunk×N → end
+const _nativeIn = {};
+window.__choiminiNativeFileBegin = function(id, name, type){ _nativeIn[id] = { name, type, parts: [] }; };
+window.__choiminiNativeFileChunk = function(id, b64){ const f = _nativeIn[id]; if(!f) return; const bin = atob(b64), u = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i); f.parts.push(u); };
+window.__choiminiNativeFileEnd = async function(id){
+  const f = _nativeIn[id]; delete _nativeIn[id]; if(!f) return;
+  try{ await handleFiles([new File(f.parts, f.name || "file", { type: f.type || "application/octet-stream" })]); }
+  catch(e){ console.error("native file", e); toast("⚠️ 파일을 불러오지 못했어요: " + (e && e.message || e)); }
+};
+window.__choiminiNativeFileError = function(msg){ toast("⚠️ " + msg); };
+// (구버전 호환) 네이티브(Android)가 고른 파일을 한 번에 넘겨줄 때 호출: [{ name, type, base64 }]
 window.__choiminiHandleNativeFiles = async function(list){
   try{
     if(typeof list === "string") list = JSON.parse(list);
@@ -4257,6 +4422,158 @@ async function renderLfsBackup(){
     box.appendChild(row);
   });
 }
+
+
+/* ---------------- Chminal 탭 (Android · Desktop 전용 터미널) ----------------
+   Android : 최미나이 Local 과 같은 실행 환경(기본 셸 또는 설치한 Alpine Linux)에서 사용자가 직접 명령 실행 (AndroidLocal.ws "exec")
+   Desktop : 실제 Windows CMD / PowerShell (DesktopBridge.term)
+   최미나이(AI)가 run_command 로 실행한 명령과 결과도 여기에 🤖 로 함께 보인다. */
+(function(){
+  const $ = id=>document.getElementById(id);
+  const tabs = $("mainTabs"), pane = $("chminalPane"); if(!tabs || !pane) return;
+  const kind = ()=> (window.CHOIMINI_APP === "desktop" && window.DesktopBridge && typeof window.DesktopBridge.term === "function") ? "desktop"
+                  : (window.CHOIMINI_APP === "android" && window.AndroidLocal && typeof window.AndroidLocal.ws === "function") ? "android" : "";
+  let cwd = "", busy = false, hist = [], hpos = 0;
+  const out = $("chmOut"), inp = $("chmInput"), sel = $("chmShell");
+  function init(){
+    const k = kind(); if(!k){ tabs.classList.remove("show"); return; }
+    tabs.classList.add("show");
+    if(!sel.options.length){
+      if(k === "desktop"){ sel.innerHTML = '<option value="cmd">CMD</option><option value="powershell">PowerShell</option>'; $("chmInfo").textContent = "실제 Windows 터미널 · 시작 위치는 작업 폴더"; }
+      else { sel.innerHTML = '<option value="sh">sh</option>'; sel.disabled = true; $("chmInfo").textContent = "최미나이 Local 과 같은 환경"; window.AndroidLocal.ws("info", {}).then(r=>{ try{ if(r && r.ok) $("chmInfo").textContent = JSON.parse(r.output).desc; }catch(_){} }); }
+    }
+  }
+  init(); setTimeout(init, 1200);
+  function line(cls, text){ const d = document.createElement("div"); if(cls) d.className = cls; d.textContent = text; out.appendChild(d); while(out.childElementCount > 600) out.removeChild(out.firstChild); out.scrollTop = out.scrollHeight; return d; }
+  function promptText(){ return (kind() === "desktop" ? (sel.value === "powershell" ? "PS " : "") : "") + (cwd || (kind() === "desktop" ? "작업 폴더" : "~")) + (kind() === "desktop" && sel.value !== "powershell" ? ">" : " $"); }
+  function setPrompt(){ $("chmPrompt").textContent = promptText(); $("chmPrompt").title = cwd; }
+  async function run(cmd){
+    busy = true; $("chmRun").disabled = true;
+    line("cmd", promptText() + " " + cmd);
+    const running = line("meta", "실행 중…");
+    try{
+      let r, o, ec = 0, tm = false;
+      if(kind() === "desktop"){
+        r = await window.DesktopBridge.term(sel.value, cmd, cwd);
+        if(!r || !r.ok) throw new Error((r && r.error) || "실행 실패");
+        o = r.output; ec = r.exitCode; if(r.cwd) cwd = r.cwd;
+      } else {
+        r = await window.AndroidLocal.ws("exec", { command: cmd, cwd });
+        if(!r || !r.ok) throw new Error((r && r.error) || "실행 실패");
+        const j = JSON.parse(r.output); o = j.output; ec = j.exit; tm = j.timedOut; if(j.cwd) cwd = j.cwd;
+      }
+      running.remove();
+      if(o) line(ec ? "err" : "", o);
+      if(tm) line("err", "[시간 초과로 중단됨]");
+      else if(ec) line("meta", "종료 코드 " + ec);
+    }catch(e){ running.remove(); line("err", "오류: " + (e && e.message || e)); }
+    busy = false; $("chmRun").disabled = false; setPrompt(); inp.focus();
+  }
+  $("chmForm").addEventListener("submit", e=>{
+    e.preventDefault(); const c = inp.value; if(!c.trim() || busy) return;
+    inp.value = ""; hist.push(c); hpos = hist.length;
+    if(c.trim() === "clear" || c.trim() === "cls"){ out.innerHTML = ""; return; }
+    run(c);
+  });
+  inp.addEventListener("keydown", e=>{
+    if(e.key === "ArrowUp" && hist.length){ hpos = Math.max(0, hpos - 1); inp.value = hist[hpos] || ""; e.preventDefault(); }
+    else if(e.key === "ArrowDown" && hist.length){ hpos = Math.min(hist.length, hpos + 1); inp.value = hist[hpos] || ""; e.preventDefault(); }
+  });
+  $("chmClear").addEventListener("click", ()=>{ out.innerHTML = ""; });
+  sel.addEventListener("change", setPrompt);
+  // 최미나이가 실행한 명령 미러링 (afterReplyActions 의 Local 분기에서 호출)
+  window.__chminalAi = function(cmd, output, ok, shell){
+    if(!out) return;
+    line("ai", "🤖 최미나이" + (shell ? " · " + shell : "") + " ▸ " + String(cmd).split("\n")[0].slice(0, 300));
+    if(output) line(ok ? "" : "err", String(output).slice(0, 4000));
+  };
+  function showTab(t){
+    const chat = t !== "chminal";
+    tabs.querySelectorAll("button").forEach(b=>b.classList.toggle("active", b.dataset.tab === t));
+    pane.classList.toggle("show", !chat);
+    const m = $("messages"), c = document.querySelector(".composer");
+    if(m) m.style.display = chat ? "" : "none"; if(c) c.style.display = chat ? "" : "none";
+    if(!chat){ setPrompt(); if(!out.childElementCount) line("meta", "Chminal · 명령어를 입력하세요. 최미나이가 실행한 명령도 여기에 보여요."); setTimeout(()=>inp.focus(), 50); }
+  }
+  tabs.querySelectorAll("button").forEach(b=>b.addEventListener("click", ()=>{ if(kind()) showTab(b.dataset.tab); }));
+})();
+
+/* ---------------- Local 작업공간 보기 (앱의 Local 에서 AI 가 만든 파일을 사용자가 직접 보고 관리) ----------------
+   AI 도구 경로(callTool)와 별개로 앱의 AndroidLocal.ws 를 쓴다 — 사용자가 직접 누른 동작이라 승인창이 없다. */
+(function(){
+  const WS = ()=> (window.AndroidLocal && typeof window.AndroidLocal.ws === "function") ? window.AndroidLocal : null;
+  const btn = document.getElementById("openWsBtn"); if(!btn) return;
+  let cwd = ".", viewing = null;
+  const $ = id=>document.getElementById(id);
+  const fmt = n=> n < 1024 ? n + " B" : n < 1048576 ? (n/1024).toFixed(1) + " KB" : (n/1048576).toFixed(1) + " MB";
+  const join = (a,b)=> a === "." ? b : a.replace(/\/+$/, "") + "/" + b;
+  const b64Bytes = b=>{ const s = atob(b), u = new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i] = s.charCodeAt(i); return u; };
+  const bytesB64 = u=>{ let s = ""; for(let i=0;i<u.length;i+=0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i+0x8000)); return btoa(s); };
+  async function ws(op, args){ const r = await WS().ws(op, args); if(!r || !r.ok) throw new Error((r && r.error) || "실패"); return r.output; }
+  function showBtn(){ btn.style.display = WS() ? "" : "none"; }
+  showBtn(); setTimeout(showBtn, 1500);
+  async function render(){
+    const box = $("wsList"); box.innerHTML = "<div style='opacity:.6;padding:8px'>불러오는 중…</div>";
+    try{
+      const info = JSON.parse(await ws("info", {}));
+      $("wsDesc").textContent = info.desc;
+      const j = JSON.parse(await ws("list", { path: cwd }));
+      cwd = j.path === "." ? "." : j.path;
+      $("wsPath").textContent = (info.root === "/root" ? "/root" : "~") + (cwd === "." ? "" : "/" + cwd);
+      box.innerHTML = j.items.length ? "" : "<div style='opacity:.6;padding:8px'>비어 있어요. AI 가 만든 파일이 여기에 나타나요.</div>";
+      j.items.forEach(it=>{
+        const row = document.createElement("div"); row.className = "file-card";
+        row.innerHTML = `<span class="fname">${it.dir ? "📁" : "📄"} ${escapeHtml(it.name)}</span><span style="opacity:.6;font-size:12px">${it.dir ? "" : fmt(it.size)}</span>`
+          + (it.dir ? `<button data-a="open">열기</button>` : `<button data-a="view">보기</button><button data-a="dl">폰에 저장</button>`)
+          + `<button data-a="ren">이름</button><button data-a="del">삭제</button>`;
+        const full = join(cwd, it.name);
+        row.querySelector('[data-a="open"]') && row.querySelector('[data-a="open"]').addEventListener("click", ()=>{ cwd = full; closeViewer(); render(); });
+        row.querySelector('[data-a="view"]') && row.querySelector('[data-a="view"]').addEventListener("click", ()=>openFile(full, it));
+        row.querySelector('[data-a="dl"]') && row.querySelector('[data-a="dl"]').addEventListener("click", async()=>{ try{ toast("📥 " + await ws("save", { path: full })); }catch(e){ toast("저장 실패: " + e.message); } });
+        row.querySelector('[data-a="ren"]').addEventListener("click", async()=>{ const n = prompt("새 이름", it.name); if(!n || n === it.name) return; try{ await ws("rename", { from: full, to: join(cwd, n.replace(/[\\/]/g, "_")) }); render(); }catch(e){ toast(e.message); } });
+        row.querySelector('[data-a="del"]').addEventListener("click", async()=>{ if(!confirm(`"${it.name}"${it.dir ? " 폴더와 안의 모든 파일을" : " 파일을"} 지울까요? 되돌릴 수 없어요.`)) return; try{ await ws("delete", { path: full }); if(viewing === full) closeViewer(); render(); }catch(e){ toast(e.message); } });
+        box.appendChild(row);
+      });
+    }catch(e){ box.innerHTML = "<div style='color:#e66;padding:8px'>" + escapeHtml(e.message) + "</div>"; }
+  }
+  function closeViewer(){ viewing = null; $("wsViewer").style.display = "none"; }
+  async function openFile(full, it){
+    try{
+      if(it.size > 6*1024*1024){ toast("6MB 보다 커서 앱에서 열 수 없어요. '폰에 저장'을 쓰세요"); return; }
+      const j = JSON.parse(await ws("read", { path: full })), u = b64Bytes(j.b64);
+      viewing = full; $("wsViewName").textContent = full; $("wsViewer").style.display = "";
+      const ext = (full.split(".").pop() || "").toLowerCase();
+      const img = $("wsViewImg"), ta = $("wsViewText");
+      if(/^(png|jpe?g|gif|webp|bmp)$/.test(ext)){ img.src = "data:image/" + (ext === "jpg" ? "jpeg" : ext) + ";base64," + j.b64; img.style.display = ""; ta.style.display = "none"; $("wsViewSave").style.display = "none"; return; }
+      img.style.display = "none"; ta.style.display = ""; $("wsViewSave").style.display = "";
+      let text = null;
+      try{ text = new TextDecoder("utf-8", { fatal:true }).decode(u); if(u.includes(0)) text = null; }catch(_){}
+      if(text === null){ ta.value = "(텍스트가 아닌 파일이에요 — '폰에 저장'으로 받을 수 있어요)"; ta.readOnly = true; $("wsViewSave").style.display = "none"; }
+      else { ta.value = text; ta.readOnly = false; }
+    }catch(e){ toast("열기 실패: " + e.message); }
+  }
+  btn.addEventListener("click", ()=>{ if(!WS()){ toast("Local 작업공간은 Android 앱에서 볼 수 있어요"); return; } closeModal("storageModal"); cwd = "."; closeViewer(); openModal("wsModal"); render(); });
+  $("wsUp").addEventListener("click", ()=>{ cwd = cwd.includes("/") ? cwd.replace(/\/[^/]*$/, "") : "."; closeViewer(); render(); });
+  $("wsRefresh").addEventListener("click", render);
+  $("wsOpenFiles").addEventListener("click", ()=>{
+    let ok = false;
+    try{ ok = !!(window.AndroidBridge && AndroidBridge.openWorkspaceInFiles && AndroidBridge.openWorkspaceInFiles()); }catch(_){}
+    if(!ok) toast("파일 앱을 열 수 없어요. 파일 앱 → 왼쪽 메뉴(≡) → '최미나이 작업공간' 에서 열어 주세요");
+  });
+  $("wsViewClose").addEventListener("click", closeViewer);
+  $("wsViewSave").addEventListener("click", async()=>{ if(!viewing) return; try{ await ws("write", { path: viewing, b64: bytesB64(new TextEncoder().encode($("wsViewText").value)) }); toast("저장했어요"); render(); }catch(e){ toast("저장 실패: " + e.message); } });
+  $("wsNewDir").addEventListener("click", async()=>{ const n = prompt("새 폴더 이름"); if(!n || !n.trim()) return; try{ await ws("mkdir", { path: join(cwd, n.trim().replace(/[\\/]/g, "_")) }); render(); }catch(e){ toast(e.message); } });
+  $("wsUpload").addEventListener("click", ()=>$("wsUploadInput").click());
+  $("wsUploadInput").addEventListener("change", async e=>{
+    const files = [...e.target.files]; e.target.value = ""; let n = 0;
+    for(const f of files){
+      if(f.size > 6*1024*1024){ toast(f.name + ": 6MB 초과라 건너뛰었어요"); continue; }
+      try{ await ws("write", { path: join(cwd, f.name.replace(/[\\/]/g, "_")), b64: bytesB64(new Uint8Array(await f.arrayBuffer())) }); n++; }catch(err){ toast(f.name + ": " + err.message); }
+    }
+    if(n) toast("📤 " + n + "개 올렸어요"); render();
+  });
+})();
+
 document.getElementById("openLfsBtn").addEventListener("click", ()=>{
   if(!window.LinuxFS){ toast("SandBox Linux를 사용할 수 없어요"); return; }
   closeModal("storageModal"); lfsCwd = "/user"; lfsSel.clear(); lfsSelMode = false; document.getElementById("lfsSearch").value = ""; lfsSearchAll = false;
