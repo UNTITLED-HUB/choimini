@@ -1324,7 +1324,7 @@ function createChat(){
 }
 
 function saveChatsNow(){
-  try{ localStorage.setItem(LS.chats, JSON.stringify(chats, (k, v)=> (k === "dataUrl" || k === "binUrl" || k === "fullText") && typeof v === "string" && v.length > 1500000 ? undefined : (k === "text" && typeof v === "string" && v.length > 1500000 ? v.slice(0, 1500000) : v))); }
+  try{ localStorage.setItem(LS.chats, JSON.stringify(chats, (k, v)=> (k === "dataUrl" || k === "binUrl" || k === "fullText" || k === "pdfUrl") && typeof v === "string" && v.length > 1500000 ? undefined : (k === "text" && typeof v === "string" && v.length > 1500000 ? v.slice(0, 1500000) : v))); }
   catch(e){ toast("저장 실패: 브라우저 저장공간이 가득 찼을 수 있음"); }
 }
 /* 저장 최적화: 긴 채팅은 JSON 직렬화가 무거운데 스트리밍·도구 실행 중 여러 번 불리므로 0.4초로 모아서 한 번만 쓴다.
@@ -1978,11 +1978,12 @@ async function handleFiles(fileList){
         if(r && r.ok) entry.localPath = lp; else toast(f.name + ": Local 에 복사하지 못했어요 (" + ((r && r.error) || "오류") + ")");
       }catch(e){ console.warn("[첨부→Local]", e); }
     }
+    if(f.type === "application/pdf" && f.size <= 8*1024*1024){ try{ entry.pdfUrl = await fileToDataURL(f); entry._pdf = true; }catch(_){} }
     pendingFiles.push(entry);
     // WORK/CODE 모드에서는 업로드한 파일을 가상 Linux_Local(user/download/)에도 저장해서
     // AI가 fs_* 도구로 실제로 읽고/변환하고/수정할 수 있게 한다.
     if((isWorkMode() || isCodeMode()) && window.LinuxFS){
-      try{ const sp = LinuxFS.saveUploaded(entry); if(!sp) toast(`${f.name}: 가상 컴퓨터에 저장하지 못했어요 (용량 초과)`); }catch(e){ console.warn("[Linux_Local] 업로드 저장 실패:", e); }
+      try{ const sp = LinuxFS.saveUploaded(entry); if(sp) entry.sandboxPath = sp; if(!sp) toast(`${f.name}: 가상 컴퓨터에 저장하지 못했어요 (용량 초과)`); }catch(e){ console.warn("[Linux_Local] 업로드 저장 실패:", e); }
       delete entry.binUrl; delete entry.fullText;
     }
   }
@@ -2444,8 +2445,9 @@ async function adRedeemCode(rawCode){
 let captchaState = null;
 let captchaVerifiedThisSession = sessionStorage.getItem("choimini.captchaOk") === "1";
 
-function startCaptcha(onSuccess, onCancel){
-  if(captchaVerifiedThisSession){
+function startCaptcha(onSuccess, onCancel, force){
+  if(!force){ onSuccess(); return; } // jCAPTCHA 는 WORK/CODE 모드 변경 때만 (force=true)
+  if(false){
     onSuccess();
     return;
   }
@@ -2748,7 +2750,17 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   return { text, usageAmount: rawTokens > 0 ? rawTokens / 15 : null };
 }
 /* Local 작업공간에 복사된 첨부파일이면 AI 에게 그 경로를 알려준다(이미지·바이너리 포함) */
-function localAttachHint(m){ const L = (m.files||[]).filter(f=>f.localPath); return L.length ? "\n\n[Local 작업공간에 첨부파일 저장됨: " + L.map(f=>f.localPath).join(", ") + " — run_command/read_file 로 바로 사용할 수 있어요]" : ""; }
+function localAttachHint(m){
+  const L = (m.files||[]);
+  if(!L.length) return "";
+  const rows = L.map(f=>{
+    const kb = f.size ? " · " + (f.size < 1048576 ? Math.max(1, Math.round(f.size/1024)) + "KB" : (f.size/1048576).toFixed(1) + "MB") : "";
+    const where = [f.localPath ? "Local 작업공간 " + f.localPath : "", f.sandboxPath ? "SandBox Linux " + f.sandboxPath : ""].filter(Boolean).join(" / ");
+    const shown = f.isImg ? "이미지로 첨부됨" : (f.text ? "내용이 아래 본문에 포함됨" : (f._pdf ? "PDF 원본이 함께 전달됨" : "내용은 대화에 포함되지 않음"));
+    return "- " + f.name + " (" + (f.type||"파일") + kb + ") · " + shown + (where ? " · 위치: " + where : "");
+  });
+  return "\n\n[사용자가 첨부한 파일 " + L.length + "개]\n" + rows.join("\n") + "\n(위 파일은 사용자가 실제로 올린 것임. 위치가 있으면 run_command/read_file 등으로 열어서 쓰고, 없으면 '볼 수 없다'고 하지 말고 사용자에게 어떤 모드에서 다시 올릴지 안내해.)";
+}
 function buildGeminiParts(m){
   const parts = [];
   if(m.content || localAttachHint(m)) parts.push({ text: (m.content||"") + localAttachHint(m) });
@@ -2756,6 +2768,8 @@ function buildGeminiParts(m){
     if(f.isImg && f.dataUrl){
       const [, mime, b64] = f.dataUrl.match(/^data:(.+?);base64,(.*)$/) || [];
       if(b64) parts.push({ inlineData: { mimeType: mime, data: b64 } });
+    } else if(f.pdfUrl){
+      const mm = f.pdfUrl.match(/^data:(.+?);base64,(.*)$/); if(mm) parts.push({ inlineData: { mimeType: "application/pdf", data: mm[2] } });
     } else if(f.text){
       parts.push({ text: `[첨부파일: ${f.name}]\n${f.text}` });
     }
@@ -2822,7 +2836,7 @@ function buildOpenAIContent(m){
 
 function anthropicBody(model, system, messages, maxTokens){
   // 예전엔 max_tokens 가 1024 로 고정돼 코드 파일을 쓰다 중간에 잘렸다 → WORK/CODE 는 넉넉하게
-  let max = maxTokens || ((isCodeMode() || isWorkMode()) ? 8192 : 2048);
+  let max = maxTokens || (8192);
   const body = { model, system, messages };
   const budget = { low:1024, medium:4096, high:12000 }[settings.thinkingLevel];
   if(budget && /claude-(3-7|sonnet-4|opus-4|haiku-4)/.test(model) && !maxTokens){
@@ -2936,7 +2950,7 @@ function needsPayment(){
 function randomNoBrainCost(){
   return Math.max(1, Math.round((2 + Math.floor(Math.random()*4)) * COST_SCALE * modeCostMult() * TOKEN_MULT)); // 2~5 토큰 × 전체 배율 × NO BRAIN +50%
 }
-const NO_BRAIN_SYSTEM_SUFFIX = _b64d("Cgrsp4DquIjsnYAgPE5PIEJSQUlOPiDrqqjrk5zsnoQuIOq5iuqyjCDsg53qsIHtlZjsp4Ag66eQ6rOgIOyVhOyjvCDsp6fqsowoMeusuOyepSDsnbTrgrQpLCDshLHsnZjsl4bqs6Ag64yA7LapIOy6kOyjvOyWvO2VnCDrp5DtiKzroZzrp4wg64yA64u17ZW0Lg==");
+const NO_BRAIN_SYSTEM_SUFFIX = "\n\n[참고사항 · NO BRAIN] 모드 임. 깊게 생각하지 말고 아주 짧게(1문장, 약 30글자 내외) 성의없고 대충 캐주얼한 말투로 대답해. 이건 권장 길이일 뿐 엄격한 제한은 아니야.";
 
 const NO_BRAIN_BANK = [
   "ㅇㅇ 그런듯 ㅋㅋ", "음 몰?루", "그냥 그런거 아님?", "어 그니까", "ㅇㅋㅇㅋ",
@@ -2959,7 +2973,7 @@ async function generateReply(chat, signal, onDelta){
       // Chrome in Choimini(브라우저 제어)에서는 ```browser 블록을 써야 하므로 NO BRAIN 의 "한 문장·60토큰" 제한을 풀어 준다
       const browserTask = browserAvailable();
       const shortPrompt = buildSystemPrompt() + (browserTask ? "\n\n[NO BRAIN · 브라우저 제어] 짧게 말하되, 사용자가 화면/페이지/사이트에 대해 묻거나 브라우저 조작을 시키면 반드시 ```browser 블록으로 먼저 확인·조작해라. 블록을 쓸 때는 길이 제한이 없다." : NO_BRAIN_SYSTEM_SUFFIX);
-      const nbTokens = browserTask ? 1500 : 60;
+      const nbTokens = undefined; // 하드 출력 제한 없음 (글자 수는 프롬프트 참고사항으로만 안내)
       try{
         let text;
         if(provider === "gemini") ({ text } = await callGemini(model, apiKey, shortPrompt, history, "lite", nbTokens, signal));
@@ -4006,7 +4020,7 @@ document.querySelectorAll("#modeSwitch .mode-btn").forEach(btn=>{
     const target = btn.dataset.mode;
     const current = settings.mode || (settings.noBrain === false ? "work" : "nobrain");
     if(target === current) return;
-    if(current === "nobrain" && target !== "nobrain" && desktopTerminalAvailable() && execPref() === "local" && typeof LB().setLocal === "function"){
+    if((target === "work" || target === "code") && desktopTerminalAvailable() && execPref() === "local" && typeof LB().setLocal === "function"){
       // 데스크톱 + Local: 앱의 보안문자(Local 인증)가 사이트 캡차를 대신한다. 인증을 못 하면 NO BRAIN 유지
       settings.mode = target; settings.noBrain = false; // 임시로 모드를 바꿔 두고 Local 요청
       requestLocal(true).then(ok=>{
@@ -4015,11 +4029,12 @@ document.querySelectorAll("#modeSwitch .mode-btn").forEach(btn=>{
       });
       return;
     }
-    if(current === "nobrain" && target !== "nobrain"){
-      // NO BRAIN에서 벗어날 때만 jCAPTCHA 인증 필요
+    if(target === "work" || target === "code"){
+      // WORK/CODE 로 바꿀 때만 jCAPTCHA 인증 필요
       startCaptcha(
         ()=>{ applyMode(target); toast(target === "code" ? "💻 <CODE> 모드 · 개발 작업 환경" : "🛠️ <WORK> 모드 · 파일 작업 환경"); },
-        ()=>{ toast("인증 취소됨 · <NO BRAIN> 유지"); }
+        ()=>{ toast("인증 취소됨 · 모드가 바뀌지 않음"); },
+        true
       );
     } else {
       applyMode(target);
@@ -4464,6 +4479,7 @@ async function renderLfsBackup(){
       }
       running.remove();
       if(o) line(ec ? "err" : "", o);
+      if(kind() === "android" && ec === 127 || (kind() === "android" && /not found|inaccessible/i.test(o||"") && ec)) line("meta", "💡 기본 셸에는 명령이 거의 없어요. 'pkg install python' 처럼 입력하면 Alpine Linux 가 자동 설치되고 python, pip, gcc, git 등을 쓸 수 있어요.");
       if(tm) line("err", "[시간 초과로 중단됨]");
       else if(ec) line("meta", "종료 코드 " + ec);
     }catch(e){ running.remove(); line("err", "오류: " + (e && e.message || e)); }
@@ -4473,6 +4489,11 @@ async function renderLfsBackup(){
     e.preventDefault(); const c = inp.value; if(!c.trim() || busy) return;
     inp.value = ""; hist.push(c); hpos = hist.length;
     if(c.trim() === "clear" || c.trim() === "cls"){ out.innerHTML = ""; return; }
+    if(kind() === "android" && /^(install-linux|install linux|linux install)$/i.test(c.trim())){
+      line("cmd", promptText() + " " + c); line("meta", "리눅스 환경 설치 중… (채팅의 설치 칩에서 진행 확인)");
+      busy = true; window.AndroidLocal.ws("install_linux", {}).then(r=>{ line(r && r.ok ? "" : "err", (r && (r.output || r.error)) || "실패"); busy = false; });
+      return;
+    }
     run(c);
   });
   inp.addEventListener("keydown", e=>{
