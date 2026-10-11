@@ -124,6 +124,9 @@ details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
 #chminalPane.show{display:flex;}
 .chm-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;}
 .chm-bar select,.chm-bar button{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-size:12px;}
+.chm-tabs{display:flex;gap:4px;overflow-x:auto;flex-shrink:0;}.chm-tab{flex:0 0 auto;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px 8px 0 0;padding:5px 11px;font-size:12px;opacity:.7;cursor:pointer;}.chm-tab.active{opacity:1;border-color:var(--accent);}
+.chm-outwrap{flex:1;min-height:0;display:flex;flex-direction:column;}
+.chm-out .blk{white-space:pre;overflow-x:auto;tab-size:8;}
 .chm-out{flex:1;min-height:0;overflow:auto;background:#0d1117;color:#d6deeb;border-radius:10px;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
 .chm-out .cmd{color:#8bd5ff;margin-top:8px}.chm-out .ai{color:#c9a8ff;margin-top:8px}.chm-out .err{color:#ff8b8b}.chm-out .meta{color:#7d8590;font-size:11px}
 .chm-in{display:flex;gap:6px;align-items:center;background:#0d1117;border-radius:10px;padding:6px 8px;}
@@ -655,7 +658,8 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         <span id="chmInfo" style="opacity:.65;flex:1;min-width:80px"></span>
         <button id="chmClear">지우기</button>
       </div>
-      <div class="chm-out" id="chmOut"></div>
+      <div class="chm-tabs" id="chmTabs"></div>
+      <div class="chm-outwrap" id="chmOutWrap"></div>
       <form class="chm-in" id="chmForm"><span id="chmPrompt">$</span><input id="chmInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" placeholder="명령어 입력"><button type="submit" id="chmRun">실행</button></form>
     </div>
     <div class="composer">
@@ -4442,14 +4446,107 @@ async function renderLfsBackup(){
 /* ---------------- Chminal 탭 (Android · Desktop 전용 터미널) ----------------
    Android : 최미나이 Local 과 같은 실행 환경(기본 셸 또는 설치한 Alpine Linux)에서 사용자가 직접 명령 실행 (AndroidLocal.ws "exec")
    Desktop : 실제 Windows CMD / PowerShell (DesktopBridge.term)
-   최미나이(AI)가 run_command 로 실행한 명령과 결과도 여기에 🤖 로 함께 보인다. */
+   - 출력은 그대로(공백·탭 유지, ANSI 색상 해석, \r 진행표시), 실행 중에는 실시간으로 이어서 보여준다
+   - cat/head/tail 로 연 코드 파일은 문법 색을 입힌다
+   - 터미널 창을 여러 개 열 수 있다 (창마다 작업 폴더·기록이 따로)
+   최미나이(AI)가 run_command 로 실행한 명령과 결과도 열려 있는 창에 🤖 로 함께 보인다. */
 (function(){
   const $ = id=>document.getElementById(id);
   const tabs = $("mainTabs"), pane = $("chminalPane"); if(!tabs || !pane) return;
   const kind = ()=> (window.CHOIMINI_APP === "desktop" && window.DesktopBridge && typeof window.DesktopBridge.term === "function") ? "desktop"
                   : (window.CHOIMINI_APP === "android" && window.AndroidLocal && typeof window.AndroidLocal.ws === "function") ? "android" : "";
-  let cwd = "", busy = false, hist = [], hpos = 0;
-  const out = $("chmOut"), inp = $("chmInput"), sel = $("chmShell");
+  const inp = $("chmInput"), sel = $("chmShell"), wrap = $("chmOutWrap"), tabBar = $("chmTabs");
+  const MARK = "__CHM_CWD__";
+  /* ---- ANSI → DOM ---- */
+  const C16 = ["#1f2430","#ff6b6b","#7ee787","#f2cc60","#6cb6ff","#d2a8ff","#56d4dd","#c9d1d9","#6e7681","#ff8b8b","#9bf0a0","#ffe08a","#92c9ff","#e2c5ff","#8be9f2","#ffffff"];
+  function c256(n){ if(n < 16) return C16[n]; if(n >= 232){ const v = 8 + (n-232)*10; return `rgb(${v},${v},${v})`; } n -= 16; const f = [0,95,135,175,215,255]; return `rgb(${f[Math.floor(n/36)]},${f[Math.floor(n/6)%6]},${f[n%6]})`; }
+  function renderAnsi(raw){
+    const frag = document.createDocumentFragment();
+    raw = String(raw).replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, "").replace(/\x1b\[[0-9;?]*[ABCDEFGHJKSTfhlnsu]/g, "").replace(/\x1b[()][A-Z0-9]/g, "");
+    let st = {fg:null,bg:null,b:false,d:false,i:false,u:false};
+    // \r 처리: \r\n 은 줄바꿈, 그 외 \r 은 같은 줄을 덮어쓴다 (진행 표시줄)
+    const lines = raw.replace(/\r\n/g, "\n").split("\n");
+    lines.forEach((ln, li)=>{
+      const segs = ln.split("\r"); ln = segs.length > 1 ? segs.filter((s,i)=> i === segs.length - 1 || s.replace(/\x1b\[[0-9;]*m/g,"").length > 0).slice(-1)[0] : ln;
+      const re = /\x1b\[([0-9;]*)m/g; let last = 0, m;
+      const put = t=>{ if(!t) return; const s = document.createElement("span"); s.textContent = t; const css = [];
+        if(st.fg) css.push("color:"+st.fg); if(st.bg) css.push("background:"+st.bg); if(st.b) css.push("font-weight:700"); if(st.d) css.push("opacity:.65"); if(st.i) css.push("font-style:italic"); if(st.u) css.push("text-decoration:underline");
+        if(css.length) s.style.cssText = css.join(";"); frag.appendChild(s); };
+      while((m = re.exec(ln))){
+        put(ln.slice(last, m.index)); last = re.lastIndex;
+        const p = m[1] === "" ? [0] : m[1].split(";").map(Number);
+        for(let k=0;k<p.length;k++){ const c = p[k];
+          if(c === 0) st = {fg:null,bg:null,b:false,d:false,i:false,u:false};
+          else if(c === 1) st.b = true; else if(c === 2) st.d = true; else if(c === 3) st.i = true; else if(c === 4) st.u = true;
+          else if(c === 22){ st.b = false; st.d = false; } else if(c === 23) st.i = false; else if(c === 24) st.u = false;
+          else if(c >= 30 && c <= 37) st.fg = C16[c-30]; else if(c >= 90 && c <= 97) st.fg = C16[c-90+8]; else if(c === 39) st.fg = null;
+          else if(c >= 40 && c <= 47) st.bg = C16[c-40]; else if(c >= 100 && c <= 107) st.bg = C16[c-100+8]; else if(c === 49) st.bg = null;
+          else if((c === 38 || c === 48) && p[k+1] === 5){ const v = c256(p[k+2]|0); if(c === 38) st.fg = v; else st.bg = v; k += 2; }
+          else if((c === 38 || c === 48) && p[k+1] === 2){ const v = `rgb(${p[k+2]|0},${p[k+3]|0},${p[k+4]|0})`; if(c === 38) st.fg = v; else st.bg = v; k += 4; }
+        }
+      }
+      put(ln.slice(last));
+      if(li < lines.length - 1) frag.appendChild(document.createTextNode("\n"));
+    });
+    return frag;
+  }
+  /* ---- 코드 문법 색 (cat/head/tail 로 연 파일) ---- */
+  const KW = {
+    py:"def class return if elif else for while import from as with try except finally raise pass break continue lambda yield in is not and or None True False global nonlocal async await print self",
+    js:"function const let var return if else for while do switch case break continue new this class extends import from export default async await try catch finally throw typeof instanceof in of null undefined true false",
+    c:"int char float double void long short unsigned signed struct union enum typedef static const extern return if else for while do switch case break continue sizeof include define NULL class public private protected namespace using template new delete bool true false auto string",
+    java:"public private protected class interface extends implements static final void int long double float boolean char byte new return if else for while do switch case break continue try catch finally throw throws import package this super null true false",
+    go:"package import func var const type struct interface map chan go defer return if else for range switch case break continue select nil true false",
+    rs:"fn let mut const struct enum impl trait pub use mod crate self Self return if else for while loop match break continue as in ref move async await true false Some None Ok Err",
+    sh:"if then else elif fi for while do done case esac in function echo export cd ls cat grep sed awk exit return local read set unset source",
+    sql:"select from where insert into values update set delete create table drop alter join left right inner outer on group by order having limit and or not null as distinct union primary key",
+    css:"", html:"", json:"", md:""
+  };
+  const EXT = { py:"py", js:"js", mjs:"js", cjs:"js", ts:"js", jsx:"js", tsx:"js", c:"c", h:"c", cpp:"c", cc:"c", hpp:"c", cs:"c", java:"java", kt:"java", go:"go", rs:"rs", sh:"sh", bash:"sh", zsh:"sh", sql:"sql", css:"css", html:"html", htm:"html", xml:"html", json:"json", md:"md", yml:"sh", yaml:"sh", toml:"sh", php:"c", rb:"py" };
+  function extOf(cmd){
+    const m = String(cmd).match(/^\s*(?:cat|head|tail|bat|nl|less|more|tac)\s+(.*)$/); if(!m) return null;
+    const args = m[1].split(/\s+/).filter(a=>a && !a.startsWith("-") && !/^\d+$/.test(a)); const f = args[args.length-1]; if(!f) return null;
+    const e = (f.split(".").pop() || "").toLowerCase(); return EXT[e] || null;
+  }
+  function highlight(text, lang){
+    const frag = document.createDocumentFragment(); const kws = new Set((KW[lang]||"").split(" ").filter(Boolean));
+    const cm = (lang === "py" || lang === "sh") ? "#[^\\n]*" : lang === "sql" ? "--[^\\n]*" : lang === "html" ? "<!--[\\s\\S]*?-->" : lang === "css" ? "\\/\\*[\\s\\S]*?\\*\\/" : lang === "json" || lang === "md" ? "(?!)" : "\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/";
+    const re = new RegExp("(" + cm + ")|(\"(?:\\\\.|[^\"\\\\\\n])*\"|'(?:\\\\.|[^'\\\\\\n])*'|`(?:\\\\.|[^`\\\\])*`)|(\\b0x[0-9a-fA-F]+\\b|\\b\\d+(?:\\.\\d+)?\\b)|(<\\/?[A-Za-z][\\w-]*|\\/>|>)|([A-Za-z_][\\w-]*)", "g");
+    let last = 0, m; const sp = (t, c)=>{ const s = document.createElement("span"); if(c) s.style.color = c; s.textContent = t; frag.appendChild(s); };
+    while((m = re.exec(text))){
+      if(m.index > last) sp(text.slice(last, m.index));
+      if(m[1]) sp(m[1], "#7d8590"); else if(m[2]){ const isKey = lang === "json" && text.slice(re.lastIndex).trimStart().startsWith(":"); sp(m[2], isKey ? "#79c0ff" : "#a5d6a7"); }
+      else if(m[3]) sp(m[3], "#f2cc60"); else if(m[4]){ if(lang === "html") sp(m[4], "#ff7b72"); else sp(m[4]); }
+      else if(m[5]){ const w = m[5]; if(kws.has(w)) sp(w, "#ff7b72"); else if(/^[A-Z][A-Za-z0-9_]*$/.test(w) && lang !== "sh") sp(w, "#d2a8ff"); else if(text[re.lastIndex] === "(") sp(w, "#d2a8ff"); else if(lang === "css" && text[re.lastIndex] === ":") sp(w, "#79c0ff"); else sp(w); }
+      last = re.lastIndex;
+    }
+    if(last < text.length) sp(text.slice(last)); return frag;
+  }
+  /* ---- 터미널 창(세션) ---- */
+  let sessions = [], cur = null, seq = 0;
+  function newSession(){
+    const s = { id: "t" + (++seq), name: "터미널 " + seq, out: document.createElement("div"), cwd: "", busy: false, hist: [], hpos: 0, shell: kind() === "desktop" ? "cmd" : "sh", draft: "" };
+    s.out.className = "chm-out"; s.out.style.display = "none"; wrap.appendChild(s.out); sessions.push(s); return s;
+  }
+  function renderTabs(){
+    tabBar.innerHTML = "";
+    sessions.forEach(s=>{
+      const b = document.createElement("button"); b.className = "chm-tab" + (s === cur ? " active" : ""); b.textContent = s.name + (s.busy ? " ⏳" : "");
+      b.addEventListener("click", ()=>activate(s));
+      if(sessions.length > 1){ const x = document.createElement("span"); x.textContent = " ✕"; x.style.opacity = ".6"; x.addEventListener("click", e=>{ e.stopPropagation(); closeSession(s); }); b.appendChild(x); }
+      tabBar.appendChild(b);
+    });
+    const add = document.createElement("button"); add.className = "chm-tab add"; add.textContent = "＋"; add.title = "새 터미널 창"; add.addEventListener("click", ()=>{ activate(newSession()); inp.focus(); }); tabBar.appendChild(add);
+  }
+  function activate(s){
+    if(cur){ cur.draft = inp.value; cur.out.style.display = "none"; cur.out.removeAttribute("id"); cur.shell = sel.value || cur.shell; }
+    cur = s; s.out.style.display = ""; s.out.id = "chmOut"; if(sel.options.length) sel.value = s.shell; inp.value = s.draft || "";
+    renderTabs(); setPrompt(); $("chmRun").disabled = s.busy; s.out.scrollTop = s.out.scrollHeight;
+  }
+  function closeSession(s){
+    if(sessions.length < 2) return; const i = sessions.indexOf(s); sessions.splice(i, 1); s.out.remove();
+    if(cur === s){ cur = null; activate(sessions[Math.max(0, i-1)]); } else renderTabs();
+  }
   function init(){
     const k = kind(); if(!k){ tabs.classList.remove("show"); return; }
     tabs.classList.add("show");
@@ -4457,56 +4554,80 @@ async function renderLfsBackup(){
       if(k === "desktop"){ sel.innerHTML = '<option value="cmd">CMD</option><option value="powershell">PowerShell</option>'; $("chmInfo").textContent = "실제 Windows 터미널 · 시작 위치는 작업 폴더"; }
       else { sel.innerHTML = '<option value="sh">sh</option>'; sel.disabled = true; $("chmInfo").textContent = "최미나이 Local 과 같은 환경"; window.AndroidLocal.ws("info", {}).then(r=>{ try{ if(r && r.ok) $("chmInfo").textContent = JSON.parse(r.output).desc; }catch(_){} }); }
     }
+    if(!sessions.length) activate(newSession());
   }
   init(); setTimeout(init, 1200);
-  function line(cls, text){ const d = document.createElement("div"); if(cls) d.className = cls; d.textContent = text; out.appendChild(d); while(out.childElementCount > 600) out.removeChild(out.firstChild); out.scrollTop = out.scrollHeight; return d; }
-  function promptText(){ return (kind() === "desktop" ? (sel.value === "powershell" ? "PS " : "") : "") + (cwd || (kind() === "desktop" ? "작업 폴더" : "~")) + (kind() === "desktop" && sel.value !== "powershell" ? ">" : " $"); }
-  function setPrompt(){ $("chmPrompt").textContent = promptText(); $("chmPrompt").title = cwd; }
+  function line(cls, text, s){ s = s || cur; const d = document.createElement("div"); if(cls) d.className = cls; d.textContent = text; s.out.appendChild(d); trim(s); s.out.scrollTop = s.out.scrollHeight; return d; }
+  function trim(s){ while(s.out.childElementCount > 800) s.out.removeChild(s.out.firstChild); }
+  function promptText(s){ s = s || cur; if(!s) return "$"; const d = kind() === "desktop", ps = d && sel.value === "powershell"; return (ps ? "PS " : "") + (s.cwd || (d ? "작업 폴더" : "~")) + (d && !ps ? ">" : " $"); }
+  function setPrompt(){ if(!cur) return; $("chmPrompt").textContent = promptText(); $("chmPrompt").title = cur.cwd; }
+  // 실행 결과 블록: 원본 그대로(공백 유지) + ANSI 색 + (코드 파일이면) 문법 색
+  function fillBlock(el, raw, cmd, isErr){
+    el.className = "blk" + (isErr ? " err" : ""); el.textContent = "";
+    const lang = !isErr && !/\x1b\[/.test(raw) ? extOf(cmd) : null;
+    el.appendChild(lang ? highlight(raw, lang) : renderAnsi(raw));
+  }
+  const live = {}; // 스트림 id → { el, raw, s, cmd }
+  window.__chmStream = function(sid, chunk){
+    const L = live[sid]; if(!L) return; L.raw += chunk;
+    let r = L.raw; const mi = r.lastIndexOf(MARK); if(mi >= 0) r = r.slice(0, mi);
+    fillBlock(L.el, r.replace(/\n+$/, ""), L.cmd, false); L.s.out.scrollTop = L.s.out.scrollHeight;
+  };
   async function run(cmd){
-    busy = true; $("chmRun").disabled = true;
-    line("cmd", promptText() + " " + cmd);
-    const running = line("meta", "실행 중…");
+    const s = cur; s.busy = true; renderTabs(); $("chmRun").disabled = true;
+    line("cmd", promptText(s) + " " + cmd, s);
+    const blk = document.createElement("div"); blk.className = "blk"; s.out.appendChild(blk);
+    const running = line("meta", "실행 중…", s);
+    const sid = s.id + "_" + Date.now(); live[sid] = { el: blk, raw: "", s, cmd };
     try{
       let r, o, ec = 0, tm = false;
       if(kind() === "desktop"){
-        r = await window.DesktopBridge.term(sel.value, cmd, cwd);
+        r = await window.DesktopBridge.term(s.shell, cmd, s.cwd);
         if(!r || !r.ok) throw new Error((r && r.error) || "실행 실패");
-        o = r.output; ec = r.exitCode; if(r.cwd) cwd = r.cwd;
+        o = r.output; ec = r.exitCode; if(r.cwd) s.cwd = r.cwd;
       } else {
-        r = await window.AndroidLocal.ws("exec", { command: cmd, cwd });
+        r = await window.AndroidLocal.ws("exec", { command: cmd, cwd: s.cwd, stream: sid });
         if(!r || !r.ok) throw new Error((r && r.error) || "실행 실패");
-        const j = JSON.parse(r.output); o = j.output; ec = j.exit; tm = j.timedOut; if(j.cwd) cwd = j.cwd;
+        const j = JSON.parse(r.output); o = j.output; ec = j.exit; tm = j.timedOut; if(j.cwd) s.cwd = j.cwd;
+        if(/pkg|apk|apt/.test(cmd) && j.cwd && !j.cwd.startsWith("/")) s.cwd = "";
       }
       running.remove();
-      if(o) line(ec ? "err" : "", o);
-      if(kind() === "android" && ec === 127 || (kind() === "android" && /not found|inaccessible/i.test(o||"") && ec)) line("meta", "💡 기본 셸에는 명령이 거의 없어요. 'pkg install python' 처럼 입력하면 Alpine Linux 가 자동 설치되고 python, pip, gcc, git 등을 쓸 수 있어요.");
-      if(tm) line("err", "[시간 초과로 중단됨]");
-      else if(ec) line("meta", "종료 코드 " + ec);
-    }catch(e){ running.remove(); line("err", "오류: " + (e && e.message || e)); }
-    busy = false; $("chmRun").disabled = false; setPrompt(); inp.focus();
+      if(o) fillBlock(blk, String(o).replace(/\n+$/, ""), cmd, false); else blk.remove();
+      if(!o && ec === 0 && /^\s*(ls|ll|dir)\b/.test(cmd)) line("meta", "(비어 있음 — 이 폴더에는 파일이 없어요)", s);
+      if(kind() === "android" && (ec === 127 || (ec && /not found|inaccessible/i.test(o||"")))) line("meta", "💡 명령이 없다면 'pkg install 이름' 으로 설치하세요 (예: pkg install python). 처음엔 Alpine Linux 가 자동 설치돼요.", s);
+      if(tm) line("err", "[시간 초과로 중단됨]", s);
+      else if(ec) line("meta", "종료 코드 " + ec, s);
+    }catch(e){ running.remove(); blk.remove(); line("err", "오류: " + (e && e.message || e), s); }
+    delete live[sid]; s.busy = false; renderTabs(); if(s === cur){ $("chmRun").disabled = false; setPrompt(); inp.focus(); }
   }
   $("chmForm").addEventListener("submit", e=>{
-    e.preventDefault(); const c = inp.value; if(!c.trim() || busy) return;
-    inp.value = ""; hist.push(c); hpos = hist.length;
-    if(c.trim() === "clear" || c.trim() === "cls"){ out.innerHTML = ""; return; }
+    e.preventDefault(); const s = cur; const c = inp.value; if(!c.trim() || !s || s.busy) return;
+    inp.value = ""; s.hist.push(c); s.hpos = s.hist.length;
+    if(c.trim() === "clear" || c.trim() === "cls"){ s.out.innerHTML = ""; return; }
+    if(kind() === "android" && /^(doctor|진단)$/i.test(c.trim())){
+      line("cmd", promptText(s) + " " + c, s); s.busy = true;
+      window.AndroidLocal.ws("doctor", {}).then(r=>{ line(r && r.ok ? "" : "err", (r && (r.output || r.error)) || "실패", s); s.busy = false; });
+      return;
+    }
     if(kind() === "android" && /^(install-linux|install linux|linux install)$/i.test(c.trim())){
-      line("cmd", promptText() + " " + c); line("meta", "리눅스 환경 설치 중… (채팅의 설치 칩에서 진행 확인)");
-      busy = true; window.AndroidLocal.ws("install_linux", {}).then(r=>{ line(r && r.ok ? "" : "err", (r && (r.output || r.error)) || "실패"); busy = false; });
+      line("cmd", promptText(s) + " " + c, s); line("meta", "리눅스 환경 설치 중… (채팅의 설치 칩에서 진행 확인)", s);
+      s.busy = true; window.AndroidLocal.ws("install_linux", {}).then(r=>{ s.cwd = ""; setPrompt(); line(r && r.ok ? "" : "err", (r && (r.output || r.error)) || "실패", s); s.busy = false; });
       return;
     }
     run(c);
   });
   inp.addEventListener("keydown", e=>{
-    if(e.key === "ArrowUp" && hist.length){ hpos = Math.max(0, hpos - 1); inp.value = hist[hpos] || ""; e.preventDefault(); }
-    else if(e.key === "ArrowDown" && hist.length){ hpos = Math.min(hist.length, hpos + 1); inp.value = hist[hpos] || ""; e.preventDefault(); }
+    const s = cur; if(!s) return;
+    if(e.key === "ArrowUp" && s.hist.length){ s.hpos = Math.max(0, s.hpos - 1); inp.value = s.hist[s.hpos] || ""; e.preventDefault(); }
+    else if(e.key === "ArrowDown" && s.hist.length){ s.hpos = Math.min(s.hist.length, s.hpos + 1); inp.value = s.hist[s.hpos] || ""; e.preventDefault(); }
   });
-  $("chmClear").addEventListener("click", ()=>{ out.innerHTML = ""; });
-  sel.addEventListener("change", setPrompt);
+  $("chmClear").addEventListener("click", ()=>{ if(cur) cur.out.innerHTML = ""; });
+  sel.addEventListener("change", ()=>{ if(cur) cur.shell = sel.value; setPrompt(); });
   // 최미나이가 실행한 명령 미러링 (afterReplyActions 의 Local 분기에서 호출)
   window.__chminalAi = function(cmd, output, ok, shell){
-    if(!out) return;
-    line("ai", "🤖 최미나이" + (shell ? " · " + shell : "") + " ▸ " + String(cmd).split("\n")[0].slice(0, 300));
-    if(output) line(ok ? "" : "err", String(output).slice(0, 4000));
+    if(!sessions.length) return; const s = cur || sessions[0];
+    line("ai", "🤖 최미나이" + (shell ? " · " + shell : "") + " ▸ " + String(cmd).split("\n")[0].slice(0, 300), s);
+    if(output){ const b = document.createElement("div"); s.out.appendChild(b); fillBlock(b, String(output).slice(0, 20000), cmd, !ok); }
   };
   function showTab(t){
     const chat = t !== "chminal";
@@ -4514,7 +4635,7 @@ async function renderLfsBackup(){
     pane.classList.toggle("show", !chat);
     const m = $("messages"), c = document.querySelector(".composer");
     if(m) m.style.display = chat ? "" : "none"; if(c) c.style.display = chat ? "" : "none";
-    if(!chat){ setPrompt(); if(!out.childElementCount) line("meta", "Chminal · 명령어를 입력하세요. 최미나이가 실행한 명령도 여기에 보여요."); setTimeout(()=>inp.focus(), 50); }
+    if(!chat){ if(!sessions.length) init(); setPrompt(); if(cur && !cur.out.childElementCount) line("meta", "Chminal · 명령어를 입력하세요. 'help' 로 명령어 목록, 'pkg install python' 으로 패키지 설치. 최미나이가 실행한 명령도 여기에 보여요.", cur); setTimeout(()=>inp.focus(), 50); }
   }
   tabs.querySelectorAll("button").forEach(b=>b.addEventListener("click", ()=>{ if(kind()) showTab(b.dataset.tab); }));
 })();
