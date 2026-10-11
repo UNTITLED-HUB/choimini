@@ -124,6 +124,12 @@ details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
 #chminalPane.show{display:flex;}
 .chm-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;}
 .chm-bar select,.chm-bar button{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-size:12px;}
+#askStack{position:absolute;left:10px;right:10px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:60;display:flex;flex-direction:column;gap:6px;pointer-events:none;}
+.ask-card{pointer-events:auto;background:var(--panel);border:1px solid var(--accent);border-radius:12px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px;}
+.ask-card.risky{border-color:#e5a03a;}.ask-card b{display:block;font-size:12.5px;}
+.ask-card pre{margin:4px 0 6px;max-height:64px;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:var(--text-dim);font-family:ui-monospace,Menlo,Consolas,monospace;}
+.ask-card .ab{display:flex;gap:6px;justify-content:flex-end;}.ask-card button{border:1px solid var(--border);background:var(--panel-2);color:var(--text);border-radius:8px;padding:4px 14px;font-size:12px;}
+.ask-card button.y{background:var(--accent);color:#fff;border-color:var(--accent);}
 .chm-tabs{display:flex;gap:4px;overflow-x:auto;flex-shrink:0;}.chm-tab{flex:0 0 auto;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px 8px 0 0;padding:5px 11px;font-size:12px;opacity:.7;cursor:pointer;}.chm-tab.active{opacity:1;border-color:var(--accent);}
 .chm-outwrap{flex:1;min-height:0;display:flex;flex-direction:column;}
 .chm-out .blk{white-space:pre;overflow-x:auto;tab-size:8;}
@@ -651,12 +657,13 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <div class="msg-wrap" id="msgWrap"></div>
     </div>
 
+    <div id="askStack"></div>
     <div class="pkg-chip" id="pkgChip"><span class="spin"></span><span id="pkgChipText"></span></div>
     <div id="chminalPane">
       <div class="chm-bar">
         <select id="chmShell" title="셸"></select>
         <span id="chmInfo" style="opacity:.65;flex:1;min-width:80px"></span>
-        <button id="chmClear">지우기</button>
+        <button id="chmStop" style="display:none;color:#ff8b8b" title="이 백그라운드 작업을 끝내요">■ 중지</button><button id="chmClear">지우기</button>
       </div>
       <div class="chm-tabs" id="chmTabs"></div>
       <div class="chm-outwrap" id="chmOutWrap"></div>
@@ -677,10 +684,10 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
             <button class="mode-btn" type="button" data-exec="linux" title="브라우저 안 가상 SandBox Linux 에서 작업">SandBox Linux</button>
           </div>
           <span class="exec-lbl" id="permLbl">AI 권한</span>
-          <select id="permSel" title="AI 권한 (Local 에서 적용)">
-            <option value="manual">수동 승인</option>
-            <option value="auto">자동 승인</option>
-            <option value="full">전체 승인 (보안문자)</option>
+          <select id="permSel" title="수동: 하나하나 승인 · 자동: 위험하지 않은 것은 자동 승인(삭제·다운로드·설치는 확인) · 전체: 다운로드 등도 모두 자동">
+            <option value="manual">수동 승인 (명령마다 확인)</option>
+            <option value="auto">자동 승인 (위험한 것만 확인)</option>
+            <option value="full">전체 승인 (다운로드 등 모두 자동)</option>
           </select>
         </div>
         <div class="mode-row">
@@ -1147,7 +1154,7 @@ function agentHeadPrompt(){
     + CODE_QUALITY_PROMPT;
 }
 function agentTailPrompt(){
-  if(useLocalTerminal()) return "\n\n[최종 확인] 지금은 Local 모드다. 파일 작업과 명령은 ```tool 블록(read_file/list_dir/glob/grep/edit_file/write_file/run_command/todo_write)으로만 한다. runcmd/upload 블록은 쓰지 마라. 도구 호출을 쓴 답변은 결과가 올 때까지 거기서 끝내라.";
+  if(useLocalTerminal()) return "\n\n[최종 확인] 지금은 Local 모드다. 파일 작업과 명령은 ```tool 블록(read_file/list_dir/glob/grep/edit_file/write_file/run_command/bg_run/bg_log/bg_stop/bg_list/todo_write)으로만 한다. runcmd/upload 블록은 쓰지 마라. 도구 호출을 쓴 답변은 결과가 올 때까지 거기서 끝내라.";
   return "\n\n[최종 확인] 위 [코드 답변 규칙]의 '코드블록' 규칙은 단순 코드 설명·짧은 예시에만 적용한다. 파일을 만드는 작업이라면 ```runcmd 블록으로 파일을 만들고 ```upload 블록으로 전달해라. 스킬이 없다고 말하지 마라.";
 }
 /* 데스크톱 앱(로컬 터미널 모드)에서 AI 에게 알려주는 스킬 설명. 사용자가 "스킬이 뭐야?" 하고 물어도 이걸 바탕으로 답한다. */
@@ -1155,7 +1162,7 @@ function desktopSkillGuide(){
   return "\n\n[데스크톱 앱 스킬 안내 — 로컬 터미널 모드]\n"
     + "이 대화에서 너는 아래 스킬을 '실제로 가지고 있다'. 없다고 말하지 말고, 사용자가 스킬이 뭐냐고 물으면 이 내용을 쉬운 말로 설명해라.\n"
     + "■ 로컬 터미널 (```tool 블록): 사용자의 컴퓨터·폰(작업 폴더)에서 실제로 파일 읽기·검색·수정·명령 실행을 한다. 블록 안에 JSON 객체를 한 줄에 하나씩 쓴다. 도구 이름은 정확히 아래 8개만 쓴다(경로는 작업 폴더 기준 상대 경로):\n"
-    + "  read_file {\"tool\":\"read_file\",\"path\":\"src/a.js\"} / list_dir {\"tool\":\"list_dir\",\"path\":\".\"} / glob {\"tool\":\"glob\",\"pattern\":\"**/*.js\"} / grep {\"tool\":\"grep\",\"pattern\":\"정규식\"} / edit_file {\"tool\":\"edit_file\",\"path\":\"...\",\"old_string\":\"...\",\"new_string\":\"...\"} / write_file {\"tool\":\"write_file\",\"path\":\"...\",\"content\":\"...\"} / run_command {\"tool\":\"run_command\",\"command\":\"npm test\"} / todo_write {\"tool\":\"todo_write\",\"items\":[{\"text\":\"할 일\",\"status\":\"pending\"}]}\n"
+    + "  read_file {\"tool\":\"read_file\",\"path\":\"src/a.js\"} / list_dir {\"tool\":\"list_dir\",\"path\":\".\"} / glob {\"tool\":\"glob\",\"pattern\":\"**/*.js\"} / grep {\"tool\":\"grep\",\"pattern\":\"정규식\"} / edit_file {\"tool\":\"edit_file\",\"path\":\"...\",\"old_string\":\"...\",\"new_string\":\"...\"} / write_file {\"tool\":\"write_file\",\"path\":\"...\",\"content\":\"...\"} / run_command {\"tool\":\"run_command\",\"command\":\"npm test\"} / bg_run {\"tool\":\"bg_run\",\"command\":\"python bot.py\"} (오래 도는 프로그램: 시간 제한 없이 백그라운드로 실행, 15초 뒤 출력 반환) / bg_log {\"tool\":\"bg_log\",\"id\":1} / bg_stop {\"tool\":\"bg_stop\",\"id\":1} / todo_write {\"tool\":\"todo_write\",\"items\":[{\"text\":\"할 일\",\"status\":\"pending\"}]}\n"
     + "  예시:\n```tool\n{\"tool\":\"list_dir\",\"path\":\".\"}\n```\n"
     + "  JSON 안의 줄바꿈은 \\n 으로 쓴다. 도구 호출을 쓴 답변은 결과가 올 때까지 거기서 끝내고(결과를 상상해 이어 쓰지 않는다), 결과는 [도구 실행 결과]로 돌아오니 보고 다음 단계를 이어간다. 작업 폴더 밖 접근과 위험한 명령은 앱이 막거나 사용자 승인을 받는다. 이 모드에서는 runcmd(가상 Linux) 스킬을 쓰지 않는다.\n"
     + "■ upload (```upload 블록): 만든 파일 경로를 한 줄에 하나씩 적으면 사용자에게 미리보기/다운로드 카드로 전달된다(Local 의 파일도 가능 — 자동으로 복사해서 보여준다). 파일을 만들었다면 마지막에 꼭 쓴다.\n"
@@ -2766,14 +2773,15 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
 /* Local 작업공간에 복사된 첨부파일이면 AI 에게 그 경로를 알려준다(이미지·바이너리 포함) */
 function localAttachHint(m){
   const L = (m.files||[]);
-  if(!L.length) return "";
+  const bgn = m.bgNote ? "\n\n[백그라운드 터미널에서 사용자가 실행한 프로그램의 출력 — 참고용 결과]\n" + m.bgNote : "";
+  if(!L.length) return bgn;
   const rows = L.map(f=>{
     const kb = f.size ? " · " + (f.size < 1048576 ? Math.max(1, Math.round(f.size/1024)) + "KB" : (f.size/1048576).toFixed(1) + "MB") : "";
     const where = [f.localPath ? "Local 작업공간 " + f.localPath : "", f.sandboxPath ? "SandBox Linux " + f.sandboxPath : ""].filter(Boolean).join(" / ");
     const shown = f.isImg ? "이미지로 첨부됨" : (f.text ? "내용이 아래 본문에 포함됨" : (f._pdf ? "PDF 원본이 함께 전달됨" : "내용은 대화에 포함되지 않음"));
     return "- " + f.name + " (" + (f.type||"파일") + kb + ") · " + shown + (where ? " · 위치: " + where : "");
   });
-  return "\n\n[사용자가 첨부한 파일 " + L.length + "개]\n" + rows.join("\n") + "\n(위 파일은 사용자가 실제로 올린 것임. 위치가 있으면 run_command/read_file 등으로 열어서 쓰고, 없으면 '볼 수 없다'고 하지 말고 사용자에게 어떤 모드에서 다시 올릴지 안내해.)";
+  return "\n\n[사용자가 첨부한 파일 " + L.length + "개]\n" + rows.join("\n") + "\n(위 파일은 사용자가 실제로 올린 것임. 위치가 있으면 run_command/read_file 등으로 열어서 쓰고, 없으면 '볼 수 없다'고 하지 말고 사용자에게 어떤 모드에서 다시 올릴지 안내해.)" + bgn;
 }
 function buildGeminiParts(m){
   const parts = [];
@@ -3208,6 +3216,7 @@ async function sendMessage(){
     return;
   }
   const userMsg = { id: uid(), role:"user", content: raw.trim(), files: pendingFiles.slice(), ts: Date.now() };
+  if(window.__chmBgNotes && window.__chmBgNotes.length){ userMsg.bgNote = window.__chmBgNotes.splice(0).join("\n\n"); }
   chat.messages.push(userMsg);
   if(chat.title === "새 채팅" && (raw.trim() || pendingFiles.length)){
     chat.title = (raw.trim() || (pendingFiles[0] && pendingFiles[0].name) || "새 채팅").slice(0, 24);
@@ -4458,6 +4467,23 @@ async function renderLfsBackup(){
 }
 
 
+/* ---------------- 승인 요청 카드: 안드로이드 기본 팝업 대신 채팅창 아래에 작게 표시 ---------------- */
+(function(){
+  const stack = document.getElementById("askStack"); if(!stack) return;
+  window.__choiminiAsk = function(id, title, detail, yes, no){
+    const c = document.createElement("div"); c.className = "ask-card" + (/위험|⚠/.test(title) ? " risky" : ""); c.dataset.id = id;
+    const b = document.createElement("b"); b.textContent = "🔔 " + title; c.appendChild(b);
+    if(detail){ const p = document.createElement("pre"); p.textContent = detail; c.appendChild(p); }
+    const row = document.createElement("div"); row.className = "ab";
+    const n = document.createElement("button"); n.textContent = no || "거부"; const y = document.createElement("button"); y.className = "y"; y.textContent = yes || "허용";
+    const done = ok=>{ try{ window.AndroidBridge && window.AndroidBridge.localAnswer(id, ok); }catch(_){} c.remove(); };
+    n.addEventListener("click", ()=>done(false)); y.addEventListener("click", ()=>done(true));
+    row.appendChild(n); row.appendChild(y); c.appendChild(row); stack.appendChild(c);
+    try{ if(navigator.vibrate) navigator.vibrate(30); }catch(_){}
+  };
+  window.__choiminiAskCancel = function(id){ const c = stack.querySelector('[data-id="' + id + '"]'); if(c) c.remove(); };
+})();
+
 /* ---------------- Chminal 탭 (Android · Desktop 전용 터미널) ----------------
    Android : 최미나이 Local 과 같은 실행 환경(기본 셸 또는 설치한 Alpine Linux)에서 사용자가 직접 명령 실행 (AndroidLocal.ws "exec")
    Desktop : 실제 Windows CMD / PowerShell (DesktopBridge.term)
@@ -4539,24 +4565,25 @@ async function renderLfsBackup(){
   }
   /* ---- 터미널 창(세션) ---- */
   let sessions = [], cur = null, seq = 0;
-  function newSession(){
-    const s = { id: "t" + (++seq), name: "터미널 " + seq, out: document.createElement("div"), cwd: "", busy: false, hist: [], hpos: 0, shell: kind() === "desktop" ? "cmd" : "sh", draft: "" };
+  function newSession(bg){
+    const s = { id: "t" + (++seq), bg: !!bg, job: null, raw: "", blk: null, name: (bg ? "백그라운드 " : "터미널 ") + seq, out: document.createElement("div"), cwd: "", busy: false, hist: [], hpos: 0, shell: kind() === "desktop" ? "cmd" : "sh", draft: "" };
     s.out.className = "chm-out"; s.out.style.display = "none"; wrap.appendChild(s.out); sessions.push(s); return s;
   }
   function renderTabs(){
     tabBar.innerHTML = "";
     sessions.forEach(s=>{
-      const b = document.createElement("button"); b.className = "chm-tab" + (s === cur ? " active" : ""); b.textContent = s.name + (s.busy ? " ⏳" : "");
+      const b = document.createElement("button"); b.className = "chm-tab" + (s === cur ? " active" : ""); b.textContent = s.name + (s.busy ? " ⏳" : "") + (s.bg && s.job != null ? " ●" : "");
       b.addEventListener("click", ()=>activate(s));
       if(sessions.length > 1){ const x = document.createElement("span"); x.textContent = " ✕"; x.style.opacity = ".6"; x.addEventListener("click", e=>{ e.stopPropagation(); closeSession(s); }); b.appendChild(x); }
       tabBar.appendChild(b);
     });
     const add = document.createElement("button"); add.className = "chm-tab add"; add.textContent = "＋"; add.title = "새 터미널 창"; add.addEventListener("click", ()=>{ activate(newSession()); inp.focus(); }); tabBar.appendChild(add);
+    if(kind() === "android"){ const bgb = document.createElement("button"); bgb.className = "chm-tab add"; bgb.textContent = "＋ 백그라운드"; bgb.title = "시간 제한 없이 계속 도는 터미널 (디스코드 봇 등)"; bgb.addEventListener("click", ()=>{ const ns = newSession(true); activate(ns); line("meta", "백그라운드 터미널 — 여기서 실행한 명령은 시간 제한 없이 계속 돌아요(앱을 닫아도 유지). 실행 15초 뒤 출력이 최미나이에게 전달돼요. 실행 중에 입력하면 프로그램에 입력으로 전달됩니다.", ns); inp.focus(); }); tabBar.appendChild(bgb); }
   }
   function activate(s){
     if(cur){ cur.draft = inp.value; cur.out.style.display = "none"; cur.out.removeAttribute("id"); cur.shell = sel.value || cur.shell; }
     cur = s; s.out.style.display = ""; s.out.id = "chmOut"; if(sel.options.length) sel.value = s.shell; inp.value = s.draft || "";
-    renderTabs(); setPrompt(); $("chmRun").disabled = s.busy; s.out.scrollTop = s.out.scrollHeight;
+    renderTabs(); setPrompt(); $("chmRun").disabled = s.busy; $("chmStop").style.display = (s.bg && s.job != null) ? "" : "none"; s.out.scrollTop = s.out.scrollHeight;
   }
   function closeSession(s){
     if(sessions.length < 2) return; const i = sessions.indexOf(s); sessions.splice(i, 1); s.out.remove();
@@ -4574,7 +4601,7 @@ async function renderLfsBackup(){
   init(); setTimeout(init, 1200);
   function line(cls, text, s){ s = s || cur; const d = document.createElement("div"); if(cls) d.className = cls; d.textContent = text; s.out.appendChild(d); trim(s); s.out.scrollTop = s.out.scrollHeight; return d; }
   function trim(s){ while(s.out.childElementCount > 800) s.out.removeChild(s.out.firstChild); }
-  function promptText(s){ s = s || cur; if(!s) return "$"; const d = kind() === "desktop", ps = d && sel.value === "powershell"; return (ps ? "PS " : "") + (s.cwd || (d ? "작업 폴더" : "~")) + (d && !ps ? ">" : " $"); }
+  function promptText(s){ s = s || cur; if(!s) return "$"; if(s.bg) return (s.job != null ? "▶ 입력" : "bg") + " $"; const d = kind() === "desktop", ps = d && sel.value === "powershell"; return (ps ? "PS " : "") + (s.cwd || (d ? "작업 폴더" : "~")) + (d && !ps ? ">" : " $"); }
   function setPrompt(){ if(!cur) return; $("chmPrompt").textContent = promptText(); $("chmPrompt").title = cur.cwd; }
   // 실행 결과 블록: 원본 그대로(공백 유지) + ANSI 색 + (코드 파일이면) 문법 색
   function fillBlock(el, raw, cmd, isErr){
@@ -4610,7 +4637,7 @@ async function renderLfsBackup(){
       if(o) fillBlock(blk, String(o).replace(/\n+$/, ""), cmd, false); else blk.remove();
       if(!o && ec === 0 && /^\s*(ls|ll|dir)\b/.test(cmd)) line("meta", "(비어 있음 — 이 폴더에는 파일이 없어요)", s);
       if(kind() === "android" && (ec === 127 || (ec && /not found|inaccessible/i.test(o||"")))) line("meta", "💡 명령이 없다면 'pkg install 이름' 으로 설치하세요 (예: pkg install python). 처음엔 Alpine Linux 가 자동 설치돼요.", s);
-      if(tm) line("err", "[시간 초과로 중단됨]", s);
+      if(tm) line("err", "[시간 초과로 중단됨] 봇·서버처럼 오래 도는 프로그램은 위의 '＋ 백그라운드' 터미널에서 실행하세요 (시간 제한 없음).", s);
       else if(ec) line("meta", "종료 코드 " + ec, s);
     }catch(e){ running.remove(); blk.remove(); line("err", "오류: " + (e && e.message || e), s); }
     delete live[sid]; s.busy = false; renderTabs(); if(s === cur){ $("chmRun").disabled = false; setPrompt(); inp.focus(); }
@@ -4619,6 +4646,7 @@ async function renderLfsBackup(){
     e.preventDefault(); const s = cur; const c = inp.value; if(!c.trim() || !s || s.busy) return;
     inp.value = ""; s.hist.push(c); s.hpos = s.hist.length;
     if(c.trim() === "clear" || c.trim() === "cls"){ s.out.innerHTML = ""; return; }
+    if(s.bg){ bgSubmit(s, c); return; }
     if(kind() === "android" && /^(doctor|진단)$/i.test(c.trim())){
       line("cmd", promptText(s) + " " + c, s); s.busy = true;
       window.AndroidLocal.ws("doctor", {}).then(r=>{ line(r && r.ok ? "" : "err", (r && (r.output || r.error)) || "실패", s); s.busy = false; });
@@ -4644,6 +4672,35 @@ async function renderLfsBackup(){
     line("ai", "🤖 최미나이" + (shell ? " · " + shell : "") + " ▸ " + String(cmd).split("\n")[0].slice(0, 300), s);
     if(output){ const b = document.createElement("div"); s.out.appendChild(b); fillBlock(b, String(output).slice(0, 20000), cmd, !ok); }
   };
+  /* ---- 백그라운드 터미널 (Android) ---- */
+  const bgJobs = {};   // job id → session
+  window.__chmBgNotes = [];
+  function bgRender(s){ if(!s.blk){ s.blk = document.createElement("div"); s.out.appendChild(s.blk); } fillBlock(s.blk, s.raw.replace(/\n+$/, ""), s.lastCmd || "", false); s.out.scrollTop = s.out.scrollHeight; }
+  async function bgSubmit(s, c){
+    if(s.job != null){ // 실행 중이면 프로그램의 입력(stdin)으로 보낸다
+      line("cmd", "▶ " + c, s); const r = await window.AndroidLocal.ws("bg_input", { id: s.job, text: c + "\n" }); if(!r || !r.ok) line("err", (r && r.error) || "입력 실패", s); return;
+    }
+    line("cmd", "bg $ " + c, s); s.raw = ""; s.blk = null; s.lastCmd = c;
+    const r = await window.AndroidLocal.ws("bg_start", { command: c, cwd: "" });
+    if(!r || !r.ok){ line("err", "오류: " + ((r && r.error) || "실행 실패"), s); return; }
+    const id = JSON.parse(r.output).id; s.job = id; bgJobs[id] = s; s.userStarted = true; renderTabs(); setPrompt(); $("chmStop").style.display = s === cur ? "" : "none";
+    setTimeout(()=>{ // 실행 15초 뒤 최미나이에게 결과 전달 (다음 메시지에 함께 보냄)
+      if(bgJobs[id] !== s && s.job !== null) return;
+      const tail = s.raw.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").slice(-3000);
+      window.__chmBgNotes.push("#" + id + " `" + c + "` (15초 시점, " + (s.job === id ? "계속 실행 중" : "이미 종료됨") + ")\n" + (tail || "(출력 없음)"));
+      line("meta", "🤖 15초 시점 출력을 최미나이에게 전달했어요 (다음 메시지에 포함돼요)", s);
+    }, 15000);
+  }
+  window.__chmBg = function(id, chunk){ const s = bgJobs[id]; if(!s) return; s.raw += chunk; if(s.raw.length > 200000) s.raw = s.raw.slice(-150000); bgRender(s); };
+  window.__chmBgState = function(id, st, code, cmd){
+    if(st === "start" && !bgJobs[id]){ // 최미나이가 시작한 작업: 새 백그라운드 창에 연결
+      const s = newSession(true); s.name = "백그라운드 #" + id + " (AI)"; s.job = id; s.lastCmd = cmd; bgJobs[id] = s; if(!cur) activate(s); else renderTabs();
+      line("ai", "🤖 최미나이 ▸ " + cmd, s);
+    }
+    const s = bgJobs[id]; if(!s) return;
+    if(st === "exit"){ s.job = null; line(code === 0 ? "meta" : "err", "■ 종료됨 (exit " + code + ")", s); s.blk = null; s.raw = ""; renderTabs(); if(s === cur){ setPrompt(); $("chmStop").style.display = "none"; } }
+  };
+  $("chmStop").addEventListener("click", async()=>{ const s = cur; if(!s || s.job == null) return; const r = await window.AndroidLocal.ws("bg_stop", { id: s.job }); line("meta", r && r.ok ? "중지 요청을 보냈어요…" : ((r && r.error) || "중지 실패"), s); });
   function showTab(t){
     const chat = t !== "chminal";
     tabs.querySelectorAll("button").forEach(b=>b.classList.toggle("active", b.dataset.tab === t));
