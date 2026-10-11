@@ -1499,7 +1499,7 @@ function ensurePreviewOverlay(){
   let o = document.getElementById("previewOverlay");
   if(o) return o;
   o = document.createElement("div"); o.id = "previewOverlay";
-  o.innerHTML = `<div class="pv-box"><div class="pv-head"><span id="pvTitle"></span><button id="pvCopy">코드 복사</button><button id="pvRefresh">새로고침</button><button id="pvConsBtn">콘솔</button><button id="pvClose">닫기 ✕</button></div><div id="pvBody" style="flex:1;display:flex;min-height:0;"></div><div id="pvCons"><div id="pvConsOut"></div><input id="pvConsIn" placeholder="JavaScript 입력 후 Enter (미리보기 페이지에서 실행)" spellcheck="false"></div></div>`;
+  o.innerHTML = `<div class="pv-box"><div class="pv-head"><span id="pvTitle"></span><button id="pvRaw" title="렌더링 대신 소스를 일반 텍스트로 봐요">일반 텍스트</button><button id="pvCopy">코드 복사</button><button id="pvRefresh">새로고침</button><button id="pvConsBtn">콘솔</button><button id="pvClose">닫기 ✕</button></div><div id="pvBody" style="flex:1;display:flex;min-height:0;"></div><div id="pvCons"><div id="pvConsOut"></div><input id="pvConsIn" placeholder="JavaScript 입력 후 Enter (미리보기 페이지에서 실행)" spellcheck="false"></div></div>`;
   document.body.appendChild(o);
   const close = ()=>{ o.classList.remove("show"); document.getElementById("pvBody").innerHTML = ""; };
   const cons = o.querySelector("#pvConsOut"), consIn = o.querySelector("#pvConsIn");
@@ -1509,6 +1509,8 @@ function ensurePreviewOverlay(){
     const fr = o.querySelector("#pvBody iframe"); if(!fr || ev.source !== fr.contentWindow) return;
     logLine(d.t, d.m);
   });
+  o.querySelector("#pvRaw").addEventListener("click", ()=>{ o._raw = !o._raw; try{ localStorage.setItem("choimini.pvRaw", o._raw ? "1" : "0"); }catch(_){} if(o._path) previewFile(o._path); });
+  try{ o._raw = localStorage.getItem("choimini.pvRaw") === "1"; }catch(_){ o._raw = false; }
   o.querySelector("#pvConsBtn").addEventListener("click", ()=>o.querySelector("#pvCons").classList.toggle("show"));
   o.querySelector("#pvRefresh").addEventListener("click", ()=>{ if(o._path){ cons.innerHTML = ""; previewFile(o._path); toast("새로고침됨"); } });
   o.querySelector("#pvCopy").addEventListener("click", ()=>{
@@ -1541,7 +1543,11 @@ function previewFile(p){
   o.querySelector("#pvCopy").style.display = (typeof st.content === "string" && !/^data:/.test(st.content)) ? "" : "none";
   o.querySelector("#pvConsBtn").style.display = /\.(html?)$/i.test(p) ? "" : "none";
   if(!/\.(html?)$/i.test(p)) o.querySelector("#pvCons").classList.remove("show");
-  if(/\.(html?|svg)$/i.test(p)){
+  const rawBtn = o.querySelector("#pvRaw"), renderable = /\.(html?|svg)$/i.test(p) && typeof st.content === "string" && !/^data:/.test(st.content);
+  rawBtn.style.display = renderable ? "" : "none"; rawBtn.textContent = o._raw ? "미리보기로 보기" : "일반 텍스트";
+  if(renderable && o._raw){
+    const pre = document.createElement("pre"); pre.textContent = String(st.content); body.appendChild(pre);
+  } else if(/\.(html?|svg)$/i.test(p)){
     const f = document.createElement("iframe");
     // same-origin 없는 샌드박스: 미리보기 안의 코드가 이 사이트의 저장소/API 키에 접근할 수 없다
     f.setAttribute("sandbox", "allow-scripts allow-modals allow-pointer-lock allow-forms");
@@ -1559,6 +1565,7 @@ function previewFile(p){
   }
   o.classList.add("show");
 }
+window.__previewFile = previewFile;
 /* 파일 저장 공통: Android 앱 WebView 는 blob 다운로드를 못 하므로 네이티브 브리지(saveFile*)로 넘긴다. 그 외(웹·데스크톱 앱)는 <a download>. */
 function saveBytesAsFile(bytes, name, mime){
   const B = window.AndroidBridge;
@@ -1972,17 +1979,20 @@ async function handleFiles(fileList){
     if(wantFS && !isImg && !isText){ try{ binUrl = await fileToDataURL(f); }catch(e){ console.warn("[첨부] 원본 읽기 실패", e); } }
     const entry = { name:f.name, type:f.type||"application/octet-stream", isImg, dataUrl, text, size:f.size, fee: attachFee(f.size) };
     if(binUrl) entry.binUrl = binUrl;
-    // 안드로이드 Local 이면 원본을 Local 작업공간(uploads/)에 복사 → 최미나이가 run_command 등으로 바로 쓸 수 있다
-    if(useLocalTerminal() && window.AndroidLocal && typeof window.AndroidLocal.ws === "function"){
-      if(f.size > 6*1024*1024){ toast(f.name + ": 6MB 보다 커서 Local 작업공간에는 복사하지 못했어요"); }
-      else try{
-        const u8 = new Uint8Array(await f.arrayBuffer()); let s = ""; for(let i=0;i<u8.length;i+=0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i+0x8000));
-        const lp = "uploads/" + String(f.name).replace(/[\\/:*?"<>|]/g, "_");
-        const r = await window.AndroidLocal.ws("write", { path: lp, b64: btoa(s) });
-        if(r && r.ok) entry.localPath = lp; else toast(f.name + ": Local 에 복사하지 못했어요 (" + ((r && r.error) || "오류") + ")");
+    // 안드로이드 Local 이면 원본을 Local 작업공간(uploads/)에 복사 → 최미나이가 run_command 등으로 바로 쓸 수 있다 (크기 제한 없음: 조각 단위로 씀)
+    if(f._localPath){ entry.localPath = f._localPath; }
+    else if(useLocalTerminal() && window.AndroidLocal && typeof window.AndroidLocal.ws === "function"){
+      try{
+        const lp = "uploads/" + String(f.name).replace(/[\\/:*?"<>|]/g, "_"); const CH = 1536 * 1024; let ok = true, err = "";
+        for(let off = 0; off < f.size || off === 0; off += CH){
+          const u8 = new Uint8Array(await f.slice(off, off + CH).arrayBuffer()); let b = ""; for(let i=0;i<u8.length;i+=0x8000) b += String.fromCharCode.apply(null, u8.subarray(i, i+0x8000));
+          const r = await window.AndroidLocal.ws("write_chunk", { path: lp, b64: btoa(b), append: off > 0 });
+          if(!r || !r.ok){ ok = false; err = (r && r.error) || "오류"; break; }
+          if(f.size === 0) break;
+        }
+        if(ok) entry.localPath = lp; else toast(f.name + ": Local 에 복사하지 못했어요 (" + err + ")");
       }catch(e){ console.warn("[첨부→Local]", e); }
     }
-    if(f.type === "application/pdf" && f.size <= 8*1024*1024){ try{ entry.pdfUrl = await fileToDataURL(f); entry._pdf = true; }catch(_){} }
     pendingFiles.push(entry);
     // WORK/CODE 모드에서는 업로드한 파일을 가상 Linux_Local(user/download/)에도 저장해서
     // AI가 fs_* 도구로 실제로 읽고/변환하고/수정할 수 있게 한다.
@@ -3875,9 +3885,14 @@ document.getElementById("attachBtn").addEventListener("click", ()=>{
 const _nativeIn = {};
 window.__choiminiNativeFileBegin = function(id, name, type){ _nativeIn[id] = { name, type, parts: [] }; };
 window.__choiminiNativeFileChunk = function(id, b64){ const f = _nativeIn[id]; if(!f) return; const bin = atob(b64), u = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i); f.parts.push(u); };
-window.__choiminiNativeFileEnd = async function(id){
+// 큰 파일: 앱이 Local 작업공간에 직접 복사해 뒀고 내용은 웹으로 보내지 않는다 (메모리 절약, 용량 제한 없음)
+window.__choiminiNativeFileStub = function(name, type, size, localPath){
+  pendingFiles.push({ name, type: type || "application/octet-stream", isImg:false, dataUrl:null, text:null, size, fee: 0, localPath });
+  renderFilePreview(); toast("📎 " + name + " → Local " + localPath);
+};
+window.__choiminiNativeFileEnd = async function(id, localPath){
   const f = _nativeIn[id]; delete _nativeIn[id]; if(!f) return;
-  try{ await handleFiles([new File(f.parts, f.name || "file", { type: f.type || "application/octet-stream" })]); }
+  try{ const file = new File(f.parts, f.name || "file", { type: f.type || "application/octet-stream" }); if(localPath) file._localPath = localPath; await handleFiles([file]); }
   catch(e){ console.error("native file", e); toast("⚠️ 파일을 불러오지 못했어요: " + (e && e.message || e)); }
 };
 window.__choiminiNativeFileError = function(msg){ toast("⚠️ " + msg); };
