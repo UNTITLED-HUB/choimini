@@ -2773,7 +2773,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
 /* Local 작업공간에 복사된 첨부파일이면 AI 에게 그 경로를 알려준다(이미지·바이너리 포함) */
 function localAttachHint(m){
   const L = (m.files||[]);
-  const bgn = m.bgNote ? "\n\n[백그라운드 터미널에서 사용자가 실행한 프로그램의 출력 — 참고용 결과]\n" + m.bgNote : "";
+  const bgn = m.bgNote ? "\n\n[Chminal 터미널에서 사용자가 직접 실행한 명령과 출력 — 참고용]\n" + m.bgNote : "";
   if(!L.length) return bgn;
   const rows = L.map(f=>{
     const kb = f.size ? " · " + (f.size < 1048576 ? Math.max(1, Math.round(f.size/1024)) + "KB" : (f.size/1048576).toFixed(1) + "MB") : "";
@@ -4578,7 +4578,7 @@ async function renderLfsBackup(){
       tabBar.appendChild(b);
     });
     const add = document.createElement("button"); add.className = "chm-tab add"; add.textContent = "＋"; add.title = "새 터미널 창"; add.addEventListener("click", ()=>{ activate(newSession()); inp.focus(); }); tabBar.appendChild(add);
-    if(kind() === "android"){ const bgb = document.createElement("button"); bgb.className = "chm-tab add"; bgb.textContent = "＋ 백그라운드"; bgb.title = "시간 제한 없이 계속 도는 터미널 (디스코드 봇 등)"; bgb.addEventListener("click", ()=>{ const ns = newSession(true); activate(ns); line("meta", "백그라운드 터미널 — 여기서 실행한 명령은 시간 제한 없이 계속 돌아요(앱을 닫아도 유지). 실행 15초 뒤 출력이 최미나이에게 전달돼요. 실행 중에 입력하면 프로그램에 입력으로 전달됩니다.", ns); inp.focus(); }); tabBar.appendChild(bgb); }
+    if(kind() === "android"){ const bgb = document.createElement("button"); bgb.className = "chm-tab add"; bgb.textContent = "＋ 백그라운드"; bgb.title = "시간 제한 없이 계속 도는 터미널 (디스코드 봇 등)"; bgb.addEventListener("click", ()=>{ const ns = newSession(true); activate(ns); line("meta", "백그라운드 터미널\n· 실행한 프로그램은 시간 제한 없이 계속 돌아요 (앱을 닫아도 유지)\n· cd 로 폴더를 옮긴 뒤 python bot.py 처럼 실행하세요\n· 실행 15초 뒤 출력이 최미나이에게 전달돼요\n· 실행 중에 입력하면 프로그램의 입력으로 전달돼요", ns); inp.focus(); }); tabBar.appendChild(bgb); }
   }
   function activate(s){
     if(cur){ cur.draft = inp.value; cur.out.style.display = "none"; cur.out.removeAttribute("id"); cur.shell = sel.value || cur.shell; }
@@ -4601,7 +4601,7 @@ async function renderLfsBackup(){
   init(); setTimeout(init, 1200);
   function line(cls, text, s){ s = s || cur; const d = document.createElement("div"); if(cls) d.className = cls; d.textContent = text; s.out.appendChild(d); trim(s); s.out.scrollTop = s.out.scrollHeight; return d; }
   function trim(s){ while(s.out.childElementCount > 800) s.out.removeChild(s.out.firstChild); }
-  function promptText(s){ s = s || cur; if(!s) return "$"; if(s.bg) return (s.job != null ? "▶ 입력" : "bg") + " $"; const d = kind() === "desktop", ps = d && sel.value === "powershell"; return (ps ? "PS " : "") + (s.cwd || (d ? "작업 폴더" : "~")) + (d && !ps ? ">" : " $"); }
+  function promptText(s){ s = s || cur; if(!s) return "$"; if(s.bg) return (s.job != null ? "▶ 입력" : (s.cwd || "~")) + " $"; const d = kind() === "desktop", ps = d && sel.value === "powershell"; return (ps ? "PS " : "") + (s.cwd || (d ? "작업 폴더" : "~")) + (d && !ps ? ">" : " $"); }
   function setPrompt(){ if(!cur) return; $("chmPrompt").textContent = promptText(); $("chmPrompt").title = cur.cwd; }
   // 실행 결과 블록: 원본 그대로(공백 유지) + ANSI 색 + (코드 파일이면) 문법 색
   function fillBlock(el, raw, cmd, isErr){
@@ -4635,9 +4635,10 @@ async function renderLfsBackup(){
       }
       running.remove();
       if(o) fillBlock(blk, String(o).replace(/\n+$/, ""), cmd, false); else blk.remove();
-      if(!o && ec === 0 && /^\s*(ls|ll|dir)\b/.test(cmd)) line("meta", "(비어 있음 — 이 폴더에는 파일이 없어요)", s);
-      if(kind() === "android" && (ec === 127 || (ec && /not found|inaccessible/i.test(o||"")))) line("meta", "💡 명령이 없다면 'pkg install 이름' 으로 설치하세요 (예: pkg install python). 처음엔 Alpine Linux 가 자동 설치돼요.", s);
-      if(tm) line("err", "[시간 초과로 중단됨] 봇·서버처럼 오래 도는 프로그램은 위의 '＋ 백그라운드' 터미널에서 실행하세요 (시간 제한 없음).", s);
+      if(!o && ec === 0 && /^\s*(ls|ll|dir)\b/.test(cmd)) line("meta", "(빈 폴더예요)", s);
+      if(kind() === "android" && (ec === 127 || (ec && /not found|inaccessible/i.test(o||"")))) line("meta", "💡 명령을 찾을 수 없어요. pkg install 이름 으로 설치해 보세요 (예: pkg install python).", s);
+      addNote("[터미널] " + promptText(s).replace(/ \$$/, "") + " $ " + cmd + "\n" + plain(o).slice(-1500) + (ec ? "\n(종료 코드 " + ec + ")" : ""));
+      if(tm) line("err", "시간 초과로 중단됐어요. 봇·서버처럼 오래 도는 프로그램은 '＋ 백그라운드' 터미널에서 실행하세요.", s);
       else if(ec) line("meta", "종료 코드 " + ec, s);
     }catch(e){ running.remove(); blk.remove(); line("err", "오류: " + (e && e.message || e), s); }
     delete live[sid]; s.busy = false; renderTabs(); if(s === cur){ $("chmRun").disabled = false; setPrompt(); inp.focus(); }
@@ -4653,7 +4654,7 @@ async function renderLfsBackup(){
       return;
     }
     if(kind() === "android" && /^(install-linux|install linux|linux install)$/i.test(c.trim())){
-      line("cmd", promptText(s) + " " + c, s); line("meta", "리눅스 환경 설치 중… (채팅의 설치 칩에서 진행 확인)", s);
+      line("cmd", promptText(s) + " " + c, s); line("meta", "리눅스 환경을 설치하는 중이에요 (진행 상황은 채팅 화면의 설치 칩에서 볼 수 있어요)", s);
       s.busy = true; window.AndroidLocal.ws("install_linux", {}).then(r=>{ s.cwd = ""; setPrompt(); line(r && r.ok ? "" : "err", (r && (r.output || r.error)) || "실패", s); s.busy = false; });
       return;
     }
@@ -4673,41 +4674,72 @@ async function renderLfsBackup(){
     if(output){ const b = document.createElement("div"); s.out.appendChild(b); fillBlock(b, String(output).slice(0, 20000), cmd, !ok); }
   };
   /* ---- 백그라운드 터미널 (Android) ---- */
-  const bgJobs = {};   // job id → session
-  window.__chmBgNotes = [];
+  const bgJobs = {};      // job id → session
+  const earlyExit = {};   // 세션에 연결되기 전에 끝난 작업 (id → 종료 코드)
+  window.__chmBgNotes = []; // 다음 메시지에 함께 보낼 터미널 기록 (사용자가 직접 친 명령 + 출력)
+  function addNote(t){ window.__chmBgNotes.push(String(t).slice(0, 2500)); if(window.__chmBgNotes.length > 12) window.__chmBgNotes.shift(); }
+  function plain(t){ return String(t || "").replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").replace(/\r/g, ""); }
   function bgRender(s){ if(!s.blk){ s.blk = document.createElement("div"); s.out.appendChild(s.blk); } fillBlock(s.blk, s.raw.replace(/\n+$/, ""), s.lastCmd || "", false); s.out.scrollTop = s.out.scrollHeight; }
+  function bgEnded(s, code){
+    s.job = null; line(code === 0 ? "meta" : "err", "■ 종료됨 (코드 " + code + ")", s); s.blk = null; s.raw = ""; renderTabs();
+    if(s === cur){ setPrompt(); $("chmStop").style.display = "none"; }
+  }
   async function bgSubmit(s, c){
     if(s.job != null){ // 실행 중이면 프로그램의 입력(stdin)으로 보낸다
-      line("cmd", "▶ " + c, s); const r = await window.AndroidLocal.ws("bg_input", { id: s.job, text: c + "\n" }); if(!r || !r.ok) line("err", (r && r.error) || "입력 실패", s); return;
+      line("cmd", "▶ " + c, s); addNote("[백그라운드 터미널 #" + s.job + " 입력] " + c);
+      const r = await window.AndroidLocal.ws("bg_input", { id: s.job, text: c + "\n" });
+      if(!r || !r.ok){ line("err", "입력하지 못했어요. 프로그램이 이미 끝났을 수 있어요.", s); const l = await window.AndroidLocal.ws("bg_list", {}); try{ const me = JSON.parse(l.output).find(x=>x.id === s.job); if(!me || !me.running) bgEnded(s, me ? me.exit : -1); }catch(_){} }
+      return;
     }
-    line("cmd", "bg $ " + c, s); s.raw = ""; s.blk = null; s.lastCmd = c;
-    const r = await window.AndroidLocal.ws("bg_start", { command: c, cwd: "" });
-    if(!r || !r.ok){ line("err", "오류: " + ((r && r.error) || "실행 실패"), s); return; }
-    const id = JSON.parse(r.output).id; s.job = id; bgJobs[id] = s; s.userStarted = true; renderTabs(); setPrompt(); $("chmStop").style.display = s === cur ? "" : "none";
-    setTimeout(()=>{ // 실행 15초 뒤 최미나이에게 결과 전달 (다음 메시지에 함께 보냄)
-      if(bgJobs[id] !== s && s.job !== null) return;
-      const tail = s.raw.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").slice(-3000);
-      window.__chmBgNotes.push("#" + id + " `" + c + "` (15초 시점, " + (s.job === id ? "계속 실행 중" : "이미 종료됨") + ")\n" + (tail || "(출력 없음)"));
+    line("cmd", promptText(s) + " " + c, s);
+    if(/^\s*cd(\s|$)/.test(c) && !/[;&|]/.test(c)){ // cd 는 이 창의 작업 폴더만 바꾼다 (프로그램을 띄우지 않음)
+      const r = await window.AndroidLocal.ws("exec", { command: c, cwd: s.cwd });
+      if(r && r.ok){ const j = JSON.parse(r.output); if(j.exit === 0){ if(j.cwd) s.cwd = j.cwd; setPrompt(); } else line("err", j.output || "폴더를 찾을 수 없어요", s); }
+      else line("err", (r && r.error) || "cd 실패", s);
+      addNote("[백그라운드 터미널] " + c + " → 현재 폴더 " + (s.cwd || "~"));
+      return;
+    }
+    s.raw = ""; s.blk = null; s.lastCmd = c;
+    const r = await window.AndroidLocal.ws("bg_start", { command: c, cwd: s.cwd });
+    if(!r || !r.ok){ line("err", "실행하지 못했어요: " + ((r && r.error) || "알 수 없는 오류"), s); return; }
+    const id = JSON.parse(r.output).id; s.job = id; bgJobs[id] = s; renderTabs(); setPrompt(); $("chmStop").style.display = s === cur ? "" : "none";
+    if(id in earlyExit){ const code = earlyExit[id]; delete earlyExit[id]; setTimeout(()=>bgEnded(s, code), 80); }
+    addNote("[백그라운드 터미널 #" + id + " 시작] " + (s.cwd ? s.cwd + " $ " : "$ ") + c);
+    setTimeout(()=>{ // 실행 15초 뒤 출력을 최미나이에게 전달 (다음 메시지에 함께 보냄)
+      const tail = plain(s.raw).slice(-2000);
+      addNote("[백그라운드 터미널 #" + id + " 15초 시점 · " + (s.job === id ? "실행 중" : "이미 종료") + "]\n" + (tail || "(출력 없음)"));
       line("meta", "🤖 15초 시점 출력을 최미나이에게 전달했어요 (다음 메시지에 포함돼요)", s);
     }, 15000);
   }
   window.__chmBg = function(id, chunk){ const s = bgJobs[id]; if(!s) return; s.raw += chunk; if(s.raw.length > 200000) s.raw = s.raw.slice(-150000); bgRender(s); };
-  window.__chmBgState = function(id, st, code, cmd){
-    if(st === "start" && !bgJobs[id]){ // 최미나이가 시작한 작업: 새 백그라운드 창에 연결
-      const s = newSession(true); s.name = "백그라운드 #" + id + " (AI)"; s.job = id; s.lastCmd = cmd; bgJobs[id] = s; if(!cur) activate(s); else renderTabs();
-      line("ai", "🤖 최미나이 ▸ " + cmd, s);
+  window.__chmBgState = function(id, st, code, cmd, origin){
+    if(st === "start"){
+      if(origin === "ai" && !bgJobs[id]){ // 최미나이가 시작한 작업: 새 백그라운드 창에 연결
+        const s = newSession(true); s.name = "백그라운드 #" + id + " (AI)"; s.job = id; s.lastCmd = cmd; bgJobs[id] = s; if(!cur) activate(s); else renderTabs();
+        line("ai", "🤖 최미나이 ▸ " + cmd, s);
+      }
+      return;
     }
-    const s = bgJobs[id]; if(!s) return;
-    if(st === "exit"){ s.job = null; line(code === 0 ? "meta" : "err", "■ 종료됨 (exit " + code + ")", s); s.blk = null; s.raw = ""; renderTabs(); if(s === cur){ setPrompt(); $("chmStop").style.display = "none"; } }
+    const s = bgJobs[id];
+    if(!s){ earlyExit[id] = code; return; }
+    if(st === "exit") bgEnded(s, code);
   };
-  $("chmStop").addEventListener("click", async()=>{ const s = cur; if(!s || s.job == null) return; const r = await window.AndroidLocal.ws("bg_stop", { id: s.job }); line("meta", r && r.ok ? "중지 요청을 보냈어요…" : ((r && r.error) || "중지 실패"), s); });
+  $("chmStop").addEventListener("click", async()=>{
+    const s = cur; if(!s || s.job == null) return;
+    const r = await window.AndroidLocal.ws("bg_stop", { id: s.job });
+    if(r && r.ok) line("meta", "중지하는 중…", s);
+    else { // 이미 끝난 작업이면 화면 상태만 정리한다
+      const l = await window.AndroidLocal.ws("bg_list", {}); let me = null; try{ me = JSON.parse(l.output).find(x=>x.id === s.job); }catch(_){}
+      if(!me || !me.running) bgEnded(s, me ? me.exit : -1); else line("err", (r && r.error) || "중지하지 못했어요", s);
+    }
+  });
   function showTab(t){
     const chat = t !== "chminal";
     tabs.querySelectorAll("button").forEach(b=>b.classList.toggle("active", b.dataset.tab === t));
     pane.classList.toggle("show", !chat);
     const m = $("messages"), c = document.querySelector(".composer");
     if(m) m.style.display = chat ? "" : "none"; if(c) c.style.display = chat ? "" : "none";
-    if(!chat){ if(!sessions.length) init(); setPrompt(); if(cur && !cur.out.childElementCount) line("meta", "Chminal · 명령어를 입력하세요. 'help' 로 명령어 목록, 'pkg install python' 으로 패키지 설치. 최미나이가 실행한 명령도 여기에 보여요.", cur); setTimeout(()=>inp.focus(), 50); }
+    if(!chat){ if(!sessions.length) init(); setPrompt(); if(cur && !cur.out.childElementCount) line("meta", "Chminal\n· help: 명령어 목록\n· pkg install python: 패키지 설치 (처음엔 리눅스가 자동으로 설치돼요)\n· 최미나이가 실행한 명령도 여기에 표시돼요", cur); setTimeout(()=>inp.focus(), 50); }
   }
   tabs.querySelectorAll("button").forEach(b=>b.addEventListener("click", ()=>{ if(kind()) showTab(b.dataset.tab); }));
 })();
