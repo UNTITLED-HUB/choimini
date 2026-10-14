@@ -747,6 +747,17 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         </select>
       </div>
 
+      <div class="field-group" id="deviceUseRow" style="display:none">
+        <label>폰 화면 조작 (device_use)</label>
+        <div id="deviceUseStatus" style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">확인 중…</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" id="deviceA11yBtn" style="padding:8px 12px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:13px;">접근성 켜기</button>
+          <button type="button" id="deviceOverlayBtn" style="padding:8px 12px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:13px;">다른 앱 위에 표시 켜기</button>
+          <button type="button" id="deviceTasksBtn" style="padding:8px 12px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:13px;">작업 관리</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;">권한이 둘 다 켜져 있을 때만 화면 조작이 동작해요. 조작 중에는 화면 아래에 빨간 [중지] 버튼이 떠요.</div>
+      </div>
+
       <div class="field-group">
         <label>명령 실행 후 결과 확인 대기 (백그라운드 실행)</label>
         <select id="cmdWaitSelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
@@ -1262,8 +1273,12 @@ function agentTailPrompt(){
   return "\n\n[최종 확인] 위 [코드 답변 규칙]의 '코드블록' 규칙은 단순 코드 설명·짧은 예시에만 적용한다. 파일을 만드는 작업이라면 ```runcmd 블록으로 파일을 만들고 ```upload 블록으로 전달해라. 스킬이 없다고 말하지 마라.";
 }
 /* 데스크톱 앱(로컬 터미널 모드)에서 AI 에게 알려주는 스킬 설명. 사용자가 "스킬이 뭐야?" 하고 물어도 이걸 바탕으로 답한다. */
+function deviceUseGuide(){
+  if(!(window.AndroidBridge && AndroidBridge.deviceStatus)) return "";
+  return "■ device_use (폰 화면 직접 조작, Android 앱 전용): device_screen(화면 읽기) / device_click {id|text} / device_tap {x,y} / device_swipe / device_scroll {dir} / device_type {text,id} / device_key {key} / device_open_app {name} / device_wait. 화면을 조작해야 할 때만 쓰고, 처음이면 먼저 {\"tool\":\"device_help\"} 로 사용법을 읽는다. 한 번에 하나씩 하고 결과를 확인한다. 결과가 '[중지됨]' 이면 즉시 멈추고 중지됐다고만 알린다(스스로 다시 시작 금지). '[권한 필요]' 면 사용자에게 권한을 켜 달라고 안내한다. 결제·삭제·전송·로그인은 먼저 묻고, 비밀번호/인증번호는 대신 입력하지 않는다.\n";
+}
 function desktopSkillGuide(){
-  return "\n\n[데스크톱 앱 스킬 안내 — 로컬 터미널 모드]\n"
+  return "\n\n[데스크톱 앱 스킬 안내 — 로컬 터미널 모드]\n" + deviceUseGuide()
     + "이 대화에서 너는 아래 스킬을 '실제로 가지고 있다'. 없다고 말하지 말고, 사용자가 스킬이 뭐냐고 물으면 이 내용을 쉬운 말로 설명해라.\n"
     + "■ 로컬 터미널 (```tool 블록): 사용자의 컴퓨터·폰(작업 폴더)에서 실제로 파일 읽기·검색·수정·명령 실행을 한다. 블록 안에 JSON 객체를 한 줄에 하나씩 쓴다. 도구 이름은 정확히 아래 8개만 쓴다(경로는 작업 폴더 기준 상대 경로):\n"
     + "  read_file {\"tool\":\"read_file\",\"path\":\"src/a.js\"} / list_dir {\"tool\":\"list_dir\",\"path\":\".\"} / glob {\"tool\":\"glob\",\"pattern\":\"**/*.js\"} / grep {\"tool\":\"grep\",\"pattern\":\"정규식\"} / edit_file {\"tool\":\"edit_file\",\"path\":\"...\",\"old_string\":\"...\",\"new_string\":\"...\"} / write_file {\"tool\":\"write_file\",\"path\":\"...\",\"content\":\"...\"} / run_command {\"tool\":\"run_command\",\"command\":\"npm test\"} / bg_run {\"tool\":\"bg_run\",\"command\":\"python bot.py\"} (오래 도는 프로그램: 시간 제한 없이 백그라운드로 실행, 기본 15초 뒤 출력 반환. 필요하면 \"wait_sec\":30 처럼 결과를 볼 때까지 기다릴 초를 지정할 수 있고, 사용자가 설정에서 정해 둔 값이 있으면 그 값이 우선) / bg_log {\"tool\":\"bg_log\",\"id\":1} / bg_stop {\"tool\":\"bg_stop\",\"id\":1} / todo_write {\"tool\":\"todo_write\",\"items\":[{\"text\":\"할 일\",\"status\":\"pending\"}]}\n"
@@ -2011,6 +2026,7 @@ function syncSettingsUI(){
     : "API 키 입력";
   updateMemoryUI();
   const cw = document.getElementById("cmdWaitSelect"); if(cw) cw.value = String(settings.cmdWaitSec || 0);
+  try{ refreshDeviceRow(); }catch(_){}
 }
 
 /* 기억력 세부 단계(1~5): 높을수록 더 많은 과거 대화를 참고하되 토큰을 더 씀.
@@ -3345,6 +3361,8 @@ async function sendMessage(){
     autoGrow(input);
     return;
   }
+  window.__deviceStopped = false; window.__deviceHalt = false; // 사용자가 새 요청을 보내면 이전 긴급 중지가 풀린다 (AI 가 임의로 푸는 건 불가)
+  try{ if(window.AndroidBridge && AndroidBridge.deviceNewRequest) AndroidBridge.deviceNewRequest(); }catch(_){}
 
   const preset = settings.preset;
   const chat = currentChat();
@@ -3832,8 +3850,10 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         const ok = !!(r && r.ok), out = ok ? (r.output || "(출력 없음)") : "오류: " + ((r && r.error) || "알 수 없는 오류");
         commands.push({ cmd: cmdLabel(c, args), ok, out: shortOut(out) });
         outs.push("▶ " + label + "\n" + out);
+        if(String(c.tool).indexOf("device_") === 0 && (window.__deviceStopped || (r && r.error && String(r.error).indexOf("[중지됨]") === 0))){ window.__deviceStopped = true; window.__deviceHalt = true; break; } // 긴급 중지: 남은 조작과 다음 호출을 하지 않는다
       }
       aiMsg.activity = { commands, created:[], edited:[], deleted:[], uploaded: localUploaded };
+      if(window.__deviceHalt){ window.__deviceHalt = false; aiMsg.running = false; chat.messages.push({ id: uid(), role:"system", content:"🛑 화면 조작이 중지됐어요. 새 요청을 보내기 전에는 다시 조작하지 않아요.", ts: Date.now() }); autoLoadChat(chat); return; }
       if(outs.length) feedback = "[도구 실행 결과]\n" + outs.join("\n\n").slice(0, 100000);
     }
     // 순수 브라우저(또는 Desktop 이 아닌 경우)에서 WORK/CODE 모드면 가상 Linux_Local 스킬(runcmd / upload / question-load / ```tool)을 실행한다.
@@ -4711,6 +4731,32 @@ async function renderLfsBackup(){
   });
 }
 
+
+/* ---------------- device_use: 긴급 중지 알림 / 권한 상태 ---------------- */
+window.__choiminiDeviceStopped = function(msg){
+  window.__deviceStopped = true;
+  try{ toast("🛑 " + (msg || "화면 조작을 중지했어요")); }catch(_){}
+  try{ refreshDeviceRow(); }catch(_){}
+};
+function refreshDeviceRow(){
+  const box = document.getElementById("deviceUseRow"); if(!box) return;
+  if(!(window.AndroidBridge && AndroidBridge.deviceStatus)){ box.style.display = "none"; return; }
+  box.style.display = "";
+  let st = null; try{ st = JSON.parse(AndroidBridge.deviceStatus()); }catch(_){}
+  const t = document.getElementById("deviceUseStatus");
+  if(!st){ t.textContent = "상태를 확인할 수 없어요 (권한은 꺼진 것으로 취급해요)"; return; }
+  const sn = { idle:"대기 중", running:"조작 중 · " + st.steps + "단계", stopped:"중지됨 (새 요청 전까지 재시작 안 함)" }[st.state] || "알 수 없음";
+  t.textContent = "접근성: " + (st.accessibility ? "켜짐 ✅" : "꺼짐 ❌") + " · 다른 앱 위에 표시: " + (st.overlay ? "켜짐 ✅" : "꺼짐 ❌") + " · " + sn;
+}
+(function(){
+  const g = id=>document.getElementById(id);
+  const a = g("deviceA11yBtn"), o = g("deviceOverlayBtn"), tk = g("deviceTasksBtn");
+  if(a) a.addEventListener("click", ()=>{ try{ AndroidBridge.openDeviceSettings("accessibility"); }catch(_){} });
+  if(o) o.addEventListener("click", ()=>{ try{ AndroidBridge.openDeviceSettings("overlay"); }catch(_){} });
+  if(tk) tk.addEventListener("click", ()=>{ try{ AndroidBridge.openTasks(); }catch(_){} });
+  document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) refreshDeviceRow(); });
+  setTimeout(refreshDeviceRow, 800);
+})();
 
 /* ---------------- 승인 요청 카드: 안드로이드 기본 팝업 대신 채팅창 아래에 작게 표시 ---------------- */
 (function(){
