@@ -107,6 +107,16 @@ input,textarea,select{font-family:inherit;color:inherit;}
 .act-think b,.act-test b{color:var(--accent);font-weight:700;}
 details.act,.act-line,.act-run{font-size:12.5px;margin:4px 0;padding:6px 10px;border-radius:8px;background:var(--panel-2);border:1px solid var(--border);color:var(--text-dim);}
 details.act summary{cursor:pointer;list-style:none;}
+.devact{margin:8px 0;padding:10px 12px;border-radius:14px;background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--border);box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 6px 18px rgba(0,0,0,.18);}
+.devhead{font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.devhead span{font-weight:600;font-size:11px;color:var(--accent);background:var(--accent-dim);padding:1px 8px;border-radius:99px;}
+.devstep{display:flex;gap:8px;align-items:flex-start;padding:5px 0;font-size:12.5px;color:var(--text-dim);border-top:1px dashed var(--border);}
+.devstep .di{flex:0 0 20px;text-align:center;}
+.devstep .dt{flex:1;min-width:0;word-break:break-word;line-height:1.45;}
+.devstep.bad .dt{color:var(--danger);}
+.devthumb{display:block;margin-top:6px;max-height:150px;max-width:100%;border-radius:10px;border:1px solid var(--border);cursor:zoom-in;}
+#devZoom{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.86);display:flex;align-items:center;justify-content:center;}
+#devZoom img{max-width:94vw;max-height:92vh;border-radius:12px;}
 details.act summary::-webkit-details-marker{display:none;}
 details.act pre{margin:6px 0 0;white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;font-size:11.5px;color:var(--text);}
 details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
@@ -427,6 +437,59 @@ code.md-code{background:var(--panel-2);border:1px solid var(--border);border-rad
 #pvConsIn{border:none;border-top:1px solid var(--border);background:#0b0d12;color:#e8ecf3;padding:8px 10px;font:12px ui-monospace,Menlo,Consolas,monospace;outline:none;}
 .paste-edit{width:100%;min-height:50vh;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;box-sizing:border-box;}
 #mvBody:has(.paste-edit){width:min(800px,90vw);}
+
+/* ===== Design v2: 부드러운 그라데이션 · 유리 느낌 · 일관된 둥근 모서리 (레이아웃은 건드리지 않고 겉모습만 다듬음) ===== */
+:root{
+  --accent-2:#60a5fa; --glow:0 0 0 3px rgba(59,130,246,.22);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.18); --shadow-md:0 8px 28px rgba(0,0,0,.38);
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+body{background:radial-gradient(1200px 600px at 80% -10%,rgba(59,130,246,.07),transparent 60%),var(--bg);-webkit-font-smoothing:antialiased;letter-spacing:-.005em;}
+*{-webkit-tap-highlight-color:transparent;}
+button,.chat-item,.model-card,.suggest-chip,.footer-btn,.icon-btn{transition:background-color .18s var(--ease),border-color .18s var(--ease),transform .12s var(--ease),box-shadow .18s var(--ease),opacity .18s;}
+button:active:not(:disabled){transform:scale(.97);}
+::-webkit-scrollbar{width:6px;height:6px;} ::-webkit-scrollbar-thumb{background:#2a2f44;border-radius:6px;} ::-webkit-scrollbar-thumb:hover{background:#3a4160;}
+
+.sidebar{background:linear-gradient(180deg,#07080d,#050609);}
+.brand .dot,.empty-state .dot-big,.avatar{background:linear-gradient(135deg,var(--accent-2),var(--accent) 55%,#2563eb);box-shadow:0 4px 14px rgba(59,130,246,.35);}
+.newchat-btn{background:linear-gradient(135deg,var(--accent),#2563eb);border-radius:12px;box-shadow:0 6px 16px rgba(37,99,235,.28);}
+.newchat-btn:hover{opacity:1;transform:translateY(-1px);box-shadow:0 8px 20px rgba(37,99,235,.38);}
+.chat-item{border-radius:10px;} .chat-item.active{background:linear-gradient(90deg,rgba(59,130,246,.16),var(--sidebar-active) 70%);box-shadow:inset 2px 0 0 var(--accent);}
+.token-pill{border-radius:12px;background:linear-gradient(180deg,var(--sidebar-active),#11141d);}
+
+.topbar{background:rgba(10,11,15,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.05);position:sticky;top:0;z-index:5;}
+.model-pill{border-radius:99px;border:1px solid transparent;} .model-pill:hover{border-color:var(--border);}
+
+.msg-wrap{gap:22px;}
+.row.user .bubble{background:linear-gradient(135deg,#1d2132,#171a27);border:1px solid rgba(255,255,255,.05);border-radius:20px 20px 6px 20px;box-shadow:var(--shadow-sm);}
+.row.ai .bubble{line-height:1.7;}
+.system-notice{background:rgba(26,29,41,.8);border-radius:99px;backdrop-filter:blur(6px);}
+.suggest-chip{border-radius:99px;background:linear-gradient(180deg,var(--panel),#0f1119);} .suggest-chip:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-sm);}
+
+.composer{background:linear-gradient(180deg,transparent,var(--bg) 28%);}
+.input-box{background:rgba(18,20,28,.92);border:1px solid #2a2f44;border-radius:28px;box-shadow:var(--shadow-md);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);}
+.input-box:focus-within{border-color:var(--accent);box-shadow:var(--glow),var(--shadow-md);}
+.send-btn{background:linear-gradient(135deg,var(--accent-2),var(--accent));box-shadow:0 4px 12px rgba(59,130,246,.4);} .send-btn:hover:not(:disabled){transform:scale(1.06);}
+.stop-btn{box-shadow:0 4px 14px rgba(229,72,77,.4);border-radius:99px;}
+.mode-switch{background:rgba(26,29,41,.8);border-radius:99px;}
+
+.modal-overlay{background:rgba(3,4,8,.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+.modal{border:1px solid rgba(255,255,255,.06);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.55);}
+.modal-overlay.open .modal{animation:popIn .22s var(--ease);}
+@keyframes popIn{from{opacity:0;transform:translateY(10px) scale(.97);}to{opacity:1;transform:none;}}
+.modal-header{background:rgba(18,20,28,.9);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);}
+.field-group input[type=text],.field-group input[type=password],.field-group select{border-radius:12px;} .field-group input:focus,.field-group select:focus{outline:none;border-color:var(--accent);box-shadow:var(--glow);}
+.model-card{border-radius:14px;} .model-card:hover{transform:translateY(-1px);} .model-card.active{box-shadow:var(--glow);}
+.primary-btn{background:linear-gradient(135deg,var(--accent),#2563eb);border-radius:12px;box-shadow:0 4px 14px rgba(37,99,235,.3);}
+
+.toast{background:rgba(231,233,242,.96);color:#0a0b0f;border-radius:99px;padding:10px 20px;box-shadow:var(--shadow-md);font-weight:600;}
+.ask-card{border-radius:16px;padding:12px 14px;background:rgba(18,20,28,.96);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:var(--shadow-md);font-size:13px;animation:popIn .2s var(--ease);}
+.ask-card b{font-size:13.5px;margin-bottom:2px;} .ask-card pre{max-height:96px;font-size:11.5px;background:rgba(0,0,0,.25);padding:6px 8px;border-radius:8px;}
+.ask-card button{min-height:36px;border-radius:10px;padding:6px 18px;font-size:13px;font-weight:600;} .ask-card button.y{background:linear-gradient(135deg,var(--accent),#2563eb);}
+.ask-card.risky{border-color:#e5a03a;box-shadow:0 0 0 1px rgba(229,160,58,.25),var(--shadow-md);}
+details.act,.act-line,.act-run{border-radius:12px;background:rgba(26,29,41,.7);}
+.code-block{border-radius:14px;box-shadow:var(--shadow-sm);}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 
 <style id="cfgate-gate-style">
@@ -749,13 +812,13 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 
       <div class="field-group" id="deviceUseRow" style="display:none">
         <label>폰 화면 조작 (device_use)</label>
-        <div id="deviceUseStatus" style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">확인 중…</div>
+        <div id="deviceUseStatus" style="font-size:12.5px;color:var(--text-dim);margin-bottom:6px;">확인 중…</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button type="button" id="deviceA11yBtn" style="padding:8px 12px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:13px;">접근성 켜기</button>
           <button type="button" id="deviceOverlayBtn" style="padding:8px 12px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:13px;">다른 앱 위에 표시 켜기</button>
           <button type="button" id="deviceTasksBtn" style="padding:8px 12px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:13px;">작업 관리</button>
         </div>
-        <div style="font-size:12px;color:var(--muted);margin-top:6px;">권한이 둘 다 켜져 있을 때만 화면 조작이 동작해요. 조작 중에는 화면 아래에 빨간 [중지] 버튼이 떠요.</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:6px;">권한이 둘 다 켜져 있을 때만 화면 조작이 동작해요. 조작 중에는 화면 아래에 빨간 [중지] 버튼이 떠요.</div>
       </div>
 
       <div class="field-group">
@@ -839,6 +902,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         <div id="wsPath" style="flex:1;min-width:100px;font-family:monospace;font-size:13px;word-break:break-all">~</div>
         <button class="lfs-ib" id="wsNewDir" title="새 폴더">＋<span class="t">폴더</span></button>
         <button class="lfs-ib" id="wsUpload" title="폰의 파일을 작업공간으로">⤒<span class="t">올리기</span></button>
+        <button class="lfs-ib" id="wsPkgs" title="설치한 패키지/프로그램 관리">📦<span class="t">패키지</span></button>
         <button class="lfs-ib" id="wsOpenFiles" title="폰의 파일 앱에서 이 폴더 열기">📂<span class="t">파일 앱</span></button>
         <button class="lfs-ib icon" id="wsRefresh" title="새로고침">⟳</button>
         <input type="file" id="wsUploadInput" multiple style="display:none">
@@ -850,6 +914,19 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         <textarea id="wsViewText" style="width:100%;min-height:220px;font-family:monospace;font-size:12px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;box-sizing:border-box"></textarea>
         <img id="wsViewImg" style="display:none;max-width:100%;border-radius:8px">
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="pkgModal">
+  <div class="modal">
+    <div class="modal-header"><h3>📦 설치한 패키지 · 프로그램</h3><button class="modal-close" data-close="pkgModal">✕</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.6">프로그램은 <b>/root/programs</b>, 프로젝트는 <b>/root/work</b> 에 모여요. apk 패키지는 리눅스 안에 설치돼요.</div>
+      <div class="field-group"><label>새로 설치</label>
+        <div style="display:flex;gap:6px"><select id="pkgMgr" style="flex:0 0 92px;padding:8px;border-radius:10px;background:var(--panel-2);color:var(--text);border:1px solid var(--border)"><option value="apk">apk</option><option value="pip">pip</option><option value="npm">npm</option></select>
+        <input type="text" id="pkgName" placeholder="패키지 이름 (예: python3, requests, typescript)" style="flex:1;min-width:0"><button class="primary-btn" id="pkgInstall" style="padding:8px 14px">설치</button></div></div>
+      <div id="pkgList" style="font-size:13px"></div>
     </div>
   </div>
 </div>
@@ -1208,7 +1285,8 @@ function fsToolPrompt(mode){
   const F = "```";
   let p = "\n\n[작업 에이전트 모드 · 가상 Linux(Linux_Local)]\n"
     + "지금 너는 대화만 하는 챗봇이 아니라 '작업 에이전트'다. 파일을 만들거나 고치거나 변환하는 요청은 채팅에 코드를 붙여 넣는 것으로 끝내면 안 되고, 반드시 아래 스킬로 Linux_Local 에서 직접 실행해서 파일로 만들어야 한다.\n"
-    + "Linux_Local 은 브라우저 저장공간 안의 격리된 가상 Linux 다. 폴더: /user/download(사용자가 올린 파일 자동 저장), /user/documents, /user/desktop, /user/projects(작업물), /cmds(명령어), /package(설치된 패키지), /tmp, /trash(사용자가 지운 항목 휴지통), /backup(네가 지운 파일이 <프로젝트명>.zip 으로 자동 백업되는 곳).\n"
+    + "Linux_Local 은 브라우저 저장공간 안의 격리된 가상 Linux 다. 폴더: /user/download(사용자가 올린 파일 자동 저장), /user/documents, /user/desktop, /user/projects(작업물), /cmds(명령어), /package(설치된 패키지), /tmp, /trash(사용자가 지운 항목 휴지통), /backup(네가 지우거나 덮어쓴 파일의 옛 내용이 <프로젝트명>.zip 으로 자동 백업되는 곳).\n"
+    + "파일 정리 규칙: 모든 작업물은 /user/projects/<프로젝트명>/ 안에 만든다(프로젝트명은 영문 소문자-하이픈). /user 바로 아래나 / 에 파일을 흩뿌리지 않는다. 한 프로젝트 안에서는 index.html·src/·assets/ 처럼 역할별 폴더로 나누고 README.md 를 둔다. 문서는 /user/documents, 사용자가 올린 파일(/user/download)은 건드리지 않고, 임시 파일은 /tmp 에 둔다.\n"
     + "  · 사용자가 🔒 잠근 파일/폴더를 수정·삭제·이동하려 하면 사용자에게 동의 창이 뜬다. 거부되면 '🔒 잠긴 파일' 오류가 나오니 우회하지 말고 사용자에게 잠금 해제나 허용을 요청해라. /trash 와 /backup 은 수정·삭제할 수 없다. 네가 지운 파일은 /backup 에서 사용자가 복원할 수 있다.\n"
     + "\n■ 스킬 1 — runcmd : 리눅스 명령어를 실행한다 (특정 명령어 몇 개로 제한되지 않는다). 코드블록 언어를 runcmd 로 쓰고 그 안에 셸 명령을 그대로 쓴다(JSON 아님, 여러 줄 가능):\n"
     + F + "runcmd\nmkdir -p /user/projects/game\ncat > /user/projects/game/game.html <<'EOF'\n<!DOCTYPE html>\n<html>…전체 코드…</html>\nEOF\nls -la /user/projects/game\n" + F + "\n"
@@ -1585,9 +1663,17 @@ function renderActivityHtml(m){
     else h += `<div class="act-test">* <b>${tx || "테스트중..."}</b></div>`;
   }
   const a = m.activity;
-  if(a && a.commands && a.commands.length){
-    h += `<details class="act"><summary>&gt; ${a.commands.every(c=>/^🌐/.test(c.cmd)) ? "브라우저 작업함" : "명령 실행함"}(${a.commands.length})</summary><pre>` +
-      a.commands.map(c=>`<span class="${c.ok ? "cmd-ok" : "cmd-bad"}">$ ${escapeHtml(c.cmd)}</span>\n${escapeHtml(c.out||"")}`).join("\n\n") + `</pre></details>`;
+  const devSteps = a && a.commands ? a.commands.map((c,i)=>({c,i})).filter(x=>x.c.dev) : [];
+  const plainCmds = a && a.commands ? a.commands.filter(c=>!c.dev) : [];
+  if(devSteps.length){
+    const DI = { screen:"📸", click:"👆", tap:"👆", swipe:"↔️", scroll:"↕️", type:"⌨️", key:"🔘", open_app:"🚀", wait:"⏳" };
+    const th = (window.__devThumbs && window.__devThumbs[m.id]) || {};
+    h += `<div class="devact"><div class="devhead">📱 화면 조작 <span>${devSteps.length}단계</span></div>` + devSteps.map(x=>
+      `<div class="devstep ${x.c.ok ? "ok" : "bad"}"><span class="di">${DI[x.c.dev] || "▫️"}</span><div class="dt">${escapeHtml(x.c.cmd)}${th[x.i] ? `<img class="devthumb" src="${th[x.i]}" alt="화면 캡처" onclick="window.__devZoom&&window.__devZoom(this.src)">` : ""}</div></div>`).join("") + `</div>`;
+  }
+  if(plainCmds.length){
+    h += `<details class="act"><summary>&gt; ${plainCmds.every(c=>/^🌐/.test(c.cmd)) ? "브라우저 작업함" : "명령 실행함"}(${plainCmds.length})</summary><pre>` +
+      plainCmds.map(c=>`<span class="${c.ok ? "cmd-ok" : "cmd-bad"}">$ ${escapeHtml(c.cmd)}</span>\n${escapeHtml(c.out||"")}`).join("\n\n") + `</pre></details>`;
   }
   if(a){
     (a.created||[]).forEach(p=>{ h += `<div class="act-line created">&gt; <b>파일 생성됨</b>(${escapeHtml(baseName(p))})</div>`; });
@@ -3328,6 +3414,7 @@ function setChatGenerating(chat, on, abortCtl){
   else delete genState[chat.id];
   if(!anyGenerating()){ releaseWakeLock(); try{ LinuxFS.clearLockConsent(); }catch(_){} }
   try{ if(window.AndroidBridge && AndroidBridge.setGenerating) AndroidBridge.setGenerating(anyGenerating()); }catch(_){}
+  if(!anyGenerating()){ try{ if(window.AndroidBridge && AndroidBridge.deviceEnd) AndroidBridge.deviceEnd(); }catch(_){} } // 답변이 끝나면 화면 조작도 자동으로 끝낸다
   refreshGenUI();
   try{ renderChatList(); }catch(_){}
 }
@@ -3350,6 +3437,27 @@ function suggestModeFor(text){
 }
 
 /* ---------------- send flow ---------------- */
+/* 첫 질문을 받으면 가벼운(lite) 모델이 짧은 채팅 제목을 자동으로 정한다. 실패하거나 사용자가 그 사이에 이름을 바꿨으면 그대로 둔다. */
+async function autoTitle(chat, text){
+  try{
+    text = String(text || "").trim(); if(!text) return;
+    const provider = settings.provider, apiKey = resolveApiKey(provider);
+    if(!(apiKey || hasDefaultProxy(provider))) return;
+    const model = settings.models[provider] && settings.models[provider]["lite"]; if(!model) return;
+    const prov = chat.title;
+    const sys = "너는 채팅방 제목 생성기다. 사용자의 첫 메시지를 보고 핵심을 담은 짧은 제목 하나만 출력한다. 한국어면 8~14자, 다른 언어면 2~5단어. 따옴표·마침표·이모지·설명·접두어 없이 제목 글자만.";
+    const hist = [{ role:"user", content: text.slice(0, 600) }];
+    let out;
+    if(provider === "gemini") out = (await callGemini(model, apiKey, sys, hist, "lite", 200)).text;
+    else if(provider === "openai") out = (await callOpenAI(model, apiKey, sys, hist, 40)).text;
+    else if(provider === "anthropic") out = (await callAnthropic(model, apiKey, sys, hist, 40)).text;
+    let t = String(out || "").split("\n")[0].replace(/^[\s"'“”‘’「」#*\-–:：]+|[\s"'“”‘’「」.。!?]+$/g, "").trim();
+    if(!t || t.length < 2) return;
+    t = t.slice(0, 30);
+    if(chat.title !== prov) return; // 그 사이 사용자가 직접 이름을 바꿨다
+    chat.title = t; saveChats(); renderChatList(); renderTopbar();
+  }catch(_){}
+}
 async function sendMessage(){
   if(activeGenerating()) return; // 이 채팅이 답변을 만드는 중이면 새 메시지를 못 보낸다 (다른 채팅은 동시에 가능)
   const input = document.getElementById("msgInput");
@@ -3378,6 +3486,7 @@ async function sendMessage(){
   chat.messages.push(userMsg);
   if(chat.title === "새 채팅" && (raw.trim() || pendingFiles.length)){
     chat.title = (raw.trim() || (pendingFiles[0] && pendingFiles[0].name) || "새 채팅").slice(0, 24);
+    autoTitle(chat, raw.trim() || (pendingFiles[0] && pendingFiles[0].name) || ""); // 임시 제목(글자 자르기)을 AI 가 정한 짧은 제목으로 바꿈
   }
   input.value = "";
   autoGrow(input);
@@ -3812,6 +3921,9 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
     if(useLocalTerminal() && /```(tool|runcmd|upload)[ \t]*\r?\n/.test(aiMsg.content)){
       const calls = parseToolCalls(aiMsg.content).filter(c=>!(c && c.tool === "question_load"));
       const outs = [], commands = [], localUploaded = [];
+      if(calls.some(c=>c && String(c.tool).indexOf("device_") === 0)){ // 화면 조작 중에는 다른 앱 화면 위에서도 AI 가 하는 말이 보이게 [중지] 버튼 옆으로 보낸다
+        try{ const say = parseAiDisplay(aiMsg.content).text; if(say && window.AndroidBridge && AndroidBridge.deviceNarrate) AndroidBridge.deviceNarrate(say); }catch(_){}
+      }
       setRunning("명령 실행중...");
       for(const c of calls){
         if(!c || !c.tool || c.tool === "__invalid"){ outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요."); continue; }
@@ -3848,7 +3960,13 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         if(r && r.aborted){ aiMsg.running = false; chat.messages.push({ id: uid(), role:"system", content:"사용자가 작업을 중단했어요.", ts: Date.now() }); autoLoadChat(chat); return; }
         const label = c.tool + (args.path ? " " + args.path : args.command ? " " + String(args.command).slice(0, 80) : args.pattern ? " " + args.pattern : "");
         const ok = !!(r && r.ok), out = ok ? (r.output || "(출력 없음)") : "오류: " + ((r && r.error) || "알 수 없는 오류");
-        commands.push({ cmd: cmdLabel(c, args), ok, out: shortOut(out) });
+        if(String(c.tool).indexOf("device_") === 0){ // 화면 조작: 무엇을 했는지(+ 화면 캡처)를 채팅에 바로바로 보여준다. 캡처는 저장하지 않고 이번 실행 중에만 보관
+          const dl = (r && r.desc) || (ok ? "완료" : "실패");
+          commands.push({ cmd: dl, ok, out: shortOut(out), dev: String(c.tool).replace("device_", "") });
+          if(r && r.thumb){ const m = (window.__devThumbs = window.__devThumbs || {}); (m[aiMsg.id] = m[aiMsg.id] || {})[commands.length - 1] = "data:image/jpeg;base64," + r.thumb; }
+          aiMsg.activity = { commands: commands.slice(), created:[], edited:[], deleted:[], uploaded: localUploaded };
+          setRunning("📱 " + dl);
+        } else commands.push({ cmd: cmdLabel(c, args), ok, out: shortOut(out) });
         outs.push("▶ " + label + "\n" + out);
         if(String(c.tool).indexOf("device_") === 0 && (window.__deviceStopped || (r && r.error && String(r.error).indexOf("[중지됨]") === 0))){ window.__deviceStopped = true; window.__deviceHalt = true; break; } // 긴급 중지: 남은 조작과 다음 호출을 하지 않는다
       }
@@ -4715,7 +4833,7 @@ async function renderLfsBackup(){
   lfsUpdateCounts();
   const box = document.getElementById("lfsBackupList"); box.innerHTML = "";
   const items = LinuxFS.backupList();
-  if(!items.length){ box.innerHTML = '<div class="lfs-row empty">백업이 없어요<br><span style="font-size:11.5px">최미나이가 명령어로 파일을 지우면 여기에 자동으로 모여요</span></div>'; return; }
+  if(!items.length){ box.innerHTML = '<div class="lfs-row empty">백업이 없어요<br><span style="font-size:11.5px">최미나이가 명령어로 파일을 지우거나 덮어쓰면 여기에 자동으로 모여요</span></div>'; return; }
   items.forEach(b=>{
     const row = document.createElement("div"); row.className = "lfs-row";
     row.className = "lfs-row wide";
@@ -4732,6 +4850,7 @@ async function renderLfsBackup(){
 }
 
 
+window.__devZoom = function(src){ const d = document.createElement("div"); d.id = "devZoom"; d.innerHTML = '<img alt="">'; d.firstChild.src = src; d.addEventListener("click", ()=>d.remove()); document.body.appendChild(d); };
 /* ---------------- device_use: 긴급 중지 알림 / 권한 상태 ---------------- */
 window.__choiminiDeviceStopped = function(msg){
   window.__deviceStopped = true;
@@ -4740,7 +4859,13 @@ window.__choiminiDeviceStopped = function(msg){
 };
 function refreshDeviceRow(){
   const box = document.getElementById("deviceUseRow"); if(!box) return;
-  if(!(window.AndroidBridge && AndroidBridge.deviceStatus)){ box.style.display = "none"; return; }
+  const isApp = !!(window.AndroidBridge || window.CHOIMINI_APP === "android");
+  if(!(window.AndroidBridge && AndroidBridge.deviceStatus)){
+    box.style.display = isApp ? "" : "none";
+    const t0 = document.getElementById("deviceUseStatus");
+    if(isApp && t0) t0.textContent = "이 앱 버전에는 화면 조작 기능이 없어요. Choimini Android 1.2.20 이상으로 다시 설치해 주세요.";
+    return;
+  }
   box.style.display = "";
   let st = null; try{ st = JSON.parse(AndroidBridge.deviceStatus()); }catch(_){}
   const t = document.getElementById("deviceUseStatus");
@@ -5118,6 +5243,38 @@ function refreshDeviceRow(){
   btn.addEventListener("click", ()=>{ if(!WS()){ toast("Local 작업공간은 Android 앱에서 볼 수 있어요"); return; } closeModal("storageModal"); cwd = "."; closeViewer(); openModal("wsModal"); render(); });
   $("wsUp").addEventListener("click", ()=>{ cwd = cwd.includes("/") ? cwd.replace(/\/[^/]*$/, "") : "."; closeViewer(); render(); });
   $("wsRefresh").addEventListener("click", render);
+  /* 설치한 패키지 관리 (apk / pip / npm / programs 폴더) */
+  const fmtSize = n => n > 1048576 ? (n / 1048576).toFixed(1) + "MB" : Math.max(1, Math.round(n / 1024)) + "KB";
+  async function pkgRender(){
+    const box = $("pkgList"); box.innerHTML = '<div style="opacity:.7">불러오는 중… (처음엔 몇 초 걸려요)</div>';
+    let d; try{ d = JSON.parse(await ws("pkg_list", {})); }catch(e){ box.innerHTML = '<div style="color:var(--danger)">불러오지 못했어요: ' + escapeHtml(e.message) + '</div>'; return; }
+    const sec = (title, mgr, items, fmt)=>{
+      let h = '<div style="margin:12px 0 4px;font-weight:700">' + title + ' <span style="opacity:.6;font-weight:600">' + items.length + '</span></div>';
+      if(!items.length) return h + '<div style="opacity:.55;font-size:12px">없어요</div>';
+      return h + items.map(it=>{ const f = fmt(it); return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:10px;margin:4px 0;background:var(--panel-2)"><span style="flex:1;min-width:0;word-break:break-all">' + escapeHtml(f.label) + (f.sub ? ' <span style="opacity:.55;font-size:11.5px">' + escapeHtml(f.sub) + '</span>' : '') + '</span><button class="lfs-ib" data-mgr="' + mgr + '" data-name="' + escapeHtml(f.name) + '" style="color:var(--danger)">삭제</button></div>'; }).join("");
+    };
+    let h = sec("📁 programs 폴더", "program", d.programs || [], x=>({ label: x.name + (x.dir ? "/" : ""), sub: fmtSize(x.size), name: x.name }));
+    if(d.linux){
+      h += sec("🧱 apk (시스템 패키지)", "apk", d.apk || [], x=>({ label: x, name: String(x).replace(/-\d.*$/, "") }));
+      h += sec("🐍 pip", "pip", d.pip || [], x=>({ label: x.replace("==", " "), name: x.split("==")[0] }));
+      h += sec("📦 npm (전역)", "npm", d.npm || [], x=>({ label: x, name: String(x).replace(/@[^@/]*$/, "") }));
+    } else h += '<div style="margin-top:12px;opacity:.65;font-size:12px">리눅스 환경을 설치하면 apk/pip/npm 패키지도 여기서 관리할 수 있어요.</div>';
+    box.innerHTML = h;
+    box.querySelectorAll("button[data-mgr]").forEach(b=>b.addEventListener("click", async()=>{
+      const mgr = b.dataset.mgr, name = b.dataset.name;
+      if(!confirm('"' + name + '" 을(를) 삭제할까요?' + (mgr === "program" ? "\n/root/programs 안의 파일이 지워져요." : ""))) return;
+      b.disabled = true; b.textContent = "삭제 중…";
+      try{ await ws("pkg_remove", { mgr, name }); toast("삭제했어요: " + name); }catch(e){ toast("삭제 실패: " + e.message); }
+      pkgRender();
+    }));
+  }
+  $("wsPkgs").addEventListener("click", ()=>{ openModal("pkgModal"); pkgRender(); });
+  $("pkgInstall").addEventListener("click", async()=>{
+    const name = $("pkgName").value.trim(); if(!name) return;
+    const b = $("pkgInstall"); b.disabled = true; b.textContent = "설치 중…";
+    try{ await ws("pkg_install", { mgr: $("pkgMgr").value, name }); toast("설치했어요: " + name); $("pkgName").value = ""; }catch(e){ toast("설치 실패: " + String(e.message).slice(-120)); }
+    b.disabled = false; b.textContent = "설치"; pkgRender();
+  });
   $("wsOpenFiles").addEventListener("click", ()=>{
     let ok = false;
     try{ ok = !!(window.AndroidBridge && AndroidBridge.openWorkspaceInFiles && AndroidBridge.openWorkspaceInFiles()); }catch(_){}

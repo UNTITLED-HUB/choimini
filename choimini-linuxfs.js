@@ -167,7 +167,7 @@
      - 잠금: 사용자가 파일·폴더에 거는 보호 표시(entry.locked). 최미나이(AI 도구 실행 중)가 잠긴 항목을
        수정·삭제·이동하려면 사용자의 동의(onLockRequest)가 필요하다. 폴더를 잠그면 안의 모든 항목이 잠긴다.
      - 휴지통(/trash): 사용자가 지운 항목을 14일 보관 후 자동 삭제.
-     - 백업(/backup): 최미나이가 명령어로 지운 파일을 <프로젝트명>.zip 으로 묶어 7일 보관 후 자동 삭제. */
+     - 백업(/backup): 최미나이가 명령어로 지우거나 바꾼(덮어쓴) 파일의 옛 내용을 <프로젝트명>.zip 으로 묶어 7일 보관 후 자동 삭제. */
   const TRASH_MS = 14 * 24 * 3600 * 1000, BACKUP_MS = 7 * 24 * 3600 * 1000;
   let aiDepth = 0, sysDepth = 0;
   const consent = new Set();
@@ -261,9 +261,10 @@
     if(m){ try{ const b = atob(c.slice(m[0].length)); const u = new Uint8Array(b.length); for(let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }catch(_){} }
     return new TextEncoder().encode(c);
   }
-  function captureForBackup(p){
+  /** label: "삭제"(지워지기 전) | "변경"(덮어쓰기/수정되기 전의 옛 내용). 최미나이가 한 작업만 백업한다. */
+  function captureForBackup(p, label){
     if(!aiDepth || sysDepth || inSystem(p) || /^\/tmp(\/|$)/.test(p)) return;
-    subtreeKeys(p).forEach(k => { const e = state.fs[k]; if(e && e.type === "file") bkPending.push({ path:k, content:e.content, mime:e.mime, ts: nowTs() }); });
+    subtreeKeys(p).forEach(k => { const e = state.fs[k]; if(e && e.type === "file") bkPending.push({ path:k, content:e.content, mime:e.mime, ts: nowTs(), label: label || "삭제" }); });
     if(bkPending.length && !bkTimer) bkTimer = setTimeout(() => { bkTimer = null; bkRunning = bkRunning.then(flushBackups); }, 30);
   }
   function stamp(t){ const d = new Date(t), z = n => String(n).padStart(2, "0"); return d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + "-" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()); }
@@ -283,9 +284,15 @@
         }
         g.list.forEach(it => {
           let nm = it.path.startsWith(g.root) ? it.path.slice(g.root.length) : it.path.replace(/^\//, "");
-          if(used.has(nm)){ const m = /^(.*?)(\.[^./]+)?$/.exec(nm); nm = m[1] + " (삭제 " + stamp(it.ts) + ")" + (m[2] || ""); }
+          if(it.label === "변경" || used.has(nm)){ const m = /^(.*?)(\.[^./]+)?$/.exec(nm); nm = m[1] + " (" + (it.label || "삭제") + " " + stamp(it.ts) + ")" + (m[2] || ""); }
+          if(used.has(nm)){ const m = /^(.*?)(\.[^./]+)?$/.exec(nm); let k = 2, cand; do{ cand = m[1] + " #" + (k++) + (m[2] || ""); }while(used.has(cand)); nm = cand; } // 같은 초에 여러 번 바뀐 경우 이름이 겹치지 않게
           used.add(nm); entries.push({ name:nm, data: toBytes(it.content) });
         });
+        { // 같은 파일의 "변경" 백업은 최근 5개만 남긴다(저장공간 보호)
+          const byBase = {}; entries.forEach((en, i) => { const m = /^(.*) \(변경 (\d{8}-\d{6})\)(?: #\d+)?(\.[^./]+)?$/.exec(en.name); if(m){ (byBase[m[1] + (m[3] || "")] = byBase[m[1] + (m[3] || "")] || []).push({ i, t: m[2] }); } });
+          const drop = new Set(); Object.keys(byBase).forEach(b => { const l = byBase[b].sort((a, c) => a.t < c.t ? 1 : -1); l.slice(5).forEach(x => drop.add(x.i)); });
+          if(drop.size){ const keep = entries.filter((_, i) => !drop.has(i)); entries.length = 0; keep.forEach(x => entries.push(x)); }
+        }
         const { sec1, cd, count } = await Apk.zipParts(entries);
         const e22 = new Uint8Array(22), dv = new DataView(e22.buffer);
         dv.setUint32(0, 0x06054b50, true); dv.setUint16(8, count, true); dv.setUint16(10, count, true); dv.setUint32(12, cd.length, true); dv.setUint32(16, sec1.length, true);
@@ -384,6 +391,7 @@
     const prevSize = prevE ? (prevE.size||0) : 0, prevBig = !!(prevE && prevE.bigId);
     if(big){ if(bigBytes() - (prevBig ? prevSize : 0) + size > MAX_BIG_TOTAL) throw new Error("Linux_Local 큰 파일 저장공간이 가득 참 (총 " + Math.round(MAX_BIG_TOTAL/1048576) + "MB)"); }
     else if(totalBytes() - (prevBig ? 0 : prevSize) + size > MAX_TOTAL_BYTES) throw new Error("Linux_Local 저장공간이 가득 참");
+    if(prevE && aiDepth && !sysDepth && !inSystem(p) && prevE.content !== content) captureForBackup(p, "변경"); // 덮어쓰기 전 옛 내용 백업
     ensureParentDirs(p);
     if(big){
       const id = "b" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -433,6 +441,7 @@
     if(!exists(src)) throw new Error(`없음: ${src}`);
     if(isDir(dst)) dst = joinPath(dst, baseName(src));
     guard(src, "move", true); guard(dst, "edit", true);
+    if(isFile(src) && isFile(dst)) captureForBackup(dst, "변경"); // 같은 이름 파일을 덮어쓰면 옛 파일 백업
     if(isFile(src)){
       state.fs[dst] = Object.assign(cloneEntry(state.fs[src]), { updatedAt: nowTs() });
       delete state.fs[src];
