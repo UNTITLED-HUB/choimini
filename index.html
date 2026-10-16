@@ -102,6 +102,14 @@ input,textarea,select{font-family:inherit;color:inherit;}
 .row.ai.cont .avatar{visibility:hidden;}
 .row.ai.cont{margin-top:-14px;}
 .typing-label{font-size:12px;color:var(--text-dim);margin-left:8px;align-self:center;}
+.think-line{font-size:12px;color:var(--text-dim);margin:0 0 6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ai-stats{margin:0 0 8px;font-size:12px;color:var(--text-dim);}
+.ai-stats summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:var(--panel-2);font-variant-numeric:tabular-nums;}
+.ai-stats summary::-webkit-details-marker{display:none;}
+.ai-stats summary::after{content:"▾";opacity:.6;font-size:10px;}
+.ai-stats[open] summary::after{content:"▴";}
+.ai-stats-body{margin-top:6px;padding:8px 10px;border-left:2px solid var(--border);line-height:1.55;}
+.ai-thoughts{margin-top:6px;white-space:pre-wrap;max-height:260px;overflow:auto;opacity:.9;}
 .typing-wrap{display:flex;align-items:center;}
 .act-plan,.act-think,.act-test{font-size:12.5px;color:var(--text-dim);margin:8px 0 4px;line-height:1.5;}
 .act-think b,.act-test b{color:var(--accent);font-weight:700;}
@@ -329,7 +337,9 @@ code.md-code{background:var(--panel-2);border:1px solid var(--border);border-rad
 .code-panel-body{display:flex;flex-direction:column;gap:12px;}
 .sidebar-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:49;display:none;}
 .sidebar-backdrop.show{display:block;}
-.sidebar-close{display:none;}
+.sidebar-close{display:flex;margin-left:auto;width:30px;height:30px;border-radius:8px;border:none;background:none;color:var(--sidebar-text);align-items:center;justify-content:center;font-size:16px;}
+.sidebar-close:hover{background:var(--sidebar-active);}
+@media(min-width:761px){ body.sb-collapsed .sidebar{display:none;} }
 @media(max-width:760px){
   .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:50;transform:translateX(-100%);transition:transform .2s;width:82vw;max-width:300px;}
   .sidebar.open{transform:translateX(0);}
@@ -489,6 +499,21 @@ button:active:not(:disabled){transform:scale(.97);}
 .ask-card.risky{border-color:#e5a03a;box-shadow:0 0 0 1px rgba(229,160,58,.25),var(--shadow-md);}
 details.act,.act-line,.act-run{border-radius:12px;background:rgba(26,29,41,.7);}
 .code-block{border-radius:14px;box-shadow:var(--shadow-sm);}
+/* 팝업 창·DeX 작은 창·분할 화면 같은 아주 좁은/낮은 창에서도 깨지지 않게 */
+@media(max-width:360px){
+  .topbar{padding-left:10px;padding-right:10px;gap:6px;}
+  .topbar-right{gap:4px;}
+  .model-pill{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mode-row,.exec-row{justify-content:center;flex-wrap:wrap;}
+  .composer{padding-left:8px;padding-right:8px;}
+  .bubble{max-width:100%;}
+}
+@media(max-height:480px){
+  .composer{padding-bottom:calc(8px + env(safe-area-inset-bottom));}
+  .modal{max-height:96vh;}
+  .empty-state .dot-big{display:none;}
+}
+.think-line,.ai-stats summary{max-width:100%;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 
@@ -605,7 +630,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./choimini-auth.js?v=20261012"></script>
-<script src="./choimini-browser.js?v=20261008"></script>
+<script src="./choimini-browser.js?v=20261018"></script>
 <script src="./choimini-linuxfs.js?v=20261011"></script>
 <script src="./choimini-shell.js?v=20261005"></script>
 <script src="./choimini-shell-cmds.js?v=20261011"></script>
@@ -684,7 +709,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <div class="app">
   <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
   <aside class="sidebar" id="sidebar">
-    <div class="brand"><span class="dot">최</span> Choimini <button class="sidebar-close" id="sidebarCloseBtn">✕</button></div>
+    <div class="brand"><span class="dot">최</span> Choimini <button class="sidebar-close" id="sidebarCloseBtn" title="사이드바 닫기" aria-label="사이드바 닫기">✕</button></div>
     <button class="newchat-btn" id="newChatBtn">＋ 새 채팅</button>
     <div class="chatlist" id="chatList"></div>
     <div class="sidebar-footer">
@@ -703,7 +728,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
   <main class="main">
     <div class="topbar">
       <div class="topbar-left">
-        <button class="icon-btn" id="sidebarToggle" style="display:none;">☰</button>
+        <button class="icon-btn" id="sidebarToggle" style="display:none;" title="사이드바 (Ctrl+B)" aria-label="사이드바">☰</button>
         <span class="topbar-title" id="chatTitle">새 채팅</span>
         <div class="main-tabs" id="mainTabs"><button data-tab="chat" class="active">채팅</button><button data-tab="chminal">Chminal</button></div>
       </div>
@@ -746,14 +771,14 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         <div class="exec-row" id="execRow">
           <span class="exec-lbl">작업 위치</span>
           <div class="mode-switch" id="execSwitch">
-            <button class="mode-btn" type="button" data-exec="local" title="내 컴퓨터에서 직접 작업 (보안문자·작업 폴더·AI 권한 적용)">Local</button>
-            <button class="mode-btn" type="button" data-exec="linux" title="브라우저 안 가상 SandBox Linux 에서 작업">SandBox Linux</button>
+            <button class="mode-btn" type="button" data-exec="local" title="내 기기에서 직접 작업">Local</button>
+            <button class="mode-btn" type="button" data-exec="linux" title="브라우저 안 가상 Linux">SandBox Linux</button>
           </div>
           <span class="exec-lbl" id="permLbl">AI 권한</span>
-          <select id="permSel" title="수동: 하나하나 승인 · 자동: 위험하지 않은 것은 자동 승인(삭제·다운로드·설치는 확인) · 전체: 다운로드 등도 모두 자동">
-            <option value="manual">수동 승인 (명령마다 확인)</option>
-            <option value="auto">자동 승인 (위험한 것만 확인)</option>
-            <option value="full">전체 승인 (다운로드 등 모두 자동)</option>
+          <select id="permSel" title="수동: 매번 확인 · 자동: 위험한 것만 확인 · 전체: 묻지 않음">
+            <option value="manual">수동 승인</option>
+            <option value="auto">자동 승인</option>
+            <option value="full">전체 승인</option>
           </select>
         </div>
         <div class="mode-row">
@@ -818,7 +843,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <button type="button" id="deviceOverlayBtn" style="padding:8px 12px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:13px;">다른 앱 위에 표시 켜기</button>
           <button type="button" id="deviceTasksBtn" style="padding:8px 12px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:13px;">작업 관리</button>
         </div>
-        <div style="font-size:12px;color:var(--text-dim);margin-top:6px;">권한이 둘 다 켜져 있을 때만 화면 조작이 동작해요. 조작 중에는 화면 아래에 빨간 [중지] 버튼이 떠요.</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-top:6px;">두 권한이 모두 켜져야 동작해요. 조작 중엔 [중지] 버튼이 떠요.</div>
       </div>
 
       <div class="field-group">
@@ -854,12 +879,12 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
     <div class="modal-header"><h3>토큰이 부족해요</h3><button class="modal-close" data-close="tokenOutModal">✕</button></div>
     <div class="modal-body">
       <div style="font-size:13px;color:var(--text-dim);line-height:1.6;">
-        이 요청을 처리할 만큼 토큰이 남아있지 않아요. 아래 방법 중 하나로 계속 사용할 수 있어요.
+        토큰이 부족해요. 아래 방법으로 계속할 수 있어요.
       </div>
       <div class="token-out-options">
-        <button class="primary" id="tokenOutAdBtn">🎬 광고 시청하고 토큰 받기</button>
-        <button id="tokenOutApiBtn">🔑 직접 API 키 등록하기</button>
-        <button id="tokenOutWaitBtn">⏰ 오전 12시 초기화 기다리기</button>
+        <button class="primary" id="tokenOutAdBtn">🎬 광고 보고 토큰 받기</button>
+        <button id="tokenOutApiBtn">🔑 내 API 키 쓰기</button>
+        <button id="tokenOutWaitBtn">⏰ 자정 충전 기다리기</button>
       </div>
     </div>
   </div>
@@ -896,7 +921,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
     <div class="modal-header"><h3>Local 작업공간</h3><button class="modal-close" data-close="wsModal">✕</button></div>
     <div class="modal-body">
       <div id="wsDesc" style="font-size:12px;opacity:.75;margin-bottom:4px"></div>
-      <div style="font-size:12px;opacity:.6;margin-bottom:8px">폰의 <b>파일</b> 앱 → 왼쪽 메뉴(≡) → <b>최미나이 작업공간</b> 에서도 이 폴더를 열고, 복사·공유할 수 있어요.</div>
+      <div style="font-size:12px;opacity:.6;margin-bottom:8px"><b>파일</b> 앱 → 메뉴(≡) → <b>최미나이 작업공간</b>에서도 열 수 있어요.</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
         <button class="lfs-ib icon" id="wsUp" title="상위 폴더">↑</button>
         <div id="wsPath" style="flex:1;min-width:100px;font-family:monospace;font-size:13px;word-break:break-all">~</div>
@@ -980,11 +1005,11 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
             <div class="lfs-list" id="lfsList"></div>
           </div>
           <div id="lfsTrash" style="display:none;flex-direction:column;gap:8px;flex:1;min-height:0">
-            <div class="lfs-note"><span>지운 파일·프로젝트는 14일 동안 보관된 뒤 자동으로 삭제돼요.</span><button class="lfs-ib danger" id="lfsTrashEmpty">비우기</button></div>
+            <div class="lfs-note"><span>14일 뒤 자동 삭제돼요.</span><button class="lfs-ib danger" id="lfsTrashEmpty">비우기</button></div>
             <div class="lfs-list" id="lfsTrashList"></div>
           </div>
           <div id="lfsBackup" style="display:none;flex-direction:column;gap:8px;flex:1;min-height:0">
-            <div class="lfs-note"><span>최미나이가 명령어로 지운 파일을 &lt;프로젝트명&gt;.zip 으로 7일 동안 보관해요.</span></div>
+            <div class="lfs-note"><span>AI가 지운 파일을 7일간 보관해요.</span></div>
             <div class="lfs-list" id="lfsBackupList"></div>
           </div>
           <div id="lfsEditor" style="display:none;flex-direction:column;gap:8px;flex:1;min-height:0">
@@ -1067,7 +1092,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
   <div class="modal" style="max-width:460px;">
     <div class="modal-header"><h3>🎁 무료 토큰 받기</h3><button class="modal-close" data-close="adRewardModal">✕</button></div>
     <div class="modal-body code-panel-body">
-      <p style="color:var(--sidebar-dim,#8891a8);font-size:13px;margin:0 0 10px;">아래 광고를 모두 시청하면 무료 토큰 코드를 받을 수 있어요 (+20 토큰).</p>
+      <p style="color:var(--sidebar-dim,#8891a8);font-size:13px;margin:0 0 10px;">광고를 모두 보면 무료 코드(+20토큰)를 받아요.</p>
       <div class="btn-row" style="flex-direction:column;gap:8px;align-items:stretch;">
         <button class="ghost-btn" id="adGeutrixBtn" style="justify-content:space-between;display:flex;">
           <span>귀트릭스 시청하기</span><span id="adGeutrixProgress">(0/5 완료)</span>
@@ -1161,10 +1186,10 @@ function resolveApiKey(provider){
 }
 const PRESET_MIN = { lite: 100, medium: 180, high: 300, max: 500 };
 const PRESET_DESC = {
-  lite: "가장 가볍고 빠른 모델 · 간단한 질문에 적합 · 최소 100토큰",
-  medium: "일반적인 대화와 질문에 적합 · Lite보다 높은 성능 · 최소 180토큰",
-  high: "복잡한 질문에 적합 · 높은 답변 품질 목표 · 최소 300토큰",
-  max: "가장 높은 성능 목표 · 어려운 질문/고품질 답변 · 최소 500토큰"
+  lite: "가장 빠름 · 간단한 질문 · 최소 100토큰",
+  medium: "일반 대화 · 최소 180토큰",
+  high: "복잡한 질문 · 최소 300토큰",
+  max: "최고 성능 · 어려운 질문 · 최소 500토큰"
 };
 const DEFAULT_MODELS = {
   gemini:    { lite:"gemini-3.1-flash-lite", medium:"gemini-3.5-flash", high:"gemini-3.7-flash", max:"gemini-3.1-pro" },
@@ -1353,13 +1378,21 @@ function agentTailPrompt(){
 /* 데스크톱 앱(로컬 터미널 모드)에서 AI 에게 알려주는 스킬 설명. 사용자가 "스킬이 뭐야?" 하고 물어도 이걸 바탕으로 답한다. */
 function deviceUseGuide(){
   if(!(window.AndroidBridge && AndroidBridge.deviceStatus)) return "";
-  return "■ device_use (폰 화면 직접 조작, Android 앱 전용): device_screen(화면 읽기) / device_click {id|text} / device_tap {x,y} / device_swipe / device_scroll {dir} / device_type {text,id} / device_key {key} / device_open_app {name} / device_wait. 화면을 조작해야 할 때만 쓰고, 처음이면 먼저 {\"tool\":\"device_help\"} 로 사용법을 읽는다. 한 번에 하나씩 하고 결과를 확인한다. 결과가 '[중지됨]' 이면 즉시 멈추고 중지됐다고만 알린다(스스로 다시 시작 금지). '[권한 필요]' 면 사용자에게 권한을 켜 달라고 안내한다. 결제·삭제·전송·로그인은 먼저 묻고, 비밀번호/인증번호는 대신 입력하지 않는다.\n";
+  return "■ device_use (폰 화면 직접 조작, Android 앱 전용) — ```tool 블록에 한 줄에 JSON 하나. 도구 이름과 값은 반드시 아래처럼 소문자로 쓴다.\n"
+    + "  {\"tool\":\"device_screen\"} 화면 읽기(줄마다 [번호] 종류 \"글자\" (x,y)) + 화면 캡처 이미지가 다음 단계에 같이 온다\n"
+    + "  {\"tool\":\"device_click\",\"id\":12} 번호로 누르기(가장 정확) / {\"tool\":\"device_click\",\"text\":\"확인\"}\n"
+    + "  {\"tool\":\"device_tap\",\"x\":540,\"y\":1200} 좌표 누르기(실제 화면 픽셀), 길게: \"long\":true\n"
+    + "  {\"tool\":\"device_type\",\"text\":\"안녕\",\"enter\":true} 입력란에 쓰고 Enter(검색/전송)\n"
+    + "  {\"tool\":\"device_key\",\"key\":\"enter\"} key 는 back|home|recents|notifications|quick|enter 중 하나(소문자). 'ENTER'·'KEYCODE_ENTER' 처럼 쓰지 마라\n"
+    + "  {\"tool\":\"device_scroll\",\"dir\":\"down\"} (up|down|left|right) / {\"tool\":\"device_swipe\",\"x1\":500,\"y1\":1500,\"x2\":500,\"y2\":500}\n"
+    + "  {\"tool\":\"device_open_app\",\"name\":\"카카오톡\"} / {\"tool\":\"device_wait\",\"ms\":1500} / 아무 조작에나 \"screen\":true 를 붙이면 조작 뒤 화면도 같이 돌려준다\n"
+    + "  규칙: 한 번에 하나씩 하고 결과(화면)를 확인한다. 오류가 오면 오류 문구의 올바른 예시대로 고쳐서 다시 한다. 결과가 '[중지됨]' 이면 즉시 멈추고 중지됐다고만 알린다(스스로 다시 시작 금지). '[권한 필요]' 면 권한을 켜 달라고 안내한다. 결제·삭제·전송·로그인은 먼저 묻고, 비밀번호/인증번호는 대신 입력하지 않는다.\n";
 }
 function desktopSkillGuide(){
   return "\n\n[데스크톱 앱 스킬 안내 — 로컬 터미널 모드]\n" + deviceUseGuide()
     + "이 대화에서 너는 아래 스킬을 '실제로 가지고 있다'. 없다고 말하지 말고, 사용자가 스킬이 뭐냐고 물으면 이 내용을 쉬운 말로 설명해라.\n"
     + "■ 로컬 터미널 (```tool 블록): 사용자의 컴퓨터·폰(작업 폴더)에서 실제로 파일 읽기·검색·수정·명령 실행을 한다. 블록 안에 JSON 객체를 한 줄에 하나씩 쓴다. 도구 이름은 정확히 아래 8개만 쓴다(경로는 작업 폴더 기준 상대 경로):\n"
-    + "  read_file {\"tool\":\"read_file\",\"path\":\"src/a.js\"} / list_dir {\"tool\":\"list_dir\",\"path\":\".\"} / glob {\"tool\":\"glob\",\"pattern\":\"**/*.js\"} / grep {\"tool\":\"grep\",\"pattern\":\"정규식\"} / edit_file {\"tool\":\"edit_file\",\"path\":\"...\",\"old_string\":\"...\",\"new_string\":\"...\"} / write_file {\"tool\":\"write_file\",\"path\":\"...\",\"content\":\"...\"} / run_command {\"tool\":\"run_command\",\"command\":\"npm test\"} / bg_run {\"tool\":\"bg_run\",\"command\":\"python bot.py\"} (오래 도는 프로그램: 시간 제한 없이 백그라운드로 실행, 기본 15초 뒤 출력 반환. 필요하면 \"wait_sec\":30 처럼 결과를 볼 때까지 기다릴 초를 지정할 수 있고, 사용자가 설정에서 정해 둔 값이 있으면 그 값이 우선) / bg_log {\"tool\":\"bg_log\",\"id\":1} / bg_stop {\"tool\":\"bg_stop\",\"id\":1} / todo_write {\"tool\":\"todo_write\",\"items\":[{\"text\":\"할 일\",\"status\":\"pending\"}]}\n"
+    + "  read_file {\"tool\":\"read_file\",\"path\":\"src/a.js\"} / list_dir {\"tool\":\"list_dir\",\"path\":\".\"} / glob {\"tool\":\"glob\",\"pattern\":\"**/*.js\"} / grep {\"tool\":\"grep\",\"pattern\":\"정규식\"} / edit_file {\"tool\":\"edit_file\",\"path\":\"...\",\"old_string\":\"...\",\"new_string\":\"...\"} / write_file {\"tool\":\"write_file\",\"path\":\"...\",\"content\":\"...\"} / run_command {\"tool\":\"run_command\",\"command\":\"npm test\"} / bg_run {\"tool\":\"bg_run\",\"command\":\"python bot.py\"} (오래 도는 프로그램: 시간 제한 없이 백그라운드로 실행, 기본 15초 뒤 출력 반환. 필요하면 \"wait_sec\":30 처럼 결과를 볼 때까지 기다릴 초를 지정할 수 있고, 사용자가 설정에서 정해 둔 값이 있으면 그 값이 우선) / bg_log {\"tool\":\"bg_log\",\"id\":1} / bg_stop {\"tool\":\"bg_stop\",\"id\":1} / bg_input {\"tool\":\"bg_input\",\"id\":1,\"text\":\"y\"} (bg_run 으로 띄운 프로그램이 y/n 등을 물을 때 답하기. run_command 는 키보드 입력이 없으니 -y 옵션이나 printf 'y\\n' | 명령 을 써라) / todo_write {\"tool\":\"todo_write\",\"items\":[{\"text\":\"할 일\",\"status\":\"pending\"}]}\n"
     + "  예시:\n```tool\n{\"tool\":\"list_dir\",\"path\":\".\"}\n```\n"
     + "  JSON 안의 줄바꿈은 \\n 으로 쓴다. 도구 호출을 쓴 답변은 결과가 올 때까지 거기서 끝내고(결과를 상상해 이어 쓰지 않는다), 결과는 [도구 실행 결과]로 돌아오니 보고 다음 단계를 이어간다. 작업 폴더 밖 접근과 위험한 명령은 앱이 막거나 사용자 승인을 받는다. 이 모드에서는 runcmd(가상 Linux) 스킬을 쓰지 않는다.\n"
     + "■ upload (```upload 블록): 만든 파일 경로를 한 줄에 하나씩 적으면 사용자에게 미리보기/다운로드 카드로 전달된다(Local 의 파일도 가능 — 자동으로 복사해서 보여준다). 파일을 만들었다면 마지막에 꼭 쓴다.\n"
@@ -1501,7 +1534,7 @@ function init(){
   if(![0,3,5,8,12].includes(settings.compressEvery)) settings.compressEvery = 8;
   if(!["auto","off","low","medium","high"].includes(settings.thinkingLevel)) settings.thinkingLevel = "auto";
   chats = loadJSON(LS.chats, {});
-  Object.values(chats).forEach(c=>{ if(c && c.pendingReply){ delete c.pendingReply; const l=(c.messages||[]).slice(-1)[0]; if(l && l.role==='user') c.messages.push({ id: uid(), role:'system', content:'📱 앱이 백그라운드에 있는 동안 답변 생성이 끊겼어요. 아래 버튼으로 이어서 받을 수 있어요.', ts: Date.now(), canRetry:true }); } });
+  Object.values(chats).forEach(c=>{ if(c && c.pendingReply){ delete c.pendingReply; const l=(c.messages||[]).slice(-1)[0]; if(l && l.role==='user') c.messages.push({ id: uid(), role:'system', content:'📱 백그라운드에서 답변이 끊겼어요. 아래 버튼으로 이어 받기', ts: Date.now(), canRetry:true }); } });
   activeChatId = localStorage.getItem(LS.activeChat) || null;
   tokensInternal = sanitizeTokens(loadJSON(LS.tokens, DEFAULT_INTERNAL_TOKENS));
   renderTokens();
@@ -1674,6 +1707,8 @@ function renderActivityHtml(m){
   if(plainCmds.length){
     h += `<details class="act"><summary>&gt; ${plainCmds.every(c=>/^🌐/.test(c.cmd)) ? "브라우저 작업함" : "명령 실행함"}(${plainCmds.length})</summary><pre>` +
       plainCmds.map(c=>`<span class="${c.ok ? "cmd-ok" : "cmd-bad"}">$ ${escapeHtml(c.cmd)}</span>\n${escapeHtml(c.out||"")}`).join("\n\n") + `</pre></details>`;
+    const bth = (window.__devThumbs && window.__devThumbs[m.id]) || {};
+    a.commands.forEach((c, i)=>{ if(!c.dev && bth[i]) h += `<img class="devthumb" src="${bth[i]}" alt="스크린샷" onclick="window.__devZoom&&window.__devZoom(this.src)">`; });
   }
   if(a){
     (a.created||[]).forEach(p=>{ h += `<div class="act-line created">&gt; <b>파일 생성됨</b>(${escapeHtml(baseName(p))})</div>`; });
@@ -1920,13 +1955,13 @@ function renderMessageRow(m, isLast, idx){
   if(m.role === "ai" && m.codeLocked){
     inner += `<div class="code-locked" data-msgid="${m.id||""}">
       <span class="lock-icon">🛡️</span>
-      <span>이 답변엔 코드가 포함되어 있음. jCAPTCHA 인증 통과해야 코드가 보임.</span>
+      <span>코드가 포함된 답변이에요. 인증 후 볼 수 있어요.</span>
       <button class="verify-btn" data-verify="${m.id||""}">인증하고 보기</button>
     </div>`;
   } else {
     inner += m._streaming ? "" : renderContentWithCode(m.role === "ai" ? parseAiDisplay(m.content).text : m.content); // 타자 효과 시작 직전엔 빈 말풍선으로 먼저 그림
   }
-  if(m.role === "ai") inner += renderActivityHtml(m);
+  if(m.role === "ai") inner = statsHtml(m) + inner + renderActivityHtml(m);
 
   inner += chargeChipsHtml(m);
   if(m.meta && !(m.role === "ai" && parseAiDisplay(m.content).hasTools)){
@@ -1941,8 +1976,8 @@ function renderMessageRow(m, isLast, idx){
     bubble.title = "꾹 누르거나 우클릭: 복사 · 수정 · 다시 생성";
     bindLongPress(bubble, (x,y)=>showCtxMenu(x,y,[
       { label: "📋 복사", fn: ()=>{ const t = (m.content||"") || (m.files||[]).map(f=>f.text||"").join("\n"); navigator.clipboard?.writeText(t).then(()=>toast("복사됨")).catch(()=>toast("복사 실패")); } },
-      { label: "✏️ 수정", fn: ()=>{ if(activeGenerating()){ toast("답변 생성 중에는 수정할 수 없어요"); return; } if(!confirm("이 질문과 그 뒤의 대화가 지워지고 질문을 다시 수정해요. 계속할까요?")) return; editUserMessage(m.id); } },
-      { label: "🔄 다시 생성", fn: ()=>{ if(activeGenerating()){ toast("답변 생성 중이에요"); return; } if(!confirm("이 질문 뒤의 답변을 지우고 다시 생성할까요? (토큰이 사용돼요)")) return; regenerateFromUser(m.id); } },
+      { label: "✏️ 수정", fn: ()=>{ if(activeGenerating()){ toast("답변 생성 중에는 수정할 수 없어요"); return; } if(!confirm("이 질문부터 뒤 대화를 지우고 수정할까요?")) return; editUserMessage(m.id); } },
+      { label: "🔄 다시 생성", fn: ()=>{ if(activeGenerating()){ toast("답변 생성 중이에요"); return; } if(!confirm("답변을 지우고 다시 생성할까요? (토큰 사용)")) return; regenerateFromUser(m.id); } },
     ]));
   }
   if(m.role === "ai" && m.codeLocked){
@@ -2246,7 +2281,7 @@ async function handleFiles(fileList){
     // WORK/CODE 모드에서는 업로드한 파일을 가상 Linux_Local(user/download/)에도 저장해서
     // AI가 fs_* 도구로 실제로 읽고/변환하고/수정할 수 있게 한다.
     if((isWorkMode() || isCodeMode()) && window.LinuxFS){
-      try{ const sp = LinuxFS.saveUploaded(entry); if(sp) entry.sandboxPath = sp; if(!sp) toast(`${f.name}: 가상 컴퓨터에 저장하지 못했어요 (용량 초과)`); }catch(e){ console.warn("[Linux_Local] 업로드 저장 실패:", e); }
+      try{ const sp = LinuxFS.saveUploaded(entry); if(sp) entry.sandboxPath = sp; if(!sp) toast(`${f.name}: 저장 실패 (용량 초과)`); }catch(e){ console.warn("[Linux_Local] 업로드 저장 실패:", e); }
       delete entry.binUrl; delete entry.fullText;
     }
   }
@@ -2367,7 +2402,7 @@ async function deductNormalCost(replyText, usageAmount, target){
   return await chargeTokens(cost, "답변 만들기", target); // 실제로 차감된 양(내부 단위)
 }
 function tokenShortMsg(need, what){
-  return `🪙 토큰이 부족해서 ${what}을(를) 진행할 수 없어요. (필요 약 ${Math.ceil(need / TOKEN_MULT)} 토큰 · 잔액 ${Math.floor(tokensInternal / TOKEN_MULT)} 토큰)`;
+  return `🪙 토큰 부족으로 ${what} 불가 (필요 ${Math.ceil(need / TOKEN_MULT)} · 잔액 ${Math.floor(tokensInternal / TOKEN_MULT)})`;
 }
 // 토큰 값 오염 방지: 숫자가 아니거나 음수, 혹은 비정상적으로 큰 값(예: 100000009 같은 폭주 버그)이
 // 들어오면 즉시 안전한 값으로 되돌린다. 표시 단위 기준 상한(1억)은 정상 사용으로는 절대 도달할 수 없는 값이라
@@ -2966,7 +3001,11 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   // 자동일 땐 예전처럼 Max 프리셋만 확장 사고(-1 = 동적 예산)를 켠다.
   let tb = geminiThinkingBudget(model, settings.thinkingLevel, preset);
   if(tb === undefined && preset === "lite" && !/pro/i.test(model)) tb = 0; // lite/NO BRAIN 은 사고 단계를 건너뛰어 훨씬 빠르게
+  // 짧은 보조 요청(채팅 제목 등, 출력 400토큰 이하)은 사고를 끈다. 안 끄면 에이전트 모드의 사고 예산(4096)이 출력 한도를 다 먹어서 빈 응답이 났다
+  if(maxOutputTokens && maxOutputTokens <= 400) tb = /pro/i.test(model) ? 128 : 0;
   if(tb !== undefined) generationConfig.thinkingConfig = { thinkingBudget: tb };
+  // 사고 요약(무엇을 생각했는지)도 받아서 답변 위에 보여준다. 사고를 끈 경우(0)는 요청하지 않는다
+  if(tb !== 0 && onDelta) generationConfig.thinkingConfig = Object.assign(generationConfig.thinkingConfig || {}, { includeThoughts: true });
   const body = {
     systemInstruction: { parts:[{text:systemPrompt}] },
     contents,
@@ -2985,23 +3024,25 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   const payload = useProxy ? { provider:"gemini", model, body } : body;
 
   if(onDelta){
-    let acc = "", usageMd = {}, fin = "";
+    let acc = "", usageMd = {}, fin = "", th = "";
     // 기본 키(프록시)도 스트리밍: 프록시에 stream:true 를 보내면 SSE 로 그대로 전달한다(구버전 프록시는 JSON 한 덩어리로 답하고, 아래에서 그것도 처리).
     const sUrl = useProxy ? url : url.replace(":generateContent", ":streamGenerateContent") + "?alt=sse";
     const sPayload = useProxy ? Object.assign({}, payload, { stream:true }) : payload;
     await streamSSE(sUrl, { method:"POST", headers, body: JSON.stringify(sPayload), signal }, j=>{
       const c = j?.candidates?.[0];
-      (c?.content?.parts || []).forEach(p=>{ if(p.text && !p.thought) acc += p.text; });
+      (c?.content?.parts || []).forEach(p=>{ if(p.text){ if(p.thought) th += p.text; else acc += p.text; } });
       if(c?.finishReason) fin = c.finishReason;
       if(j?.usageMetadata) usageMd = j.usageMetadata;
-      onDelta(acc);
-    }, ()=>{ acc = ""; usageMd = {}; fin = ""; });
+      onDelta(acc, { thought: th });
+    }, ()=>{ acc = ""; usageMd = {}; fin = ""; th = ""; });
     if(!acc){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty stream " + fin }); e.empty = true; throw e; }
     const raw = (usageMd.candidatesTokenCount||0) + (usageMd.thoughtsTokenCount||0) * THOUGHT_COST_W;
-    return { text: acc, usageAmount: raw > 0 ? raw / 15 : null, streamed:true };
+    return { text: acc, usageAmount: raw > 0 ? raw / 15 : null, streamed:true, thoughts: th, thoughtTokens: usageMd.thoughtsTokenCount||0, outTokens: usageMd.candidatesTokenCount||0, inTokens: usageMd.promptTokenCount||0 };
   }
   const data = await fetchJsonWithRetry(url, { method:"POST", headers, body: JSON.stringify(payload), signal });
-  const text = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("") || "";
+  const gParts = data?.candidates?.[0]?.content?.parts || [];
+  const text = gParts.filter(p=>!p.thought).map(p=>p.text||"").join("");
+  const gThoughts = gParts.filter(p=>p.thought).map(p=>p.text||"").join("");
   if(!text){
     const fr = data?.candidates?.[0]?.finishReason || data?.promptFeedback?.blockReason || "";
     const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty candidates " + fr });
@@ -3010,7 +3051,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   // 실제 API가 보고하는 사용량(사고 과정 포함)을 그대로 "사고 과정에서 사용된 양"으로 반영
   const usage = data?.usageMetadata || {};
   const rawTokens = (usage.candidatesTokenCount||0) + (usage.thoughtsTokenCount||0) * THOUGHT_COST_W;
-  return { text, usageAmount: rawTokens > 0 ? rawTokens / 15 : null };
+  return { text, usageAmount: rawTokens > 0 ? rawTokens / 15 : null, thoughts: gThoughts, thoughtTokens: usage.thoughtsTokenCount||0, outTokens: usage.candidatesTokenCount||0, inTokens: usage.promptTokenCount||0 };
 }
 /* Local 작업공간에 복사된 첨부파일이면 AI 에게 그 경로를 알려준다(이미지·바이너리 포함) */
 function localAttachHint(m){
@@ -3058,17 +3099,17 @@ async function callOpenAI(model, apiKey, systemPrompt, history, maxTokens, signa
     if(lv && lv !== "auto") body.reasoning_effort = lv === "off" ? "low" : lv;
   }
   if(onDelta){
-    let acc = "", comp = 0;
+    let acc = "", comp = 0, rTok = 0, inTok = 0;
     body.stream = true; body.stream_options = { include_usage:true };
     await streamSSE("https://api.openai.com/v1/chat/completions", {
       method:"POST", headers:{ "Content-Type":"application/json", "Authorization":`Bearer ${apiKey}` }, body: JSON.stringify(body), signal
     }, j=>{
       const dlt = j?.choices?.[0]?.delta?.content; if(dlt) acc += dlt;
-      if(j?.usage?.completion_tokens) comp = j.usage.completion_tokens;
+      if(j?.usage?.completion_tokens){ comp = j.usage.completion_tokens; rTok = j.usage.completion_tokens_details?.reasoning_tokens || 0; inTok = j.usage.prompt_tokens || 0; }
       onDelta(acc);
-    }, ()=>{ acc = ""; comp = 0; });
+    }, ()=>{ acc = ""; comp = 0; rTok = 0; });
     if(!acc){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty stream" }); e.empty = true; throw e; }
-    return { text: acc, usageAmount: comp > 0 ? comp / 15 : null, streamed:true };
+    return { text: acc, usageAmount: comp > 0 ? comp / 15 : null, streamed:true, thoughtTokens: rTok, outTokens: Math.max(0, comp - rTok), inTokens: inTok };
   }
   const data = await fetchJsonWithRetry("https://api.openai.com/v1/chat/completions", {
     method:"POST",
@@ -3080,7 +3121,8 @@ async function callOpenAI(model, apiKey, systemPrompt, history, maxTokens, signa
   if(!text){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty choices" }); e.empty = true; throw e; }
   // 실제 API가 보고하는 사용량(completion_tokens)을 "사고 과정에서 사용된 양"으로 반영
   const completionTokens = data?.usage?.completion_tokens || 0;
-  return { text, usageAmount: completionTokens > 0 ? completionTokens / 15 : null };
+  const reasonTok = data?.usage?.completion_tokens_details?.reasoning_tokens || 0;
+  return { text, usageAmount: completionTokens > 0 ? completionTokens / 15 : null, thoughtTokens: reasonTok, outTokens: Math.max(0, completionTokens - reasonTok), inTokens: data?.usage?.prompt_tokens || 0 };
 }
 function buildOpenAIContent(m){
   const hasImg = (m.files||[]).some(f=>f.isImg);
@@ -3116,19 +3158,21 @@ async function callAnthropic(model, apiKey, systemPrompt, history, maxTokens, si
     content: buildAnthropicContent(m)
   }));
   if(onDelta){
-    let acc = "", outTok = 0;
+    let acc = "", outTok = 0, th = "", inTok = 0;
     const b = anthropicBody(model, systemPrompt, messages, maxTokens); b.stream = true;
     await streamSSE("https://api.anthropic.com/v1/messages", {
       method:"POST",
       headers:{ "Content-Type":"application/json", "x-api-key": apiKey, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
       body: JSON.stringify(b), signal
     }, j=>{
-      if(j.type === "content_block_delta" && j.delta && j.delta.type === "text_delta"){ acc += j.delta.text || ""; onDelta(acc); }
+      if(j.type === "content_block_delta" && j.delta && j.delta.type === "text_delta"){ acc += j.delta.text || ""; onDelta(acc, { thought: th }); }
+      else if(j.type === "content_block_delta" && j.delta && j.delta.type === "thinking_delta"){ th += j.delta.thinking || ""; onDelta(acc, { thought: th }); }
+      else if(j.type === "message_start" && j.message && j.message.usage) inTok = j.message.usage.input_tokens || 0;
       else if(j.type === "message_delta" && j.usage && j.usage.output_tokens) outTok = j.usage.output_tokens;
       else if(j.type === "error") throw new ApiCallError("AI 서버에 일시적인 문제가 있어요.", { retryable:true, dev: (j.error && j.error.message) || "stream error" });
-    }, ()=>{ acc = ""; outTok = 0; });
+    }, ()=>{ acc = ""; outTok = 0; th = ""; });
     if(!acc){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty stream" }); e.empty = true; throw e; }
-    return { text: acc, usageAmount: outTok > 0 ? outTok / 15 : null, streamed:true };
+    return { text: acc, usageAmount: outTok > 0 ? outTok / 15 : null, streamed:true, thoughts: th, outTokens: outTok, inTokens: inTok };
   }
   const data = await fetchJsonWithRetry("https://api.anthropic.com/v1/messages", {
     method:"POST",
@@ -3233,17 +3277,17 @@ async function generateReply(chat, signal, onDelta){
     // API 키(또는 기본 프록시)가 있고 이번 비용만큼 토큰이 남아있으면 실제 API를 짧게 호출함.
     if((apiKey || hasDefaultProxy(provider)) && tokensInternal >= cost){
       const model = settings.models[provider]["lite"]; // NO BRAIN 모드는 항상 lite급 모델 사용
-      const history = chat.messages.filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files}));
+      const history = await withBrowserContext(chat.messages.filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files})));
       // Chrome in Choimini(브라우저 제어)에서는 ```browser 블록을 써야 하므로 NO BRAIN 의 "한 문장·60토큰" 제한을 풀어 준다
       const browserTask = browserAvailable();
       const shortPrompt = buildSystemPrompt() + (browserTask ? "\n\n[NO BRAIN · 브라우저 제어] 짧게 말하되, 사용자가 화면/페이지/사이트에 대해 묻거나 브라우저 조작을 시키면 반드시 ```browser 블록으로 먼저 확인·조작해라. 블록을 쓸 때는 길이 제한이 없다." : NO_BRAIN_SYSTEM_SUFFIX);
       const nbTokens = undefined; // 하드 출력 제한 없음 (글자 수는 프롬프트 참고사항으로만 안내)
       try{
-        let text;
+        let text; const nb0 = Date.now();
         if(provider === "gemini") ({ text } = await callGemini(model, apiKey, shortPrompt, history, "lite", nbTokens, signal));
         else if(provider === "openai") ({ text } = await callOpenAI(model, apiKey, shortPrompt, history, nbTokens, signal));
         else if(provider === "anthropic") ({ text } = await callAnthropic(model, apiKey, shortPrompt, history, nbTokens, signal));
-        return { text, provider, usedLocal: false, noBrain: true, noBrainCost: cost };
+        return { text, provider, usedLocal: false, noBrain: true, noBrainCost: cost, stats: { model, thinkMs: Date.now() - nb0, totalMs: Date.now() - nb0 } };
       }catch(e){
         if(e && e.name === "AbortError") throw e; // 답변 중지 → 그대로 위로 전달
         // 실제 API 실패 시 원인을 콘솔/토스트로 보여주고 필러 문구로 대체 (그래도 토큰은 차감됨)
@@ -3278,7 +3322,7 @@ async function generateReply(chat, signal, onDelta){
   }
 
   // 기억력 단계(1~5)와 대화 압축 요약을 반영한 히스토리 구성 (buildHistoryForChat, 아래 참고)
-  const history = buildHistoryForChat(chat);
+  const history = await withBrowserContext(buildHistoryForChat(chat));
 
   // 일시 오류(429/503/빈 응답)나 존재하지 않는 모델(404)이면 같은 모델을 한 번 더, 그래도 안 되면 다른 프리셋 모델로 자동 전환한다.
   // ("AI를 사용할 수 없음" 이 CODE 모드에서 가끔 뜨던 문제 — 긴 에이전트 작업 중 한 번의 일시 오류로 전체가 멈추던 것을 방지)
@@ -3293,13 +3337,18 @@ async function generateReply(chat, signal, onDelta){
     for(let attempt=0; attempt<2; attempt++){
       try{
         let out;
-        if(onDelta) onDelta(""); // 재시도/모델 전환 시 이전에 보이던 부분 응답을 비운다
-        if(provider === "gemini") out = await callGemini(m, apiKey, sys, history, pr, undefined, signal, onDelta);
-        else if(provider === "openai") out = await callOpenAI(m, apiKey, sys, history, undefined, signal, onDelta);
-        else if(provider === "anthropic") out = await callAnthropic(m, apiKey, sys, history, undefined, signal, onDelta);
+        // 생각한 시간 측정: 요청 시작 → 답변 첫 글자까지 = 생각(대기) 시간, 그 뒤 = 작성 시간
+        const t0 = Date.now(); let tText = 0, tThought = 0;
+        const od = onDelta ? (t, x)=>{ if(t && !tText) tText = Date.now(); if(x && x.thought && !tThought) tThought = Date.now(); onDelta(t, Object.assign({ t0 }, x||{})); } : undefined;
+        if(onDelta) onDelta("", { t0 }); // 재시도/모델 전환 시 이전에 보이던 부분 응답을 비운다
+        if(provider === "gemini") out = await callGemini(m, apiKey, sys, history, pr, undefined, signal, od);
+        else if(provider === "openai") out = await callOpenAI(m, apiKey, sys, history, undefined, signal, od);
+        else if(provider === "anthropic") out = await callAnthropic(m, apiKey, sys, history, undefined, signal, od);
         else throw new Error("알 수 없는 제공자");
         if(tried.size > 1) toast(`ℹ️ ${m} 모델로 전환해서 응답했어요`);
-        return { text: out.text, provider, usedLocal: false, usageAmount: out.usageAmount, streamed: !!out.streamed };
+        const tEnd = Date.now();
+        const stats = { model: m, thinkMs: (tText || tEnd) - t0, totalMs: tEnd - t0, thoughtTokens: out.thoughtTokens || 0, outTokens: out.outTokens || 0, inTokens: out.inTokens || 0, thoughts: String(out.thoughts || "").slice(0, 4000), retries: attempt + tried.size - 1 };
+        return { text: out.text, provider, usedLocal: false, usageAmount: out.usageAmount, streamed: !!out.streamed, stats };
       }catch(e){
         if(e && e.name === "AbortError") throw e;
         lastErr = e;
@@ -3363,7 +3412,7 @@ async function maybeCompressChat(chat){
     let used = 0;
     try{ const internal = Math.max(1, Math.ceil((inChars + summaryText.length) / 800)); used = await chargeTokens(internal, "대화 압축"); }catch(_){}
     const n = Math.round(used / TOKEN_MULT * 10) / 10;
-    chat.messages.push({ id: uid(), role:"system", content:`대화 내용 압축 완료 (토큰 ${n}개 사용됨)`, ts: Date.now() });
+    chat.messages.push({ id: uid(), role:"system", content:`대화 압축 완료 (-${n}토큰)`, ts: Date.now() });
     saveChats();
   }catch(e){ console.warn("[압축 요약 실패]", e && (e.dev || e.message) || e); }
   finally{ clearInterval(tick); prow.remove(); try{ renderMessages(); }catch(_){} }
@@ -3477,7 +3526,7 @@ async function sendMessage(){
 
   const attachTotalFee = pendingFiles.reduce((a, f)=>a + (f.fee || 0), 0);
   if(attachTotalFee > 0 && tokensInternal < attachTotalFee * TOKEN_MULT){
-    toast(`파일 첨부에 토큰 ${attachTotalFee}개가 필요해요 (5MB 초과분 1MB당 5토큰). 잔액이 부족해요.`);
+    toast(`토큰 부족: 첨부에 ${attachTotalFee}토큰 필요 (5MB 초과 1MB당 5)`);
     try{ showTokenOutModal(); }catch(_){}
     return;
   }
@@ -3538,7 +3587,7 @@ async function runGenerationTurn(chat, preset, depth){
   }catch(err){
     typingRow.remove();
     if(err && err.name === "AbortError"){
-      chat.messages.push({ id: uid(), role:"system", content:"⏹️ 사용자가 답변 생성을 중지했어요.", ts: Date.now() });
+      chat.messages.push({ id: uid(), role:"system", content:"⏹️ 답변을 중지했어요.", ts: Date.now() });
     }else{
       // 사용자용 메시지는 이해하기 쉽게, 실제 원인(dev)은 콘솔에만 남긴다
       console.error("[답변 생성 실패]", err && (err.dev || err.message) || err);
@@ -3561,12 +3610,12 @@ async function appendAiReply(chat, preset, depth, signal, live){
   if(result.tokenExhausted){
     // 작업 도중(에이전트 단계 중간) 토큰이 떨어지면 예전엔 아무 안내 없이 멈춰서 "AI를 쓸 수 없는 것"처럼 보였다
     const what = depth > 0 ? "다음 작업(답변 만들기)" : "답변 만들기";
-    chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(result.need || estimateAnswerCost(), what) + (depth > 0 ? ` 지금까지 ${depth}단계를 진행했어요. 충전한 뒤 "계속해줘"라고 보내면 이어서 진행해요.` : ""), ts: Date.now() });
+    chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(result.need || estimateAnswerCost(), what) + (depth > 0 ? ` ${depth}단계까지 진행됨. 충전 후 "계속해줘"` : ""), ts: Date.now() });
     autoLoadChat(chat);
     showTokenOutModal();
     return;
   }
-  const { text: replyText, provider: usedProvider, usedLocal, skipDeduct, noBrain, noBrainCost, usageAmount } = result;
+  const { text: replyText, provider: usedProvider, usedLocal, skipDeduct, noBrain, noBrainCost, usageAmount, stats } = result;
   let normalCost = 0;
   const chargeTarget = { charges: [] }; // 답변 만들기 차감 기록 → 아래 AI 메시지에 붙인다
   let costPromise = Promise.resolve();
@@ -3593,6 +3642,7 @@ async function appendAiReply(chat, preset, depth, signal, live){
   // ```tool 블록(자동 실행용)과 [[상태]] 태그는 "코드 공개" 잠금 대상이 아니다 — 사용자에게 보여줄 코드 블록만 잠근다
   const hasCode = containsCodeBlock(disp.text);
   const aiMsg = { id: uid(), role:"ai", content: replyText, meta, ts: Date.now(), codeLocked: hasCode, _chatId: chat.id, charges: chargeTarget.charges };
+  if(stats) aiMsg.stats = stats;
   chat.messages.push(aiMsg);
   // 실시간 말풍선(live)은 진짜 메시지가 생기는 순간 치운다 — 안 치우면 같은 답변이 live + 진짜 메시지로 두 번 보인다
   if(live){ try{ live.remove(); }catch(_){} if(genState[chat.id] && genState[chat.id].live === live) genState[chat.id].live = null; }
@@ -3680,6 +3730,16 @@ function agentMaxSteps(){
    ```question-load : 사용자에게 물어볼 질문(+ "- 선택지")
    ```tool    : {"tool":"…", …} JSON (한 줄에 하나 또는 배열) — 구조화 도구(fs_*, pkg_* 등) */
 function toolFenceRe(){ return /```(tool|runcmd|upload|question-load)[ \t]*\r?\n([\s\S]*?)\r?\n?```/g; }
+/* Chrome in Choimini: 마지막 메시지에 "열린 탭 목록 + 지금 보는 탭(★)" 을 붙인다 (저장되지 않고 이번 요청에만) */
+async function withBrowserContext(history){
+  if(!browserAvailable() || !ChoiminiBrowser.tabContext || !history.length) return history;
+  let ctx = ""; try{ ctx = await ChoiminiBrowser.tabContext(); }catch(_){}
+  if(!ctx) return history;
+  const h = history.slice(); let i = h.length - 1; while(i >= 0 && h[i].role !== "user") i--;
+  if(i < 0) return history;
+  h[i] = Object.assign({}, h[i], { content: String(h[i].content || "") + "\n\n" + ctx });
+  return h;
+}
 function hasBrowserBlocks(text){ return /```browser[ \t]*\r?\n/.test(text||""); }
 function browserAvailable(){ try{ return !!(window.ChoiminiBrowser && ChoiminiBrowser.available && ChoiminiBrowser.available()); }catch(e){ return false; } }
 function hasToolBlocks(text){ return /```(tool|runcmd|upload|question-load)[ \t]*\r?\n/.test(text||""); }
@@ -3715,7 +3775,25 @@ function parseToolCalls(text){
       });
     }
   }
-  return calls;
+  return calls.map(normalizeToolCall);
+}
+/* 모델이 도구 이름/인자를 조금 다르게 써도 실행되게 정리한다.
+   예: {"tool":"Device_Key","args":{"key":"ENTER"}} → {"tool":"device_key","key":"enter"} */
+function normalizeToolCall(c){
+  if(!c || typeof c !== "object" || Array.isArray(c)) return c;
+  if(!c.tool && (c.name || c.function || c.action_name)) c.tool = c.name || c.function || c.action_name;
+  const inner = c.args || c.arguments || c.params || c.parameters || c.input;
+  if(inner && typeof inner === "object" && !Array.isArray(inner)){ for(const k in inner) if(!(k in c)) c[k] = inner[k]; }
+  if(typeof c.tool !== "string") return c;
+  const t = c.tool.trim();
+  if(/^device[\s_.\-:]/i.test(t) || /^device$/i.test(t)){
+    c.tool = t.toLowerCase().replace(/[\s.\-:]+/g, "_");
+    if(c.tool === "device" && c.action) c.tool = "device_" + String(c.action).toLowerCase();
+    if(typeof c.key === "string") c.key = c.key.trim().toLowerCase().replace(/^keycode_/, "");
+    if(typeof c.dir === "string") c.dir = c.dir.trim().toLowerCase();
+    if(typeof c.direction === "string" && !c.dir) c.dir = c.direction.trim().toLowerCase();
+  }
+  return c;
 }
 
 /* 답변 안의 실행 요청을 처리하고, 결과를 모델에게 돌려줘서 다음 답변을 받는다 (Claude Code 처럼 끝날 때까지 반복).
@@ -3906,12 +3984,12 @@ function termTool(c){
 async function afterReplyActions(chat, aiMsg, preset, depth){
   if(depth >= agentMaxSteps()){
     if(hasToolBlocks(aiMsg.content||"")){
-      chat.messages.push({ id: uid(), role:"system", content:`⏸️ 자동 작업 단계 한도(${agentMaxSteps()}단계)에 도달해서 멈췄어요. "계속해줘"라고 보내면 이어서 진행해요.`, ts: Date.now() });
+      chat.messages.push({ id: uid(), role:"system", content:`⏸️ 단계 한도(${agentMaxSteps()})에 도달했어요. "계속해줘"로 이어가기`, ts: Date.now() });
       autoLoadChat(chat);
     }
     return;
   }
-  let feedback = "";
+  let feedback = "", lastShot = null;
   const signal = () => chatSignal(chat);
   const setRunning = (v)=>{ aiMsg.running = v; if(chat.id === activeChatId) renderMessages(); };
   const shortOut = (t)=>{ t = String(t==null?"":t); return t.length > 900 ? t.slice(0,900) + "\n…(생략)" : t; };
@@ -3957,13 +4035,13 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         const r = await LB().callTool(c.tool, args);
         if(c.tool === "run_command" && window.__chminalAi){ try{ window.__chminalAi(args.command, r && (r.ok ? r.output : r.error), !!(r && r.ok), args.shell); }catch(_){} }
         if(pkgLbl) window.__choiminiPkgStatus(r && r.ok ? "설치 완료" : "설치 실패 — 결과를 확인해 볼게요", r && r.ok ? "ok" : "err");
-        if(r && r.aborted){ aiMsg.running = false; chat.messages.push({ id: uid(), role:"system", content:"사용자가 작업을 중단했어요.", ts: Date.now() }); autoLoadChat(chat); return; }
+        if(r && r.aborted){ aiMsg.running = false; chat.messages.push({ id: uid(), role:"system", content:"작업을 중단했어요.", ts: Date.now() }); autoLoadChat(chat); return; }
         const label = c.tool + (args.path ? " " + args.path : args.command ? " " + String(args.command).slice(0, 80) : args.pattern ? " " + args.pattern : "");
         const ok = !!(r && r.ok), out = ok ? (r.output || "(출력 없음)") : "오류: " + ((r && r.error) || "알 수 없는 오류");
         if(String(c.tool).indexOf("device_") === 0){ // 화면 조작: 무엇을 했는지(+ 화면 캡처)를 채팅에 바로바로 보여준다. 캡처는 저장하지 않고 이번 실행 중에만 보관
           const dl = (r && r.desc) || (ok ? "완료" : "실패");
           commands.push({ cmd: dl, ok, out: shortOut(out), dev: String(c.tool).replace("device_", "") });
-          if(r && r.thumb){ const m = (window.__devThumbs = window.__devThumbs || {}); (m[aiMsg.id] = m[aiMsg.id] || {})[commands.length - 1] = "data:image/jpeg;base64," + r.thumb; }
+          if(r && r.thumb){ const m = (window.__devThumbs = window.__devThumbs || {}); (m[aiMsg.id] = m[aiMsg.id] || {})[commands.length - 1] = "data:image/jpeg;base64," + r.thumb; lastShot = { dataUrl: "data:image/jpeg;base64," + r.thumb, w: r.thumbW, h: r.thumbH, sw: r.screenW, sh: r.screenH }; }
           aiMsg.activity = { commands: commands.slice(), created:[], edited:[], deleted:[], uploaded: localUploaded };
           setRunning("📱 " + dl);
         } else commands.push({ cmd: cmdLabel(c, args), ok, out: shortOut(out) });
@@ -3971,7 +4049,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         if(String(c.tool).indexOf("device_") === 0 && (window.__deviceStopped || (r && r.error && String(r.error).indexOf("[중지됨]") === 0))){ window.__deviceStopped = true; window.__deviceHalt = true; break; } // 긴급 중지: 남은 조작과 다음 호출을 하지 않는다
       }
       aiMsg.activity = { commands, created:[], edited:[], deleted:[], uploaded: localUploaded };
-      if(window.__deviceHalt){ window.__deviceHalt = false; aiMsg.running = false; chat.messages.push({ id: uid(), role:"system", content:"🛑 화면 조작이 중지됐어요. 새 요청을 보내기 전에는 다시 조작하지 않아요.", ts: Date.now() }); autoLoadChat(chat); return; }
+      if(window.__deviceHalt){ window.__deviceHalt = false; aiMsg.running = false; chat.messages.push({ id: uid(), role:"system", content:"🛑 화면 조작 중지됨 (새 요청 전까지 멈춤)", ts: Date.now() }); autoLoadChat(chat); return; }
       if(outs.length) feedback = "[도구 실행 결과]\n" + outs.join("\n\n").slice(0, 100000);
     }
     // 순수 브라우저(또는 Desktop 이 아닌 경우)에서 WORK/CODE 모드면 가상 Linux_Local 스킬(runcmd / upload / question-load / ```tool)을 실행한다.
@@ -4019,7 +4097,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
       if(asked){ aiMsg.question = asked; aiMsg.running = false; autoLoadChat(chat); return; } // 사용자 답을 기다린다
       if(outOfTokens){
         aiMsg.running = false;
-        chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(agentToolCostInternal(), "도구 사용") + ` 충전한 뒤 "계속해줘"라고 보내면 이어서 진행해요.`, ts: Date.now() });
+        chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(agentToolCostInternal(), "도구 사용") + ` 충전 후 "계속해줘"`, ts: Date.now() });
         autoLoadChat(chat); showTokenOutModal(); return;
       }
       if(outs.length) feedback = "[Linux_Local 실행 결과]\n" + outs.join("\n\n").slice(0, 100000);
@@ -4027,14 +4105,20 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
     if(!feedback && browserAvailable() && hasBrowserBlocks(aiMsg.content)){
       if(tokensInternal < agentToolCostInternal()){
         aiMsg.running = false;
-        chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(agentToolCostInternal(), "브라우저 작업") + ` 충전한 뒤 "계속해줘"라고 보내면 이어서 진행해요.`, ts: Date.now() });
+        chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(agentToolCostInternal(), "브라우저 작업") + ` 충전 후 "계속해줘"`, ts: Date.now() });
         autoLoadChat(chat); showTokenOutModal(); return;
       }
       await chargeTokens(agentToolCostInternal(), "도구 사용", aiMsg);
       const n = (String(aiMsg.content).match(/```browser[ \t]*\r?\n[\s\S]*?```/g) || []).join("\n").split("\n").filter(l=>/^\s*\{/.test(l)).length;
       setRunning("브라우저 작업 중... (" + n + "개 동작)");
-      const results = await ChoiminiBrowser.runBlocks(aiMsg.content);
-      const BL = { navigate:"페이지 이동", new_tab:"새 탭 열기", list_tabs:"탭 목록 확인", current_tab:"현재 탭 확인", snapshot:"화면 요소 읽기", read_text:"페이지 글 읽기", screenshot:"스크린샷 찍기", read_console:"콘솔 로그 확인", click:"클릭", type:"입력", select:"선택", check:"체크", submit:"제출", scroll:"스크롤", wait:"대기" };
+      // screenshot 결과 이미지: 예전엔 이 이벤트를 아무도 받지 않아 사용자에게도 AI 에게도 보이지 않았다
+      const shots = [];
+      const onShot = e=>{ try{ if(e.detail && e.detail.dataUrl) shots.push(e.detail); }catch(_){} };
+      window.addEventListener("choimini-screenshot", onShot);
+      let results;
+      try{ results = await ChoiminiBrowser.runBlocks(aiMsg.content); }
+      finally{ window.removeEventListener("choimini-screenshot", onShot); }
+      const BL = { navigate:"페이지 이동", new_tab:"새 탭 열기", list_tabs:"탭 목록 확인", switch_tab:"탭 전환", back:"뒤로 가기", forward:"앞으로 가기", reload:"새로고침", current_tab:"현재 탭 확인", snapshot:"화면 요소 읽기", read_text:"페이지 글 읽기", screenshot:"스크린샷 찍기", read_console:"콘솔 로그 확인", click:"클릭", type:"입력", select:"선택", check:"체크", submit:"제출", scroll:"스크롤", wait:"대기" };
       const cmds = results.map(r=>{
         let j = null; try{ j = JSON.parse(r); }catch(e){}
         if(!j) return { cmd:"브라우저: " + String(r).slice(0,80), ok:false, out:"" };
@@ -4042,12 +4126,19 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         return { cmd:"🌐 " + (BL[j.action] || j.action) + det, ok: !!j.ok, out: shortOut(j.ok ? JSON.stringify(j.result||{}) : (j.message || j.error || "")) };
       });
       aiMsg.activity = { commands: cmds.length ? cmds : [{ cmd:"브라우저 작업", ok:true, out:"" }], created:[], edited:[], deleted:[], uploaded:[] };
+      if(shots.length){
+        const m = (window.__devThumbs = window.__devThumbs || {}); m[aiMsg.id] = m[aiMsg.id] || {};
+        let k = 0; cmds.forEach((c, i)=>{ if(/스크린샷/.test(c.cmd) && c.ok && shots[k]) m[aiMsg.id][i] = shots[k++].dataUrl; });
+        const last = shots[shots.length - 1];
+        lastShot = { dataUrl: last.dataUrl };
+        if(chat.id === activeChatId) renderMessages();
+      }
       if(results.length) feedback = "[브라우저 실행 결과]\n" + results.join("\n").slice(0, 50000);
     }
   }catch(e){
     if(e && e.name === "AbortError"){
       aiMsg.running = false;
-      chat.messages.push({ id: uid(), role:"system", content:"⏹️ 사용자가 작업을 중지했어요.", ts: Date.now() });
+      chat.messages.push({ id: uid(), role:"system", content:"⏹️ 작업을 중지했어요.", ts: Date.now() });
       autoLoadChat(chat); return;
     }
     feedback = "[실행 오류] " + (e && e.message || e);
@@ -4061,7 +4152,16 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
   }
   if(!feedback) return;
 
-  chat.messages.push({ id: uid(), role:"user", content: feedback, ts: Date.now(), auto: true });
+  // 화면 조작 캡처: 가장 최근 1장만 다음 단계에 이미지로 함께 보낸다(AI 가 글자로 구분 못하는 아이콘·색·배치를 직접 보게).
+  // 저장공간을 아끼려고 이전 자동 메시지의 캡처는 지운다.
+  const fbMsg = { id: uid(), role:"user", content: feedback, ts: Date.now(), auto: true };
+  if(lastShot){
+    (chat.messages||[]).forEach(x=>{ if(x.auto && x.files && x.files.some(f=>f._devShot)){ x.files = x.files.filter(f=>!f._devShot); if(!x.files.length) delete x.files; } });
+    fbMsg.files = [{ name:"screen.jpg", type:"image/jpeg", isImg:true, dataUrl: lastShot.dataUrl, _devShot:true }];
+    if(!lastShot.sw) fbMsg.content += "\n\n[첨부: 방금 찍은 스크린샷 이미지]";
+    if(lastShot.sw && lastShot.w) fbMsg.content += `\n\n[첨부: 현재 화면 캡처 ${lastShot.w}x${lastShot.h} (실제 화면 ${lastShot.sw}x${lastShot.sh}). device_tap 좌표는 실제 화면 기준이므로 이미지 좌표에 ${(lastShot.sw/lastShot.w).toFixed(3)} 을 곱해라. 가능하면 device_click 의 id 를 써라.]`;
+  }
+  chat.messages.push(fbMsg);
   saveChats();
   const live = makeLiveRow("다음 단계를 생각하는 중...", chat.id);
   if(genState[chat.id]) genState[chat.id].live = live;
@@ -4069,7 +4169,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
     await appendAiReply(chat, preset, depth + 1, signal(), live);
   }catch(err){
     if(err && err.name === "AbortError"){
-      chat.messages.push({ id: uid(), role:"system", content:"⏹️ 사용자가 답변 생성을 중지했어요.", ts: Date.now() });
+      chat.messages.push({ id: uid(), role:"system", content:"⏹️ 답변을 중지했어요.", ts: Date.now() });
     }else{
       console.error("[에이전트 루프 오류]", err && (err.dev || err.message) || err);
       chat.messages.push({ id: uid(), role:"system", content:(err && err.message)||String(err), ts: Date.now(), canRetry:true });
@@ -4120,6 +4220,31 @@ function editUserMessage(msgId){
 
 /* 답변이 만들어지는 동안 텍스트를 실시간으로 보여주는 말풍선.
    본문은 그대로, ```runcmd 같은 스킬 블록은 "파일/명령 작성중..." 으로 정리해서 보여준다. */
+/* 생각한 시간·사고 요약 표시용 */
+function fmtSec(ms){ ms = Math.max(0, ms||0); if(ms < 10000) return (ms/1000).toFixed(1) + "초"; if(ms < 60000) return Math.round(ms/1000) + "초"; return Math.floor(ms/60000) + "분 " + Math.round((ms%60000)/1000) + "초"; }
+function fmtTok(n){ n = n||0; return n >= 1000 ? (n/1000).toFixed(1) + "k" : String(n); }
+function thoughtTitle(t){
+  t = String(t||""); const hs = [...t.matchAll(/\*\*([^*\n]{2,80})\*\*/g)];
+  if(hs.length) return hs[hs.length-1][1].trim();
+  const ls = t.trim().split("\n").map(x=>x.trim()).filter(Boolean); return ls.length ? ls[ls.length-1].slice(0, 70) : "";
+}
+function thoughtsHtml(t){ return escapeHtml(String(t||"").trim()).replace(/\*\*([^*\n]{1,120})\*\*/g, "<b>$1</b>"); }
+function statsHtml(m){
+  const st = m && m.stats; if(!st || !(st.totalMs > 0)) return "";
+  const write = Math.max(0, st.totalMs - st.thinkMs);
+  const head = [`🧠 ${fmtSec(st.thinkMs)} 생각`]; if(write > 300) head.push(`작성 ${fmtSec(write)}`);
+  const det = [];
+  if(st.model) det.push(st.model);
+  det.push(`총 ${fmtSec(st.totalMs)}`);
+  const tk = [];
+  if(st.thoughtTokens) tk.push(`사고 ${fmtTok(st.thoughtTokens)}`);
+  if(st.outTokens) tk.push(`답변 ${fmtTok(st.outTokens)}`);
+  if(st.inTokens) tk.push(`입력 ${fmtTok(st.inTokens)}`);
+  if(tk.length) det.push(`모델 토큰 ${tk.join("/")}`);
+  if(st.outTokens && write > 500) det.push(`${Math.round(st.outTokens / (write/1000))}토큰/초`);
+  if(st.retries) det.push(`재시도 ${st.retries}회`);
+  return `<details class="ai-stats"><summary>${escapeHtml(head.join(" · "))}</summary><div class="ai-stats-body"><div>${escapeHtml(det.join(" · "))}</div>${st.thoughts ? `<div class="ai-thoughts">${thoughtsHtml(st.thoughts)}</div>` : ""}</div></details>`;
+}
 function makeLiveRow(label, chatId){
   /* chatId 의 채팅을 지금 보고 있을 때만 화면(DOM)에 붙인다. 다른 채팅을 보고 있으면 말풍선만 메모리에 두고,
      그 채팅으로 돌아오면 renderMessages() 가 attach() 로 다시 붙인다. */
@@ -4128,9 +4253,23 @@ function makeLiveRow(label, chatId){
   row.className = "row ai";
   row.innerHTML = `<div class="avatar">최</div><div class="bubble"></div>`;
   const bubble = row.querySelector(".bubble");
-  const dots = () => `<div class="typing-wrap"><div class="typing"><span></span><span></span><span></span></div>${label ? `<span class="typing-label">${escapeHtml(label)}</span>` : ""}</div>`;
-  bubble.innerHTML = dots();
+  const dots = () => `<div class="typing-wrap"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  bubble.innerHTML = `<div class="think-line"></div><div class="lr-body"></div>`;
+  const headEl = bubble.querySelector(".think-line"), body = bubble.querySelector(".lr-body");
+  body.innerHTML = dots();
   let latest = "", raf = 0, removed = false;
+  // 생각 시간: 요청 시작(t0) → 첫 글자(tText). 사고 요약(thought)이 오면 마지막 제목을 같이 보여준다
+  let t0 = Date.now(), tText = 0, thought = "";
+  const base = String(label || "생각하는 중").replace(/\.+$/, "");
+  function tick(){
+    if(removed) return;
+    const now = Date.now(), tt = thoughtTitle(thought);
+    headEl.textContent = tText
+      ? `🧠 ${fmtSec(tText - t0)} 생각 · 작성 중 ${fmtSec(now - tText)}`
+      : `${base} · ${fmtSec(now - t0)}${tt ? " — " + tt : ""}`;
+  }
+  tick();
+  const timer = setInterval(tick, 200);
   function attach(){
     if(removed || row.isConnected || (chatId && chatId !== activeChatId)) return;
     document.getElementById("emptyState").style.display = "none";
@@ -4168,14 +4307,21 @@ function makeLiveRow(label, chatId){
     if(d.status){ const tx = escapeHtml(d.status.text||""); html += d.status.kind === "계획" ? `<div class="act-plan">${tx||"계획중..."}</div>` : d.status.kind === "사고" ? `<div class="act-think">* <b>사고 과정 :</b> ${tx}</div>` : `<div class="act-test">* <b>${tx||"테스트중..."}</b></div>`; }
     html += openBlock(latest);
     if(!html) html = dots();
-    bubble.innerHTML = html;
+    body.innerHTML = html;
     attach();
     if(row.isConnected) scrollToBottom();
   }
   return {
     row, attach,
-    update(text){ latest = String(text||""); if(!raf) raf = requestAnimationFrame(render); },
-    remove(){ removed = true; if(raf) cancelAnimationFrame(raf); row.remove(); }
+    update(text, x){
+      latest = String(text||"");
+      if(x && x.t0 && !latest){ t0 = x.t0; tText = 0; thought = ""; } // 재시도/모델 전환 → 다시 측정
+      if(x && x.thought) thought = x.thought;
+      if(latest && !tText) tText = Date.now();
+      tick();
+      if(!raf) raf = requestAnimationFrame(render);
+    },
+    remove(){ removed = true; clearInterval(timer); if(raf) cancelAnimationFrame(raf); row.remove(); }
   };
 }
 function appendTypingIndicator(label){
@@ -4241,14 +4387,18 @@ window.ChoiminiConfirm = function(o){
     if(d.done) hideT = setTimeout(()=>{ box.style.opacity = "0"; }, 1800);
   });
 })();
-const IS_TOUCH_DEVICE = (()=>{ try{ return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (window.matchMedia && matchMedia("(pointer:coarse)").matches && !matchMedia("(hover:hover)").matches); }catch(_){ return false; } })();
+/* 터치 입력 여부: 매번 다시 판단한다. Samsung DeX·태블릿+키보드/마우스처럼 Android 라도 정밀 포인터가 있으면 Enter = 전송 */
+function isTouchInput(){ try{
+  if(window.CHOIMINI_DEX || (window.matchMedia && matchMedia("(hover:hover) and (pointer:fine)").matches)) return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (window.matchMedia && matchMedia("(pointer:coarse)").matches);
+}catch(_){ return false; } }
 const msgInput = document.getElementById("msgInput");
 msgInput.addEventListener("input", ()=>autoGrow(msgInput));
 msgInput.addEventListener("keydown", (e)=>{
   if(e.key === "Enter" && !e.shiftKey){
     if(e.isComposing || e.keyCode === 229) return;
     // 터치(모바일) 기기: Enter = 줄바꿈, 전송은 전송 버튼으로만
-    if(IS_TOUCH_DEVICE) return;
+    if(isTouchInput()) return;
     e.preventDefault();
     sendMessage();
   }
@@ -4355,7 +4505,7 @@ function formatMMSS(ms){
 document.getElementById("openAdRewardBtn").addEventListener("click", ()=>{
   const displayTokens = Math.floor(tokensInternal / TOKEN_MULT);
   if(displayTokens > AD_MAX_TOKENS_TO_WATCH){
-    toast(`🪙 토큰이 ${AD_MAX_TOKENS_TO_WATCH}개 이하일 때만 광고를 볼 수 있어요 (현재 ${displayTokens}개)`);
+    toast(`🪙 토큰 ${AD_MAX_TOKENS_TO_WATCH}개 이하일 때만 시청 가능 (현재 ${displayTokens})`);
     return;
   }
   const cooldown = adCooldownRemainingMs();
@@ -4417,7 +4567,7 @@ function applyMode(mode){
     if(mode === "nobrain"){ if(window.CHOIMINI_MODE === "code") requestLocal(false); }
     else if(execPref() === "local" && window.CHOIMINI_MODE !== "code"){
       requestLocal(true).then(ok=>{
-        if(!ok){ toast("Local 을 켜지 못해 SandBox Linux 에서 작업해요 (위의 Local 버튼으로 다시 켤 수 있어요)"); }
+        if(!ok){ toast("Local 실패 → SandBox Linux 에서 작업해요"); }
       });
     }
   }
@@ -4474,7 +4624,7 @@ document.getElementById("tokenOutApiBtn").addEventListener("click", ()=>{
 });
 document.getElementById("tokenOutWaitBtn").addEventListener("click", ()=>{
   closeModal("tokenOutModal");
-  toast("⏰ 매일 오전 12시(한국시간 자정)에 기본 토큰이 초기화돼요");
+  toast("⏰ 매일 자정(KST)에 토큰이 충전돼요");
 });
 document.querySelectorAll("[data-close]").forEach(btn=>{
   btn.addEventListener("click", ()=>{
@@ -4751,7 +4901,7 @@ function lfsMoveCopy(full, mode){
 function lfsDelete(full, isDir){
   if(lfsBlocked(full)){ toast("시스템 영역은 접근할 수 없어요"); return; }
   const locked = LinuxFS.lockRoot(full);
-  if(!confirm(`${full}${isDir ? " (폴더 전체)" : ""}을(를) 휴지통으로 보낼까요?\n14일 동안 보관되고 그 뒤 자동 삭제돼요.` + (locked ? "\n\n🔒 잠긴 항목이에요." : ""))) return;
+  if(!confirm(`${full}${isDir ? " (폴더 전체)" : ""}을(를) 휴지통으로 보낼까요? (14일 보관)` + (locked ? "\n\n🔒 잠긴 항목이에요." : ""))) return;
   try{ lfsU(()=>LinuxFS.userDelete(full)); toast("휴지통으로 이동했어요"); }catch(e){ toast("삭제 실패: " + e.message); }
   if(lfsOpen && (lfsOpen === full || lfsOpen.startsWith(full + "/"))){ lfsOpen = null; document.getElementById("lfsEditor").style.display = "none"; document.getElementById("lfsBrowser").style.display = "contents"; }
   lfsSel.delete(full); renderLfs();
@@ -4841,7 +4991,7 @@ async function renderLfsBackup(){
     row.querySelector('[data-a=pv]').addEventListener("click", ()=>previewFile(b.path));
     row.querySelector('[data-a=dl]').addEventListener("click", ()=>downloadFile(b.path));
     row.querySelector('[data-a=restore]').addEventListener("click", async ()=>{
-      if(!confirm(`"${b.project}" 백업의 파일 ${b.fileCount}개를 /user/projects/${b.project} 로 복원할까요?\n(같은 이름의 파일이 있으면 "(복원)" 이름으로 따로 저장돼요)`)) return;
+      if(!confirm(`"${b.project}" 백업의 파일 ${b.fileCount}개를 /user/projects/${b.project} 로 복원할까요?\n(같은 이름은 "(복원)"으로 저장)`)) return;
       try{ const r = await lfsU(()=>LinuxFS.backupRestore(b.path)); toast(`복원됨: ${r.count}개 → ${r.dir}`); }catch(e){ toast("복원 실패: " + e.message); }
     });
     row.querySelector('[data-a=del]').addEventListener("click", ()=>{ if(!confirm(`백업 "${b.name}"을(를) 삭제할까요?`)) return; lfsU(()=>LinuxFS.backupDelete(b.path)); renderLfsBackup(); });
@@ -4863,13 +5013,13 @@ function refreshDeviceRow(){
   if(!(window.AndroidBridge && AndroidBridge.deviceStatus)){
     box.style.display = isApp ? "" : "none";
     const t0 = document.getElementById("deviceUseStatus");
-    if(isApp && t0) t0.textContent = "이 앱 버전에는 화면 조작 기능이 없어요. Choimini Android 1.2.20 이상으로 다시 설치해 주세요.";
+    if(isApp && t0) t0.textContent = "앱을 1.2.20 이상으로 업데이트하면 쓸 수 있어요.";
     return;
   }
   box.style.display = "";
   let st = null; try{ st = JSON.parse(AndroidBridge.deviceStatus()); }catch(_){}
   const t = document.getElementById("deviceUseStatus");
-  if(!st){ t.textContent = "상태를 확인할 수 없어요 (권한은 꺼진 것으로 취급해요)"; return; }
+  if(!st){ t.textContent = "상태 확인 불가 (꺼진 것으로 처리)"; return; }
   const sn = { idle:"대기 중", running:"조작 중 · " + st.steps + "단계", stopped:"중지됨 (새 요청 전까지 재시작 안 함)" }[st.state] || "알 수 없음";
   t.textContent = "접근성: " + (st.accessibility ? "켜짐 ✅" : "꺼짐 ❌") + " · 다른 앱 위에 표시: " + (st.overlay ? "켜짐 ✅" : "꺼짐 ❌") + " · " + sn;
 }
@@ -5002,7 +5152,7 @@ function refreshDeviceRow(){
   function activate(s){
     if(cur){ cur.draft = inp.value; cur.out.style.display = "none"; cur.out.removeAttribute("id"); cur.shell = sel.value || cur.shell; }
     cur = s; s.out.style.display = ""; s.out.id = "chmOut"; if(sel.options.length) sel.value = s.shell; inp.value = s.draft || "";
-    renderTabs(); setPrompt(); $("chmRun").disabled = s.busy; $("chmStop").style.display = (s.bg && s.job != null) ? "" : "none"; s.out.scrollTop = s.out.scrollHeight;
+    renderTabs(); setPrompt(); $("chmRun").disabled = s.busy && !s.liveSid; $("chmStop").style.display = ((s.bg && s.job != null) || s.liveSid) ? "" : "none"; inp.placeholder = s.liveSid ? "프로그램에 보낼 입력" : "명령어 입력"; s.out.scrollTop = s.out.scrollHeight;
   }
   function renameSession(s){
     const nn = prompt("터미널 이름", s.name); if(nn === null) return;
@@ -5043,16 +5193,24 @@ function refreshDeviceRow(){
     let r = L.raw; const mi = r.lastIndexOf(MARK); if(mi >= 0) r = r.slice(0, mi);
     fillBlock(L.el, r.replace(/\n+$/, ""), L.cmd, false); L.s.out.scrollTop = L.s.out.scrollHeight;
   };
+  // 실행 중인 명령에 입력 보내기/중지 (Android: AndroidLocal.ws, Desktop 1.4.4+: DesktopBridge.termInput/termKill)
+  const canLive = ()=> kind() === "android" || (kind() === "desktop" && typeof window.DesktopBridge.termInput === "function");
+  const liveInput = (s, text, eof)=> kind() === "desktop" ? window.DesktopBridge.termInput(s.liveSid, text, !!eof) : window.AndroidLocal.ws("exec_input", { stream: s.liveSid, text, eof: !!eof });
+  const liveKill = s=> kind() === "desktop" ? window.DesktopBridge.termKill(s.liveSid) : window.AndroidLocal.ws("exec_kill", { stream: s.liveSid });
   async function run(cmd){
-    const s = cur; s.busy = true; renderTabs(); $("chmRun").disabled = true;
+    const andr = canLive();
+    const s = cur; s.busy = true; renderTabs(); $("chmRun").disabled = !andr;
     line("cmd", promptText(s) + " " + cmd, s);
     const blk = document.createElement("div"); blk.className = "blk"; s.out.appendChild(blk);
-    const running = line("meta", "실행 중…", s);
+    const running = line("meta", andr ? "실행 중… (입력하면 프로그램에 전달돼요)" : "실행 중…", s);
     const sid = s.id + "_" + Date.now(); live[sid] = { el: blk, raw: "", s, cmd };
+    // Android: 실행 중인 프로그램이 질문(y/n 등)을 하면 입력창에 친 줄을 그 프로그램의 입력(stdin)으로 보낸다.
+    // 예전엔 입력이 막혀 있다가 프로그램이 끝난 뒤 'y' 가 새 명령으로 실행돼 "y: not found" 가 났다
+    if(andr){ s.liveSid = sid; if(s === cur){ $("chmStop").style.display = ""; inp.placeholder = "프로그램에 보낼 입력"; } }
     try{
       let r, o, ec = 0, tm = false;
       if(kind() === "desktop"){
-        r = await window.DesktopBridge.term(s.shell, cmd, s.cwd);
+        r = await window.DesktopBridge.term(s.shell, cmd, s.cwd, andr ? sid : undefined);
         if(!r || !r.ok) throw new Error((r && r.error) || "실행 실패");
         o = r.output; ec = r.exitCode; if(r.cwd) s.cwd = r.cwd;
       } else {
@@ -5069,10 +5227,17 @@ function refreshDeviceRow(){
       if(tm) line("err", "시간 초과로 중단됐어요. 봇·서버처럼 오래 도는 프로그램은 '＋ 백그라운드' 터미널에서 실행하세요.", s);
       else if(ec) line("meta", "종료 코드 " + ec, s);
     }catch(e){ running.remove(); blk.remove(); line("err", "오류: " + (e && e.message || e), s); }
-    delete live[sid]; s.busy = false; renderTabs(); if(s === cur){ $("chmRun").disabled = false; setPrompt(); inp.focus(); }
+    delete live[sid]; s.busy = false; s.liveSid = null; renderTabs();
+    if(s === cur){ $("chmRun").disabled = false; $("chmStop").style.display = (s.bg && s.job != null) ? "" : "none"; inp.placeholder = "명령어 입력"; setPrompt(); inp.focus(); }
   }
   $("chmForm").addEventListener("submit", e=>{
-    e.preventDefault(); const s = cur; const c = inp.value; if(!c.trim() || !s || s.busy) return;
+    e.preventDefault(); const s = cur; const c = inp.value; if(!s) return;
+    if(s.busy && s.liveSid){ // 실행 중인 프로그램에 입력 전달 (빈 줄 = Enter 만)
+      inp.value = ""; line("cmd", "▶ " + (c || "(Enter)"), s); addNote("[터미널 입력] " + c);
+      Promise.resolve(liveInput(s, c + "\n")).then(r=>{ if(!r || !r.ok) line("err", "입력을 보내지 못했어요 (프로그램이 이미 끝났을 수 있어요)", s); });
+      return;
+    }
+    if(!c.trim() || s.busy) return;
     inp.value = ""; s.hist.push(c); s.hpos = s.hist.length;
     if(c.trim() === "clear" || c.trim() === "cls"){ s.out.innerHTML = ""; return; }
     if(s.bg){ bgSubmit(s, c); return; }
@@ -5090,6 +5255,8 @@ function refreshDeviceRow(){
   });
   inp.addEventListener("keydown", e=>{
     const s = cur; if(!s) return;
+    if(e.ctrlKey && (e.key === "c" || e.key === "C") && s.liveSid && inp.selectionStart === inp.selectionEnd){ e.preventDefault(); liveKill(s); line("meta", "^C", s); return; }
+    if(e.ctrlKey && (e.key === "d" || e.key === "D") && s.liveSid){ e.preventDefault(); liveInput(s, "", true); line("meta", "^D (입력 끝)", s); return; }
     if(e.key === "ArrowUp" && s.hist.length){ s.hpos = Math.max(0, s.hpos - 1); inp.value = s.hist[s.hpos] || ""; e.preventDefault(); }
     else if(e.key === "ArrowDown" && s.hist.length){ s.hpos = Math.min(s.hist.length, s.hpos + 1); inp.value = s.hist[s.hpos] || ""; e.preventDefault(); }
   });
@@ -5155,7 +5322,9 @@ function refreshDeviceRow(){
     if(st === "exit") bgEnded(s, code);
   };
   $("chmStop").addEventListener("click", async()=>{
-    const s = cur; if(!s || s.job == null) return;
+    const s = cur; if(!s) return;
+    if(s.liveSid){ liveKill(s); line("meta", "■ 중지 요청함", s); return; } // 실행 중인 일반 명령 중지 (Ctrl+C)
+    if(s.job == null) return;
     if(!confirm("이 백그라운드 작업을 중지할까요?")) return;
     const r = await window.AndroidLocal.ws("bg_stop", { id: s.job });
     if(r && r.ok) line("meta", "중지하는 중…", s);
@@ -5278,7 +5447,7 @@ function refreshDeviceRow(){
   $("wsOpenFiles").addEventListener("click", ()=>{
     let ok = false;
     try{ ok = !!(window.AndroidBridge && AndroidBridge.openWorkspaceInFiles && AndroidBridge.openWorkspaceInFiles()); }catch(_){}
-    if(!ok) toast("파일 앱을 열 수 없어요. 파일 앱 → 왼쪽 메뉴(≡) → '최미나이 작업공간' 에서 열어 주세요");
+    if(!ok) toast("파일 앱 → 메뉴(≡) → '최미나이 작업공간'에서 열어 주세요");
   });
   $("wsViewClose").addEventListener("click", closeViewer);
   $("wsViewSave").addEventListener("click", async()=>{ if(!viewing) return; try{ await ws("write", { path: viewing, b64: bytesB64(new TextEncoder().encode($("wsViewText").value)) }); toast("저장했어요"); render(); }catch(e){ toast("저장 실패: " + e.message); } });
@@ -5331,7 +5500,7 @@ document.getElementById("lfsSelUnlock").addEventListener("click", ()=>{ if(!lfsS
 document.getElementById("lfsSelZip").addEventListener("click", ()=>{ if(lfsSel.size) lfsZipDownload([...lfsSel], "선택항목.zip"); });
 document.getElementById("lfsSelDel").addEventListener("click", ()=>{
   if(!lfsSel.size) return;
-  if(!confirm(`선택한 ${lfsSel.size}개를 휴지통으로 보낼까요? (14일 후 자동 삭제)`)) return;
+  if(!confirm(`${lfsSel.size}개를 휴지통으로 보낼까요? (14일 보관)`)) return;
   let n = 0; [...lfsSel].forEach(p=>{ try{ lfsU(()=>LinuxFS.userDelete(p)); n++; }catch(e){ toast(e.message); } });
   lfsSel.clear(); lfsSelMode = false; toast(`${n}개를 휴지통으로 보냈어요`); renderLfs();
 });
@@ -5355,7 +5524,7 @@ document.getElementById("lfsEdClose").addEventListener("click", lfsBack);
 /* 최미나이가 잠긴 항목을 건드리려 할 때 사용자 동의 */
 LinuxFS.onLockRequest = info=>{
   if(document.hidden){ return false; } // 화면에 없으면 물어볼 수 없으니 거부(최미나이에게는 '잠김'으로 전달됨)
-  return confirm(`🔒 최미나이가 잠긴 항목을 ${info.opLabel}하려고 해요.\n\n대상: ${info.path}\n잠긴 항목: ${info.lock}\n\n허용할까요?\n(허용하면 이번 답변이 끝날 때까지 이 잠금은 다시 묻지 않아요)`);
+  return confirm(`🔒 최미나이가 잠긴 항목을 ${info.opLabel}하려고 해요.\n\n대상: ${info.path}\n잠긴 항목: ${info.lock}\n\n허용할까요? (이번 답변 동안 다시 묻지 않음)`);
 };
 setInterval(()=>{ try{ LinuxFS.purgeExpired(); }catch(_){} }, 3600000);
 
@@ -5389,7 +5558,7 @@ document.getElementById("clearChatsBtn").addEventListener("click", ()=>{
   toast("모든 채팅 삭제됨");
 });
 document.getElementById("clearFilesBtn").addEventListener("click", ()=>{
-  if(!confirm("모든 채팅에서 첨부파일 데이터를 제거할까? (메시지 텍스트는 유지됨)")) return;
+  if(!confirm("첨부파일을 모두 지울까요? (메시지는 유지)")) return;
   Object.values(chats).forEach(c=>c.messages.forEach(m=>{ if(m.files) m.files = []; }));
   saveChats();
   renderMessages();
@@ -5397,14 +5566,14 @@ document.getElementById("clearFilesBtn").addEventListener("click", ()=>{
   toast("첨부파일 데이터 삭제됨");
 });
 document.getElementById("resetSettingsBtn").addEventListener("click", ()=>{
-  if(!confirm("설정(제공자, API 키, 모델 매핑, 프리셋)을 초기화할까?")) return;
+  if(!confirm("설정(제공자·API 키·모델)을 초기화할까요?")) return;
   settings = defaultSettings();
   saveJSON(LS.settings, settings);
   syncSettingsUI(); renderTopbar();
   toast("설정 초기화됨");
 });
 document.getElementById("resetAllBtn").addEventListener("click", ()=>{
-  if(!confirm("채팅 기록과 설정을 모두 삭제할까? (토큰 잔액은 절대 초기화되지 않고 그대로 유지됨) 되돌릴 수 없음")) return;
+  if(!confirm("채팅과 설정을 모두 지울까요? (토큰은 유지, 되돌릴 수 없음)")) return;
   localStorage.removeItem(LS.chats);
   localStorage.removeItem(LS.settings);
   localStorage.removeItem(LS.activeChat);
@@ -5418,11 +5587,16 @@ document.getElementById("resetAllBtn").addEventListener("click", ()=>{
 });
 
 
-/* mobile sidebar toggle */
+/* 사이드바: 좁은 화면 = 서랍(열기/닫기), 넓은 화면(태블릿·DeX·PC) = 접기/펴기 (상태 기억) */
+const SB_KEY = "choimini.sidebarCollapsed";
+const isNarrow = ()=> window.innerWidth <= 760;
+function setSidebarCollapsed(v){
+  document.body.classList.toggle("sb-collapsed", !!v);
+  try{ localStorage.setItem(SB_KEY, v ? "1" : "0"); }catch(_){}
+}
 function checkMobile(){
-  const isMobile = window.innerWidth <= 760;
-  document.getElementById("sidebarToggle").style.display = isMobile ? "flex" : "none";
-  if(!isMobile) closeSidebar();
+  document.getElementById("sidebarToggle").style.display = "flex";
+  if(!isNarrow()) closeSidebar();
 }
 function openSidebar(){
   document.getElementById("sidebar").classList.add("open");
@@ -5432,12 +5606,15 @@ function closeSidebar(){
   document.getElementById("sidebar").classList.remove("open");
   document.getElementById("sidebarBackdrop").classList.remove("show");
 }
+function toggleSidebar(){
+  if(isNarrow()){ const sb = document.getElementById("sidebar"); sb.classList.contains("open") ? closeSidebar() : openSidebar(); }
+  else setSidebarCollapsed(!document.body.classList.contains("sb-collapsed"));
+}
+try{ if(localStorage.getItem(SB_KEY) === "1") document.body.classList.add("sb-collapsed"); }catch(_){}
 window.addEventListener("resize", checkMobile);
-document.getElementById("sidebarToggle").addEventListener("click", ()=>{
-  const sb = document.getElementById("sidebar");
-  sb.classList.contains("open") ? closeSidebar() : openSidebar();
-});
-document.getElementById("sidebarCloseBtn").addEventListener("click", closeSidebar);
+document.getElementById("sidebarToggle").addEventListener("click", toggleSidebar);
+document.addEventListener("keydown", e=>{ if((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "b" || e.key === "B" || e.key === "\\")){ e.preventDefault(); toggleSidebar(); } });
+document.getElementById("sidebarCloseBtn").addEventListener("click", ()=>{ isNarrow() ? closeSidebar() : setSidebarCollapsed(true); });
 document.getElementById("sidebarBackdrop").addEventListener("click", closeSidebar);
 // 사이드바에서 채팅 선택/새 채팅 시 모바일이면 자동으로 닫기
 document.getElementById("chatList").addEventListener("click", ()=>{ if(window.innerWidth<=760) closeSidebar(); });
@@ -5456,8 +5633,8 @@ function showAppPromo(){
     if(ios) return; // iOS 앱은 없음
     const kind = android ? "android" : "desktop";
     try{ if(sessionStorage.getItem("choimini.promo.closed")) return; const t = Number(localStorage.getItem("choimini.promo.until") || 0); if(t > Date.now()) return; }catch(_){}
-    document.getElementById("appPromoTitle").textContent = kind === "android" ? "Android 앱에서 더 편리하게 작업해보세요!" : "Desktop 앱에서 더 편리하게 작업해보세요!";
-    document.getElementById("appPromoDesc").textContent = kind === "android" ? "앱에서 코드 ANDROID 를 입력하면 500토큰을 받아요 (1회)." : "앱에서 코드 DESKTOP 을 입력하면 1,000토큰을 받아요 (1회).";
+    document.getElementById("appPromoTitle").textContent = kind === "android" ? "Android 앱이 더 편해요" : "Desktop 앱이 더 편해요";
+    document.getElementById("appPromoDesc").textContent = kind === "android" ? "앱에서 코드 ANDROID 입력 시 500토큰 (1회)" : "앱에서 코드 DESKTOP 입력 시 1,000토큰 (1회)";
     const el = document.getElementById("appPromo");
     const close = (days)=>{ el.classList.remove("show"); try{ sessionStorage.setItem("choimini.promo.closed", "1"); if(days) localStorage.setItem("choimini.promo.until", String(Date.now() + days * 86400000)); }catch(_){} };
     document.getElementById("appPromoClose").addEventListener("click", ()=>close(0));
@@ -5469,7 +5646,7 @@ function showAppPromo(){
 document.querySelectorAll("#execSwitch [data-exec]").forEach(b=>b.addEventListener("click", ()=>{
   const want = b.dataset.exec;
   if(want === "local" && !(desktopTerminalAvailable() && typeof LB().setLocal === "function")){
-    toast(desktopTerminalAvailable() ? "앱이 구버전이에요. Choimini 앱을 최신 버전으로 업데이트해 주세요" : "Local 은 Choimini Desktop·Android 앱에서만 쓸 수 있어요 (지금은 SandBox Linux)");
+    toast(desktopTerminalAvailable() ? "앱을 최신 버전으로 업데이트해 주세요" : "Local 은 Desktop·Android 앱 전용이에요");
     return;
   }
   settings.execTarget = want; saveJSON(LS.settings, settings);
