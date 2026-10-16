@@ -1376,17 +1376,28 @@ function agentTailPrompt(){
   return "\n\n[최종 확인] 위 [코드 답변 규칙]의 '코드블록' 규칙은 단순 코드 설명·짧은 예시에만 적용한다. 파일을 만드는 작업이라면 ```runcmd 블록으로 파일을 만들고 ```upload 블록으로 전달해라. 스킬이 없다고 말하지 마라.";
 }
 /* 데스크톱 앱(로컬 터미널 모드)에서 AI 에게 알려주는 스킬 설명. 사용자가 "스킬이 뭐야?" 하고 물어도 이걸 바탕으로 답한다. */
+/* 화면 조작(device_use) 브리지: Android 앱(AndroidBridge) 또는 Desktop 앱(DesktopBridge, 1.5.0+) */
+function devBridge(){ const A = window.AndroidBridge, D = window.DesktopBridge; if(A && A.deviceStatus) return A; if(window.CHOIMINI_DEVICE_USE === "desktop" && D && D.deviceNewRequest) return D; return null; }
 function deviceUseGuide(){
-  if(!(window.AndroidBridge && AndroidBridge.deviceStatus)) return "";
-  return "■ device_use (폰 화면 직접 조작, Android 앱 전용) — ```tool 블록에 한 줄에 JSON 하나. 도구 이름과 값은 반드시 아래처럼 소문자로 쓴다.\n"
-    + "  {\"tool\":\"device_screen\"} 화면 읽기(줄마다 [번호] 종류 \"글자\" (x,y)) + 화면 캡처 이미지가 다음 단계에 같이 온다\n"
-    + "  {\"tool\":\"device_click\",\"id\":12} 번호로 누르기(가장 정확) / {\"tool\":\"device_click\",\"text\":\"확인\"}\n"
-    + "  {\"tool\":\"device_tap\",\"x\":540,\"y\":1200} 좌표 누르기(실제 화면 픽셀), 길게: \"long\":true\n"
-    + "  {\"tool\":\"device_type\",\"text\":\"안녕\",\"enter\":true} 입력란에 쓰고 Enter(검색/전송)\n"
-    + "  {\"tool\":\"device_key\",\"key\":\"enter\"} key 는 back|home|recents|notifications|quick|enter 중 하나(소문자). 'ENTER'·'KEYCODE_ENTER' 처럼 쓰지 마라\n"
-    + "  {\"tool\":\"device_scroll\",\"dir\":\"down\"} (up|down|left|right) / {\"tool\":\"device_swipe\",\"x1\":500,\"y1\":1500,\"x2\":500,\"y2\":500}\n"
-    + "  {\"tool\":\"device_open_app\",\"name\":\"카카오톡\"} / {\"tool\":\"device_wait\",\"ms\":1500} / 아무 조작에나 \"screen\":true 를 붙이면 조작 뒤 화면도 같이 돌려준다\n"
-    + "  규칙: 한 번에 하나씩 하고 결과(화면)를 확인한다. 오류가 오면 오류 문구의 올바른 예시대로 고쳐서 다시 한다. 결과가 '[중지됨]' 이면 즉시 멈추고 중지됐다고만 알린다(스스로 다시 시작 금지). '[권한 필요]' 면 권한을 켜 달라고 안내한다. 결제·삭제·전송·로그인은 먼저 묻고, 비밀번호/인증번호는 대신 입력하지 않는다.\n";
+  const desk = window.CHOIMINI_DEVICE_USE === "desktop" && !(window.AndroidBridge && AndroidBridge.deviceStatus);
+  if(!devBridge()) return "";
+  const J = o=>JSON.stringify(o);
+  if(desk) return "■ device_use (Windows 화면 직접 조작) — ```tool 블록에 한 줄에 JSON 하나. 도구 이름·값은 소문자. 좌표는 항상 '화면 캡처 이미지' 기준(이미지에서 본 위치 그대로).\n"
+    + "  보기: " + J({tool:"device_screen"}) + " 앞 창의 요소 목록([번호] 종류 \"이름\" (x,y)) + 캡처 이미지 / " + J({tool:"device_screenshot"}) + " 이미지만 / " + J({tool:"device_find",text:"저장"}) + " / " + J({tool:"device_windows"}) + " 열린 창 목록\n"
+    + "  마우스: " + J({tool:"device_click",id:7}) + " 번호로(가장 정확) / " + J({tool:"device_click",x:640,y:360}) + " / \"button\":\"right\", \"double\":true / " + J({tool:"device_drag",x1:100,y1:200,x2:400,y2:200}) + " / " + J({tool:"device_scroll",dir:"down",amount:5}) + " / " + J({tool:"device_move",x:640,y:360}) + "\n"
+    + "  키보드: " + J({tool:"device_type",text:"안녕",enter:true}) + " / " + J({tool:"device_key",key:"ctrl+s"}) + " (enter, esc, tab, alt+tab, win+d, f5 …)\n"
+    + "  창·앱: " + J({tool:"device_focus",title:"메모장"}) + " / " + J({tool:"device_open_app",name:"notepad"}) + " (프로그램·주소·파일) / " + J({tool:"device_wait_for",text:"완료",ms:6000}) + "\n"
+    + "  빠르게: 조작에 \"screen\":true 를 붙이면 조작 뒤 화면도 같이 온다. 확인이 필요 없는 연속 동작은 한 블록에 여러 줄로. 파일 작업·명령은 device_use 말고 read_file/run_command 같은 도구가 더 빠르고 정확하다.\n"
+    + "  규칙: 결과를 확인하며 진행한다. 결제·전송·삭제·로그인·설치는 먼저 묻는다. 비밀번호는 대신 입력하지 않는다. 최미나이 앱 자신의 창은 조작할 수 없다. '[중지됨]' 이면 즉시 멈추고 중지됐다고만 알린다(스스로 다시 시작 금지).\n";
+  return "■ device_use (폰 화면 직접 조작, Android 앱 전용) — ```tool 블록에 한 줄에 JSON 하나. 도구 이름과 값은 반드시 소문자. 좌표는 실제 화면 픽셀.\n"
+    + "  보기: " + J({tool:"device_screen"}) + " 화면을 글자로 읽기([번호] 종류 \"글자\" (x,y)) + 캡처 이미지 / " + J({tool:"device_screenshot"}) + " 이미지만 / " + J({tool:"device_find",text:"설정"}) + " 그 글자 요소만(가장 빠름)\n"
+    + "  누르기: " + J({tool:"device_click",id:12}) + " 번호로(가장 정확) / " + J({tool:"device_click",text:"확인"}) + " / " + J({tool:"device_tap",x:540,y:1200}) + " / " + J({tool:"device_double_tap",id:3}) + " / " + J({tool:"device_long_press",text:"사진"}) + "\n"
+    + "  스크롤: " + J({tool:"device_scroll",dir:"down"}) + " / " + J({tool:"device_scroll_to",text:"개인정보",click:true}) + " 보일 때까지 스크롤(+누르기) / " + J({tool:"device_swipe",x1:500,y1:1500,x2:500,y2:500}) + "\n"
+    + "  입력: " + J({tool:"device_type",text:"안녕",enter:true}) + " / " + J({tool:"device_paste",text:"긴 글"}) + " / " + J({tool:"device_clear",id:5}) + "\n"
+    + "  키·앱: " + J({tool:"device_key",key:"enter"}) + " (back|home|recents|notifications|quick|enter — 'ENTER'·'KEYCODE_ENTER' 쓰지 마라) / " + J({tool:"device_open_app",name:"카카오톡"}) + " / " + J({tool:"device_apps",query:"카카"}) + " / " + J({tool:"device_open_url",url:"https://naver.com"}) + "\n"
+    + "  기다리기: " + J({tool:"device_wait_for",text:"완료",ms:6000}) + " (나타날 때까지 — 고정 시간 device_wait 보다 빠름)\n"
+    + "  빠르게: 조작에 \"screen\":true 를 붙이면 조작 뒤 화면도 같이 온다. 전체 화면 다시 읽기보다 device_find 를 먼저. 확인이 필요 없는 연속 동작은 한 블록에 여러 줄로.\n"
+    + "  규칙: 결과를 확인하며 진행한다. 오류가 오면 오류 문구의 예시대로 고쳐서 다시 한다. '[중지됨]' 이면 즉시 멈추고 중지됐다고만 알린다(스스로 다시 시작 금지). '[권한 필요]' 면 권한을 켜 달라고 안내한다. 결제·삭제·전송·로그인은 먼저 묻고, 비밀번호/인증번호는 대신 입력하지 않는다.\n";
 }
 function desktopSkillGuide(){
   return "\n\n[데스크톱 앱 스킬 안내 — 로컬 터미널 모드]\n" + deviceUseGuide()
@@ -3463,7 +3474,7 @@ function setChatGenerating(chat, on, abortCtl){
   else delete genState[chat.id];
   if(!anyGenerating()){ releaseWakeLock(); try{ LinuxFS.clearLockConsent(); }catch(_){} }
   try{ if(window.AndroidBridge && AndroidBridge.setGenerating) AndroidBridge.setGenerating(anyGenerating()); }catch(_){}
-  if(!anyGenerating()){ try{ if(window.AndroidBridge && AndroidBridge.deviceEnd) AndroidBridge.deviceEnd(); }catch(_){} } // 답변이 끝나면 화면 조작도 자동으로 끝낸다
+  if(!anyGenerating()){ try{ const B = devBridge(); if(B && B.deviceEnd) B.deviceEnd(); }catch(_){} } // 답변이 끝나면 화면 조작도 자동으로 끝낸다
   refreshGenUI();
   try{ renderChatList(); }catch(_){}
 }
@@ -3519,7 +3530,7 @@ async function sendMessage(){
     return;
   }
   window.__deviceStopped = false; window.__deviceHalt = false; // 사용자가 새 요청을 보내면 이전 긴급 중지가 풀린다 (AI 가 임의로 푸는 건 불가)
-  try{ if(window.AndroidBridge && AndroidBridge.deviceNewRequest) AndroidBridge.deviceNewRequest(); }catch(_){}
+  try{ const B = devBridge(); if(B && B.deviceNewRequest) B.deviceNewRequest(); }catch(_){}
 
   const preset = settings.preset;
   const chat = currentChat();
@@ -4000,7 +4011,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
       const calls = parseToolCalls(aiMsg.content).filter(c=>!(c && c.tool === "question_load"));
       const outs = [], commands = [], localUploaded = [];
       if(calls.some(c=>c && String(c.tool).indexOf("device_") === 0)){ // 화면 조작 중에는 다른 앱 화면 위에서도 AI 가 하는 말이 보이게 [중지] 버튼 옆으로 보낸다
-        try{ const say = parseAiDisplay(aiMsg.content).text; if(say && window.AndroidBridge && AndroidBridge.deviceNarrate) AndroidBridge.deviceNarrate(say); }catch(_){}
+        try{ const say = parseAiDisplay(aiMsg.content).text; const B = devBridge(); if(say && B && B.deviceNarrate) B.deviceNarrate(say); }catch(_){}
       }
       setRunning("명령 실행중...");
       for(const c of calls){
@@ -4159,7 +4170,9 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
     (chat.messages||[]).forEach(x=>{ if(x.auto && x.files && x.files.some(f=>f._devShot)){ x.files = x.files.filter(f=>!f._devShot); if(!x.files.length) delete x.files; } });
     fbMsg.files = [{ name:"screen.jpg", type:"image/jpeg", isImg:true, dataUrl: lastShot.dataUrl, _devShot:true }];
     if(!lastShot.sw) fbMsg.content += "\n\n[첨부: 방금 찍은 스크린샷 이미지]";
-    if(lastShot.sw && lastShot.w) fbMsg.content += `\n\n[첨부: 현재 화면 캡처 ${lastShot.w}x${lastShot.h} (실제 화면 ${lastShot.sw}x${lastShot.sh}). device_tap 좌표는 실제 화면 기준이므로 이미지 좌표에 ${(lastShot.sw/lastShot.w).toFixed(3)} 을 곱해라. 가능하면 device_click 의 id 를 써라.]`;
+    if(lastShot.sw && lastShot.w) fbMsg.content += (Math.abs(lastShot.sw - lastShot.w) < 2)
+      ? `\n\n[첨부: 현재 화면 캡처 ${lastShot.w}x${lastShot.h}. 좌표는 이 이미지 기준 그대로 쓰면 된다. 가능하면 device_click 의 id 를 써라.]`
+      : `\n\n[첨부: 현재 화면 캡처 ${lastShot.w}x${lastShot.h} (실제 화면 ${lastShot.sw}x${lastShot.sh}). device_tap 좌표는 실제 화면 기준이므로 이미지 좌표에 ${(lastShot.sw/lastShot.w).toFixed(3)} 을 곱해라. 가능하면 device_click 의 id 를 써라.]`;
   }
   chat.messages.push(fbMsg);
   saveChats();
