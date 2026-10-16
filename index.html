@@ -630,7 +630,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./choimini-auth.js?v=20261012"></script>
-<script src="./choimini-browser.js?v=20261018"></script>
+<script src="./choimini-browser.js?v=20261019"></script>
 <script src="./choimini-linuxfs.js?v=20261011"></script>
 <script src="./choimini-shell.js?v=20261005"></script>
 <script src="./choimini-shell-cmds.js?v=20261011"></script>
@@ -4129,7 +4129,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
       let results;
       try{ results = await ChoiminiBrowser.runBlocks(aiMsg.content); }
       finally{ window.removeEventListener("choimini-screenshot", onShot); }
-      const BL = { navigate:"페이지 이동", new_tab:"새 탭 열기", list_tabs:"탭 목록 확인", switch_tab:"탭 전환", back:"뒤로 가기", forward:"앞으로 가기", reload:"새로고침", current_tab:"현재 탭 확인", snapshot:"화면 요소 읽기", read_text:"페이지 글 읽기", screenshot:"스크린샷 찍기", read_console:"콘솔 로그 확인", click:"클릭", type:"입력", select:"선택", check:"체크", submit:"제출", scroll:"스크롤", wait:"대기" };
+      const BL = { navigate:"페이지 이동", new_tab:"새 탭 열기", list_tabs:"탭 목록 확인", switch_tab:"탭 전환", back:"뒤로 가기", forward:"앞으로 가기", reload:"새로고침", find:"요소 찾기", get_html:"HTML 확인", double_click:"더블클릭", right_click:"오른쪽 클릭", hover:"마우스 올리기", press_key:"키 누르기", scroll_to:"요소로 스크롤", current_tab:"현재 탭 확인", snapshot:"화면 요소 읽기", read_text:"페이지 글 읽기", screenshot:"스크린샷 찍기", read_console:"콘솔 로그 확인", click:"클릭", type:"입력", select:"선택", check:"체크", submit:"제출", scroll:"스크롤", wait:"대기" };
       const cmds = results.map(r=>{
         let j = null; try{ j = JSON.parse(r); }catch(e){}
         if(!j) return { cmd:"브라우저: " + String(r).slice(0,80), ok:false, out:"" };

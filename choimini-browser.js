@@ -58,7 +58,10 @@
     fill:"type", input:"type", type_text:"type", enter_text:"type", press:"click", tap:"click", click_element:"click",
     choose:"select", select_option:"select", toggle:"check", sleep:"wait", delay:"wait", pause:"wait",
     activate_tab:"switch_tab", focus_tab:"switch_tab", select_tab:"switch_tab", change_tab:"switch_tab", goto_tab:"switch_tab", switchtab:"switch_tab",
-    go_back:"back", history_back:"back", go_forward:"forward", refresh:"reload", reload_page:"reload" };
+    go_back:"back", history_back:"back", go_forward:"forward", refresh:"reload", reload_page:"reload",
+    dblclick:"double_click", doubleclick:"double_click", double_tap:"double_click", contextmenu:"right_click", context_click:"right_click", rightclick:"right_click",
+    mouseover:"hover", hover_element:"hover", move:"hover", key:"press_key", keypress:"press_key", press_keys:"press_key", hotkey:"press_key", keyboard:"press_key",
+    search:"find", find_text:"find", find_element:"find", locate:"find", html:"get_html", outer_html:"get_html", get_dom:"get_html", scroll_into_view:"scroll_to", scrollto:"scroll_to" };
   var TAB_ACTIONS = { switch_tab:1, list_tabs:1, current_tab:1, back:1, forward:1, reload:1 };
   function normCmd(c) {
     if (!c || typeof c !== "object" || Array.isArray(c)) return c;
@@ -79,6 +82,7 @@
     if (!TAB_ACTIONS[c.action] && c.ref == null && (c.element != null || c.id != null)) c.ref = c.element != null ? c.element : c.id;
     if (c.ref != null && typeof c.ref !== "string") c.ref = String(c.ref);
     if (c.ref && /^\d+$/.test(c.ref)) c.ref = "e" + c.ref;          // "12" → "e12"
+    if (c.action === "click" && c.key != null && c.ref == null && c.x == null) c.action = "press_key";   // {"action":"press","key":"Enter"}
     if (c.action === "type" && c.text == null && c.value != null) c.text = c.value;
     if (c.action === "scroll" && c.dy == null && c.amount != null) c.dy = Number(c.amount);
     if (c.action === "wait" && c.ms == null) c.ms = c.seconds != null ? Number(c.seconds) * 1000 : 1000;
@@ -158,7 +162,12 @@
     "0. 사용자의 각 메시지 끝에 [브라우저 상태] 가 자동으로 붙는다: ★ = 지금 보고 있는 탭, 그 아래 = 열린 탭 목록. '이 사이트/여기/지금 화면' 은 항상 ★ 탭이다(대화 앞부분의 옛 탭 정보보다 가장 최근 [브라우저 상태] 를 믿는다). 화면 내용(요소/텍스트)이 필요할 때만 snapshot/read_text 를 요청한다.",
     "1. 너는 사용자의 크롬 브라우저를 직접 조작할 수 있다. 조작은 ```browser 코드블록 안에 JSON을 한 줄에 하나씩 적어서 요청한다.",
     "2. 화면 안의 요소를 클릭/입력하려면 먼저 {\"action\":\"snapshot\"}으로 요소(ref)를 확인한 뒤 ref로 조작한다. 페이지가 바뀌면 다시 snapshot.",
-    "3. 액션: navigate(url) new_tab(url) list_tabs current_tab switch_tab(tabId) back forward reload snapshot read_text screenshot read_console click(ref) type(ref,text) select(ref,value) check(ref,checked) submit(ref) scroll(dy) wait(ms)",
+    "3. 액션: navigate(url) new_tab(url) list_tabs current_tab switch_tab(tabId) back forward reload snapshot read_text find(text) get_html(ref|selector) screenshot read_console click(ref|x,y) double_click right_click hover type(ref,text) press_key(key) select(ref,value) check(ref,checked) submit(ref) scroll(dy) scroll_to(ref) wait(ms)",
+    "   - 빠른 순서: find(글자로 요소 찾기, ref 와 좌표를 줌) → click/type. 전체 snapshot 은 find 로 못 찾을 때만.",
+    "   - 좌표 조작: screenshot 이미지에서 본 위치 그대로 {\"action\":\"click\",\"x\":640,\"y\":360} (이미지 픽셀). 아이콘·그림처럼 글자가 없는 버튼에 쓴다. hover/double_click/right_click 도 ref 또는 x,y.",
+    "   - press_key: Enter, Escape, Tab, ArrowDown, ctrl+a 등. 입력란에서 Enter 로 양식이 제출되면 제출과 같이 사용자 확인을 거친다.",
+    "   - get_html 은 구조 확인용(입력값은 지워짐). 내용을 읽을 땐 read_text 가 낫다.",
+    "   - 사용자 화면에는 최미나이가 조작하는 곳에 커서가 표시된다.",
     "   - 탭 지정: read_text/snapshot/click/type/scroll/read_console/back/reload 에 \"tabId\" 를 붙이면 사용자가 보고 있지 않은 탭에서도 실행된다(화면은 안 바뀜). tabId 는 [브라우저 상태] 의 [tab 숫자]. 없으면 ★ 탭.",
     "   - switch_tab 은 사용자의 화면을 그 탭으로 바꾼다. 사용자가 보여 달라고 했을 때나 screenshot 이 필요할 때만 쓴다(screenshot 은 보이는 탭만 가능).",
     "   - list_tabs는 열려 있는 모든 창의 탭을 배열로 돌려준다(각 항목에 windowId 포함). 보통은 [브라우저 상태] 에 이미 있으니 다시 부를 필요 없다.",
@@ -178,6 +187,7 @@
     "   {\"action\":\"click\",\"ref\":\"e12\"}  /  {\"action\":\"type\",\"ref\":\"e5\",\"text\":\"입력할 글\"}  /  {\"action\":\"select\",\"ref\":\"e7\",\"value\":\"옵션\"}  /  {\"action\":\"check\",\"ref\":\"e3\",\"checked\":true}  /  {\"action\":\"submit\",\"ref\":\"e9\"}",
     "   {\"action\":\"scroll\",\"dy\":600}  /  {\"action\":\"wait\",\"ms\":1000}",
     "   {\"action\":\"switch_tab\",\"tabId\":11}  /  {\"action\":\"read_text\",\"tabId\":11}  /  {\"action\":\"back\"}  /  {\"action\":\"reload\"}",
+    "   {\"action\":\"find\",\"text\":\"로그인\"}  /  {\"action\":\"click\",\"x\":640,\"y\":360}  /  {\"action\":\"hover\",\"ref\":\"e4\"}  /  {\"action\":\"press_key\",\"key\":\"Enter\"}  /  {\"action\":\"get_html\",\"ref\":\"e4\"}  /  {\"action\":\"scroll_to\",\"ref\":\"e9\"}",
     "11. 절대 \"브라우저를 볼 수 없다/조작할 수 없다\"고 말하지 마라. 이 규칙이 보이면 너는 이 스킬을 가지고 있다. 모르면 추측하지 말고 먼저 read_text/snapshot 을 쓴다. 결과가 TIMEOUT/NOT_IN_EXTENSION/PAUSED/NO_PERMISSION 이면 이유를 사용자에게 쉬운 말로 알려 준다.",
     "12. 블록 뒤에는 결과가 올 때까지 거기서 끝낸다(결과를 상상해서 이어 쓰지 않는다). 예시:\n```browser\n{\"action\":\"read_text\"}\n```",
   ].join("\n");
