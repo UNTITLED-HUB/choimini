@@ -1303,67 +1303,54 @@ const SYSTEM_PROMPT = _b64d(
 "IOyEpOuqhe2VoCDsiJgg7J6I7Ja07JqULiIK"
 );
 
-/* WORK/CODE 모드에서 AI에게 알려주는 스킬(runcmd / upload / question-load)과 가상 Linux(Linux_Local) 사용법. */
+const SPEED_RULE = "■ 빠르게 (중요): 서로 결과를 기다릴 필요 없는 동작은 한 답변에 모아서 한 번에 요청한다 — 여러 파일 읽기·검색·폴더 보기, 여러 파일 쓰기, 이어지는 명령은 한 블록에 여러 줄(또는 한 runcmd 에 여러 명령)로. 앞 결과를 봐야 다음을 정할 수 있을 때만 단계를 나눈다. 같은 파일을 다시 읽지 말고, 한 단계로 끝낼 일을 여러 단계로 쪼개지 마라.\n";
+/* WORK/CODE 모드에서 AI에게 알려주는 스킬(runcmd / upload / question-load)과 가상 Linux(Linux_Local) 사용법.
+   (1.2.29: 같은 내용을 유지하면서 중복 설명을 줄였다 — 매 단계마다 같이 보내지므로 짧을수록 빠르다) */
 function fsToolPrompt(mode){
-  // 하드코딩 목록이 아니라 셸의 "지금 실제로 사용 가능한 명령어"(내장 + /cmds 에 추가된 것)를 매번 읽어 온다.
   const cmds = (window.LinuxFS && LinuxFS.availableCmds) ? LinuxFS.availableCmds(mode).join(" ") : "";
   const F = "```";
-  let p = "\n\n[작업 에이전트 모드 · 가상 Linux(Linux_Local)]\n"
-    + "지금 너는 대화만 하는 챗봇이 아니라 '작업 에이전트'다. 파일을 만들거나 고치거나 변환하는 요청은 채팅에 코드를 붙여 넣는 것으로 끝내면 안 되고, 반드시 아래 스킬로 Linux_Local 에서 직접 실행해서 파일로 만들어야 한다.\n"
-    + "Linux_Local 은 브라우저 저장공간 안의 격리된 가상 Linux 다. 폴더: /user/download(사용자가 올린 파일 자동 저장), /user/documents, /user/desktop, /user/projects(작업물), /cmds(명령어), /package(설치된 패키지), /tmp, /trash(사용자가 지운 항목 휴지통), /backup(네가 지우거나 덮어쓴 파일의 옛 내용이 <프로젝트명>.zip 으로 자동 백업되는 곳).\n"
-    + "파일 정리 규칙: 모든 작업물은 /user/projects/<프로젝트명>/ 안에 만든다(프로젝트명은 영문 소문자-하이픈). /user 바로 아래나 / 에 파일을 흩뿌리지 않는다. 한 프로젝트 안에서는 index.html·src/·assets/ 처럼 역할별 폴더로 나누고 README.md 를 둔다. 문서는 /user/documents, 사용자가 올린 파일(/user/download)은 건드리지 않고, 임시 파일은 /tmp 에 둔다.\n"
-    + "  · 사용자가 🔒 잠근 파일/폴더를 수정·삭제·이동하려 하면 사용자에게 동의 창이 뜬다. 거부되면 '🔒 잠긴 파일' 오류가 나오니 우회하지 말고 사용자에게 잠금 해제나 허용을 요청해라. /trash 와 /backup 은 수정·삭제할 수 없다. 네가 지운 파일은 /backup 에서 사용자가 복원할 수 있다.\n"
-    + "\n■ 스킬 1 — runcmd : 리눅스 명령어를 실행한다 (특정 명령어 몇 개로 제한되지 않는다). 코드블록 언어를 runcmd 로 쓰고 그 안에 셸 명령을 그대로 쓴다(JSON 아님, 여러 줄 가능):\n"
-    + F + "runcmd\nmkdir -p /user/projects/game\ncat > /user/projects/game/game.html <<'EOF'\n<!DOCTYPE html>\n<html>…전체 코드…</html>\nEOF\nls -la /user/projects/game\n" + F + "\n"
-    + "  · 파일은 cat > 경로 <<'EOF' … EOF (히어독) 로 만든다. 파이프(|), 리다이렉션(> >> <), 체인(; && ||), 변수($VAR), 명령 치환($(...)), 글롭(*.txt)을 쓸 수 있다. 관련 명령은 한 블록에 묶어서 효율적으로 실행해라.\n"
-    + "  · pip install / npm install 로 거의 모든 패키지를 쓸 수 있다(python: numpy·pandas·scipy·matplotlib·scikit-learn·requests 등 Pyodide 지원 패키지와 PyPI 순수 파이썬 휠, node: npm 패키지를 esm.sh 로 로드; 네이티브 확장은 불가). 50MB 이상 패키지는 사용자 동의창이 뜨고 취소하면 설치되지 않는다. APK 빌드: 웹앱(HTML/JS/CSS) 폴더를 apk build <폴더> -n 이름 -p com.example.app 으로 설치 가능한 서명된 APK 로 만들 수 있다(Java/Kotlin·Gradle 빌드는 불가, WebView 래퍼 방식, 결과는 파일 패널에서 다운로드, 안드로이드 7.0+). exe build <폴더> -n 이름 으로 Windows 실행 파일(.exe, Edge/Chrome 앱 창 방식, Windows 10/11)도 만들 수 있다. apk info <파일.apk> 로 APK 내용·매니페스트를 볼 수 있다. 셸 제어문 if/then/else/fi, for, while, until, break/continue 와 test·[ ] 를 쓸 수 있다(함수 정의는 미지원). 복잡하면 python/node 스크립트를 써라. 디스코드 봇 테스트: npm install discord.js 후 node bot.js --say \"!ping\" / --slash 명령 옵션=값 → 모의 디스코드(실제 접속 아님)로 메시지·슬래시 명령 로직과 봇 응답을 확인한다.\n"
-    + "\n■ 스킬 2 — upload : 다 만든 파일을 사용자에게 전달한다. 업로드해야 사용자가 [미리보기]/[다운로드]를 할 수 있다. 업로드할 경로를 한 줄에 하나씩:\n"
-    + F + "upload\n/user/projects/game/game.html\n" + F + "\n"
-    + "  · 결과물(파일)을 만들었다면 테스트를 마친 뒤 반드시 upload 로 마무리해라. upload 하지 않은 파일은 사용자가 받을 수 없다.\n"
-    + "\n■ 스킬 3 — question-load : 진행에 꼭 필요한 정보가 비어 있을 때만 사용자에게 묻는다(선택지는 '- ' 로 시작하는 줄). 이 블록을 쓰면 작업이 멈추고 사용자의 답을 기다린다:\n"
-    + F + "question-load\n게임의 난이도는 어떻게 할까요?\n- 쉬움\n- 보통\n- 어려움\n" + F + "\n"
-    + "  · 요청이 이미 충분히 구체적이면 묻지 말고 합리적으로 정해서 바로 진행해라.\n"
-    + "\n■ 지금 사용 가능한 명령어 (실시간 조회 결과):\n" + cmds + "\n"
-    + "  · 이 목록은 고정이 아니다. 작업 전 필요하면 `which <명령>`, `type <명령>`, `cmds`, `cmds -l`(설명 포함), `compgen -c` 로 다시 확인해라. /cmds 에 새로 추가된 명령도 자동으로 인식된다.\n"
-    + "  · 필요한 명령이 없으면: 존재 확인 → (없으면) 필요한 것만 pkg install / pip install / npm install → 실행. 모든 패키지를 미리 설치하지 마라.\n"
-    + "  · 작업별 선택: 목록 ls / 검색 find·grep / 내용 cat·head·tail / 수정 sed·awk·printf·tee / 복사·이동·삭제 cp·mv·rm / 압축 tar·gzip·zip·unzip / 다운로드 curl·wget / 데이터 sort·uniq·cut·tr·wc·diff / 해시 sha256sum·md5sum·base64 / Python python·pip / Node node·npm / 버전관리 git.\n"
-    + "\n■ 테스트: `htmltest 파일.html [-t 대기ms] [-k ArrowLeft,Space] [-e 'JS식']` 은 HTML 을 격리 브라우저에서 실제로 실행해 콘솔 에러·캔버스 그려짐·키 입력 후 상태를 보고한다. `jscheck 파일.js|.html` 은 JS 문법 검사. 만든 결과물은 반드시 직접 테스트해서 통과를 확인한 뒤 upload 해라. (localStorage/쿠키는 격리 환경에서 막혀 있으니 쓰려면 try/catch, 외부 CDN 스크립트에 의존하지 마라.)\n"
-    + "\n■ 정직하게 알려야 할 한계: 진짜 리눅스가 아니라 브라우저 안에서 JS 로 구현된 호환 환경이다. python 은 Pyodide(WebAssembly, 첫 실행 느림), node 는 격리 샌드박스(fs·path·events·util·assert·crypto·http 등 내장 + npm 패키지는 esm.sh 로 자동 로드, 첫 사용 시 패키지 다운로드 표시), curl/wget 은 브라우저 CORS 제약, git 은 원격(clone/push/pull) 불가, ps/kill 은 가상, awk/sed 는 부분 구현이다. 안 되는 건 되는 척하지 말고 사실대로 말하고 대안을 제시해라.\n"
-    + "\n■ 진행 규칙 (사용자 화면에 단계가 실시간으로 표시된다):\n"
-    + "  · 매 단계 맨 앞에 지금 무엇을 할지 한두 문장으로 먼저 말하고(존댓말), 그 뒤에 스킬 블록을 쓴다. 텍스트 없이 블록만 쓰지 마라.\n"
-    + "  · 스킬 블록의 결과가 오면 그걸 보고 다음 단계를 이어간다. 끝날 때까지 스스로 계속 진행해라.\n"
-    + "  · 스킬 블록 자체(명령/파일 내용)는 화면에서 '명령 실행함(n)' / '파일 생성됨(이름)' 으로 자동 정리되므로, 같은 코드를 본문에 다시 붙이거나 설명하지 마라.\n"
+  return "\n\n[작업 에이전트 · SandBox Linux(Linux_Local)]\n"
+    + "너는 작업 에이전트다. 파일을 만들거나 고치는 요청은 채팅에 코드를 붙이지 말고 아래 스킬로 직접 실행해 파일로 만든다.\n"
+    + "환경: 브라우저 안 격리된 가상 Linux. 작업물은 /user/projects/<영문소문자-하이픈>/ 안에(역할별 폴더 + README.md), 문서는 /user/documents, 임시는 /tmp. /user/download(사용자가 올린 파일)는 수정하지 않는다. /trash·/backup 은 읽기 전용(네가 지우거나 덮어쓴 파일은 /backup/<프로젝트>.zip 으로 자동 백업). 🔒 잠긴 항목을 바꾸면 사용자 동의창이 뜨고, 거부('🔒 잠긴 파일' 오류)되면 우회하지 말고 해제를 요청한다.\n"
+    + "\n■ runcmd — 셸 명령 실행(JSON 아님, 여러 줄). 파일은 히어독으로 만든다:\n"
+    + F + "runcmd\nmkdir -p /user/projects/game\ncat > /user/projects/game/index.html <<'EOF'\n…전체 코드…\nEOF\nls -la /user/projects/game\n" + F + "\n"
+    + "  · 파이프·리다이렉션·; && ||·변수·$(...)·글롭·if/for/while/until·test 가능(함수 정의는 불가). 복잡하면 python/node 스크립트.\n"
+    + "  · 설치는 필요한 것만: pip install(Pyodide·순수 파이썬 휠) / npm install(esm.sh, 네이티브 불가) / pkg install. 50MB 이상은 사용자 동의창.\n"
+    + "  · 빌드: apk build <웹앱폴더> -n 이름 -p com.example.app (서명된 WebView APK, Android 7+, Java/Gradle 불가) / exe build <폴더> -n 이름 (Windows 10/11 앱 창) / apk info <파일.apk>.\n"
+    + "  · 디스코드 봇 모의 테스트: npm install discord.js 후 node bot.js --say \"!ping\" 또는 --slash 명령 옵션=값.\n"
+    + "■ upload — 완성 파일을 사용자에게 전달(경로 한 줄에 하나). upload 해야 사용자가 미리보기·다운로드할 수 있다:\n"
+    + F + "upload\n/user/projects/game/index.html\n" + F + "\n"
+    + "■ question-load — 진행에 꼭 필요한 정보가 없을 때만 묻는다(선택지는 '- ' 줄). 쓰면 답을 기다리며 멈춘다. 요청이 충분히 구체적이면 묻지 말고 합리적으로 정해 진행:\n"
+    + F + "question-load\n난이도는 어떻게 할까요?\n- 쉬움\n- 보통\n" + F + "\n"
+    + "■ 테스트(필수): htmltest 파일.html [-t 대기ms] [-k ArrowLeft,Space] [-e 'JS식'] — 격리 브라우저에서 실제 실행해 콘솔 에러·캔버스·키 입력 뒤 상태 확인 / jscheck 파일 — JS 문법 검사. 통과를 확인한 뒤 upload. localStorage 는 try/catch, 외부 CDN 의존 금지.\n"
+    + "■ 보조 도구(" + F + "tool, JSON 한 줄에 하나): fs_ls fs_read fs_write(path,content) fs_rm fs_mv fs_cp fs_find fs_grep fs_head fs_tail fs_mkdir fs_touch fs_cd fs_pwd convert_image(path,format) pkg_install(name) pkg_list(). 긴 코드는 runcmd 히어독이 안전하다.\n"
+    + "■ 사용 가능한 명령(실시간): " + cmds + "\n  모르면 which <명령> / cmds -l 로 확인.\n"
+    + "■ 한계(되는 척하지 말고 사실대로): 진짜 리눅스가 아닌 브라우저 구현. python=Pyodide(첫 실행 느림), node=샌드박스(npm 은 esm.sh), curl/wget 은 CORS 제약, git 원격 불가, ps/kill 가상, awk/sed 일부만.\n"
+    + SPEED_RULE
+    + "■ 진행: 매 단계 앞에 할 일을 1~2문장(존댓말)으로 말하고 블록을 쓴다(블록만 쓰지 않음). 결과를 보고 끝날 때까지 스스로 진행. 블록 내용은 화면에 '명령 실행함/파일 생성됨'으로 자동 정리되니 본문에 다시 붙이지 않는다. 마지막: 검증 → upload → 도구 없이 1~2문장.\n"
     + (mode === "code"
-      ? "  · CODE: 첫 답변은 1~2문장으로 무엇을 어떻게 만들지 알리고 [[계획: ○○을(를) 어떻게 만들지 계획중...]] 한 줄을 쓴 뒤 곧바로 ```runcmd 로 시작한다. 이후 단계마다 [[사고: 지금 하는 일 한 줄]] 을 쓴다. 다 만든 뒤엔 [[테스트: 테스트중...]] 단계로 htmltest/jscheck/실행 검증, 오류가 나면 [[사고: 오류 수정중...]] 후 고치고 재검증한다.\n"
-      : "  · WORK: [[...]] 상태 태그는 쓰지 않는다. 파일을 만든 뒤 htmltest/jscheck 등으로 한 번 검증한다.\n")
-    + "  · 검증 통과 → ```upload 로 업로드 → 그 다음 도구 없이 최종 답변 1~2문장(완성했다는 안내)으로 끝낸다. 코드 전문은 다시 붙이지 마라.\n"
-    + "\n■ 보조 도구(JSON, ```tool 블록): fs_ls, fs_read, fs_write(path,content), fs_rm, fs_mv, fs_cp, fs_find, fs_grep, fs_head, fs_tail, fs_mkdir, fs_touch, fs_cd, fs_pwd, convert_image(path,format), pkg_install(name), pkg_list(). 긴 코드는 JSON 이스케이프가 어려우니 runcmd 히어독을 쓰는 게 안전하다.\n";
-  if(mode === "code"){
-    p += "CODE 모드 추론 수준은 약 80% — WORK 의 모든 기능 위에 프로젝트 구조, 대규모 코드 작성, 빌드, 테스트, 디버깅, 복잡한 자동화, git 작업까지 적극적으로 이어가라. convert_image 는 Canvas API 로 실제 동작한다.\n";
-  } else {
-    p += "WORK 모드 추론 수준은 약 70% — 파일/문서/데이터 처리, 간단한 변환·스크립트, 압축/해제, 텍스트·이미지 처리 등 일반 작업에 필요한 모든 명령어를 자유롭게 써라. 대규모 프로젝트 개발·빌드·테스트·개발 서버는 CODE 모드가 더 적합하다고 안내해라.\n";
-  }
-  return p;
+      ? "  · CODE: 첫 답변은 1~2문장 + [[계획: ○○ 계획중...]] 한 줄 뒤 바로 runcmd. 단계마다 [[사고: 지금 하는 일]], 다 만들면 [[테스트: 테스트중...]] 로 검증, 오류면 [[사고: 오류 수정중...]] 후 고쳐 재검증. 프로젝트 구조·빌드·디버깅·git 까지 적극적으로 진행한다.\n"
+      : "  · WORK: [[...]] 상태 태그는 쓰지 않는다. 파일·문서·데이터 처리, 변환, 압축 등 일반 작업. 큰 프로젝트 개발·빌드는 CODE 모드를 권한다.\n");
 }
 
 /* Desktop(Code 모드) / Chrome 확장 / 사고 모드(NO BRAIN·WORK·CODE)에서만 추가 규칙을 붙인다.
    모드가 실시간으로 바뀌므로 요청마다 조립한다. */
 const CODE_QUALITY_PROMPT = [
-"[코드 품질 규칙 — 코드를 쓸 때는 장난 말투를 빼고 시니어 개발자처럼 일한다]",
-"1. 먼저 요구사항을 정리한다: 무엇을, 어떤 언어/환경에서, 어떤 입력과 출력으로. 빠진 정보가 진행을 막을 때만 묻고, 아니면 합리적 가정을 한 줄로 밝힌 뒤 진행한다.",
-"2. 쓰기 전에 구조를 정한다: 파일 구성, 핵심 데이터 구조, 함수 분리. 규모가 있으면 한 파일에 몰지 말고 역할별로 나눈다(index.html / style.css / app.js 등).",
-"3. 완성되어 바로 실행되는 코드만 쓴다. '...생략', 'TODO', 의사코드, 빈 함수, 자리표시자, 존재하지 않는 함수·라이브러리·API 호출 금지. 확실하지 않은 API 는 추측하지 말고 --help / 직접 실행으로 확인하거나 더 단순한 표준 기능으로 대체한다.",
-"4. 엣지 케이스를 처리한다: 빈 입력, 0/음수/경계값, 잘못된 형식, 네트워크·파일 실패. 오류는 삼키지 말고 의미 있는 메시지를 낸다.",
-"5. 읽기 좋게 쓴다: 의미 있는 이름, 짧은 함수, 중복 제거, 매직 넘버는 상수로. 코드를 그대로 따라 읽는 주석은 쓰지 않고 '왜' 가 필요한 곳에만 쓴다. 요청하지 않은 기능·과한 추상화는 넣지 않는다.",
-"6. 웹/게임: 외부 CDN 에 의존하지 않고(격리 환경), 모바일 화면 크기·터치·키보드를 모두 고려하며, 게임은 requestAnimationFrame 루프·점수/상태 초기화·재시작·충돌 판정까지 완성한다. 화면이 비어 보이면 실패다.",
-"7. 반드시 검증한다: 만든 뒤 실제로 실행/테스트(htmltest, jscheck, python 실행 등)하고 결과를 읽는다. 오류가 나면 증상만 덮지 말고 원인을 찾아 고친다. 같은 수정을 두 번 반복하게 되면 접근 방식을 바꾼다.",
-"8. 기존 코드를 고칠 때: 먼저 읽고, 기존 스타일·구조를 따르며, 필요한 부분만 최소로 바꾼다. 통째로 다시 쓰지 않는다.",
-"9. 보안: 사용자 입력을 그대로 innerHTML/eval/셸에 넣지 않는다. 비밀키를 코드에 하드코딩하지 않는다.",
-"10. 끝나면 무엇을 만들었고, 어떻게 확인했고, 한계가 무엇인지 솔직하게 짧게 알린다. 확인하지 못한 것을 '된다'고 말하지 않는다."
+"[코드 품질 — 코드를 쓸 땐 장난 말투를 빼고 시니어 개발자처럼]",
+"1. 요구사항(무엇을·어떤 환경·입출력)을 정리한다. 막히는 정보만 묻고, 아니면 가정을 한 줄로 밝히고 진행.",
+"2. 구조를 먼저 정한다(파일 구성·데이터 구조·함수 분리). 규모가 있으면 역할별 파일로 나눈다.",
+"3. 바로 실행되는 완성 코드만: '...생략'·TODO·의사코드·빈 함수·없는 API 금지. 모르는 API 는 --help/실행으로 확인하거나 표준 기능으로.",
+"4. 엣지 케이스(빈 입력·경계값·잘못된 형식·네트워크/파일 실패)를 처리하고 오류는 의미 있는 메시지로.",
+"5. 읽기 좋게: 의미 있는 이름, 짧은 함수, 중복 제거. 주석은 '왜'만. 요청 안 한 기능·과한 추상화 금지.",
+"6. 웹/게임: 외부 CDN 없이, 모바일 크기·터치·키보드 고려. 게임은 rAF 루프·상태 초기화·재시작·충돌까지 완성(빈 화면 = 실패).",
+"7. 반드시 실행해 검증하고 결과를 읽는다. 오류는 원인을 고친다. 같은 수정이 두 번 실패하면 접근을 바꾼다.",
+"8. 기존 코드는 먼저 읽고, 스타일을 따르며 필요한 부분만 고친다(통째로 다시 쓰지 않음).",
+"9. 사용자 입력을 innerHTML/eval/셸에 그대로 넣지 않고, 비밀키를 하드코딩하지 않는다.",
+"10. 끝나면 만든 것·확인한 방법·한계를 짧고 솔직하게. 확인 못 한 것을 '된다'고 하지 않는다."
 ].join("\n") + "\n\n";
 function agentHeadPrompt(){
   if(useLocalTerminal()) return "[최우선 규칙 · 작업 에이전트 (Local)]\n"
-    + "이 대화에서 너는 ```tool 블록으로 사용자의 컴퓨터 작업 폴더에서 파일 읽기·검색·수정·명령 실행을 '실제로 할 수 있다'. 아래 [데스크톱 앱 스킬 안내]의 도구 8개를 쓴다. \"도구를 쓸 수 없다\", \"파일을 볼 수 없다\" 같은 말은 하지 마라. 파일 내용을 추측하지 말고 먼저 list_dir/read_file/grep 으로 확인한다. 말투는 유지하되 코딩 중엔 짧고 정확하게 일한다.\n\n" + CODE_QUALITY_PROMPT;
+    + "이 대화에서 너는 ```tool 블록으로 사용자의 컴퓨터 작업 폴더에서 파일 읽기·검색·수정·명령 실행을 '실제로 할 수 있다'. 아래 [데스크톱 앱 스킬 안내]의 도구를 쓴다. \"도구를 쓸 수 없다\", \"파일을 볼 수 없다\" 같은 말은 하지 마라. 파일 내용을 추측하지 말고 먼저 list_dir/read_file/grep 으로 확인한다. 말투는 유지하되 코딩 중엔 짧고 정확하게 일한다.\n\n" + CODE_QUALITY_PROMPT;
   return "[최우선 규칙 · 작업 에이전트]\n"
     + "이 대화에서 너는 runcmd / upload / question-load 스킬을 '실제로 가지고 있다'. 아래 [작업 에이전트 모드] 항목에 사용법이 있다. 말투(친구 반말·드립)는 그대로 유지하되, 작업은 반드시 스킬로 수행한다.\n"
     + "- 파일/코드/게임/앱/문서를 만들어 달라는 요청은 채팅에 코드를 붙여 넣지 말고 runcmd 로 Linux_Local 에 파일을 만든 뒤 upload 로 전달한다.\n"
@@ -1372,8 +1359,8 @@ function agentHeadPrompt(){
     + CODE_QUALITY_PROMPT;
 }
 function agentTailPrompt(){
-  if(useLocalTerminal()) return "\n\n[최종 확인] 지금은 Local 모드다. 파일 작업과 명령은 ```tool 블록(read_file/list_dir/glob/grep/edit_file/write_file/run_command/bg_run/bg_log/bg_stop/bg_list/todo_write)으로만 한다. runcmd/upload 블록은 쓰지 마라. 도구 호출을 쓴 답변은 결과가 올 때까지 거기서 끝내라.";
-  return "\n\n[최종 확인] 위 [코드 답변 규칙]의 '코드블록' 규칙은 단순 코드 설명·짧은 예시에만 적용한다. 파일을 만드는 작업이라면 ```runcmd 블록으로 파일을 만들고 ```upload 블록으로 전달해라. 스킬이 없다고 말하지 마라.";
+  if(useLocalTerminal()) return "\n\n[최종 확인] 지금은 Local 모드다. 파일 작업과 명령은 ```tool 블록으로만 한다(runcmd 는 쓰지 않음, 파일 전달은 upload). 서로 상관없는 도구 호출은 한 블록에 모아 한 번에. 도구 호출을 쓴 답변은 결과가 올 때까지 거기서 끝내라.";
+  return "\n\n[최종 확인] 위 [코드 답변 규칙]의 '코드블록' 규칙은 단순 코드 설명·짧은 예시에만 적용한다. 파일을 만드는 작업이라면 ```runcmd 블록으로 파일을 만들고(관련 명령은 한 블록에 모아서) ```upload 블록으로 전달해라. 스킬이 없다고 말하지 마라.";
 }
 /* 데스크톱 앱(로컬 터미널 모드)에서 AI 에게 알려주는 스킬 설명. 사용자가 "스킬이 뭐야?" 하고 물어도 이걸 바탕으로 답한다. */
 /* 화면 조작(device_use) 브리지: Android 앱(AndroidBridge) 또는 Desktop 앱(DesktopBridge, 1.5.0+) */
@@ -1400,19 +1387,19 @@ function deviceUseGuide(){
     + "  규칙: 결과를 확인하며 진행한다. 오류가 오면 오류 문구의 예시대로 고쳐서 다시 한다. '[중지됨]' 이면 즉시 멈추고 중지됐다고만 알린다(스스로 다시 시작 금지). '[권한 필요]' 면 권한을 켜 달라고 안내한다. 결제·삭제·전송·로그인은 먼저 묻고, 비밀번호/인증번호는 대신 입력하지 않는다.\n";
 }
 function desktopSkillGuide(){
-  return "\n\n[데스크톱 앱 스킬 안내 — 로컬 터미널 모드]\n" + deviceUseGuide()
-    + "이 대화에서 너는 아래 스킬을 '실제로 가지고 있다'. 없다고 말하지 말고, 사용자가 스킬이 뭐냐고 물으면 이 내용을 쉬운 말로 설명해라.\n"
-    + "■ 로컬 터미널 (```tool 블록): 사용자의 컴퓨터·폰(작업 폴더)에서 실제로 파일 읽기·검색·수정·명령 실행을 한다. 블록 안에 JSON 객체를 한 줄에 하나씩 쓴다. 도구 이름은 정확히 아래 8개만 쓴다(경로는 작업 폴더 기준 상대 경로):\n"
-    + "  read_file {\"tool\":\"read_file\",\"path\":\"src/a.js\"} / list_dir {\"tool\":\"list_dir\",\"path\":\".\"} / glob {\"tool\":\"glob\",\"pattern\":\"**/*.js\"} / grep {\"tool\":\"grep\",\"pattern\":\"정규식\"} / edit_file {\"tool\":\"edit_file\",\"path\":\"...\",\"old_string\":\"...\",\"new_string\":\"...\"} / write_file {\"tool\":\"write_file\",\"path\":\"...\",\"content\":\"...\"} / run_command {\"tool\":\"run_command\",\"command\":\"npm test\"} / bg_run {\"tool\":\"bg_run\",\"command\":\"python bot.py\"} (오래 도는 프로그램: 시간 제한 없이 백그라운드로 실행, 기본 15초 뒤 출력 반환. 필요하면 \"wait_sec\":30 처럼 결과를 볼 때까지 기다릴 초를 지정할 수 있고, 사용자가 설정에서 정해 둔 값이 있으면 그 값이 우선) / bg_log {\"tool\":\"bg_log\",\"id\":1} / bg_stop {\"tool\":\"bg_stop\",\"id\":1} / bg_input {\"tool\":\"bg_input\",\"id\":1,\"text\":\"y\"} (bg_run 으로 띄운 프로그램이 y/n 등을 물을 때 답하기. run_command 는 키보드 입력이 없으니 -y 옵션이나 printf 'y\\n' | 명령 을 써라) / todo_write {\"tool\":\"todo_write\",\"items\":[{\"text\":\"할 일\",\"status\":\"pending\"}]}\n"
-    + "  예시:\n```tool\n{\"tool\":\"list_dir\",\"path\":\".\"}\n```\n"
-    + "  JSON 안의 줄바꿈은 \\n 으로 쓴다. 도구 호출을 쓴 답변은 결과가 올 때까지 거기서 끝내고(결과를 상상해 이어 쓰지 않는다), 결과는 [도구 실행 결과]로 돌아오니 보고 다음 단계를 이어간다. 작업 폴더 밖 접근과 위험한 명령은 앱이 막거나 사용자 승인을 받는다. 이 모드에서는 runcmd(가상 Linux) 스킬을 쓰지 않는다.\n"
-    + "■ upload (```upload 블록): 만든 파일 경로를 한 줄에 하나씩 적으면 사용자에게 미리보기/다운로드 카드로 전달된다(Local 의 파일도 가능 — 자동으로 복사해서 보여준다). 파일을 만들었다면 마지막에 꼭 쓴다.\n"
-    + "■ 파일 이동 (Local ↔ SandBox Linux, 앱의 Local 일 때): {\"tool\":\"to_sandbox\",\"from\":\"Local경로\",\"to\":\"/user/경로\"} / {\"tool\":\"from_sandbox\",\"from\":\"/user/경로\",\"to\":\"Local경로\"}. 파일뿐 아니라 폴더도 통째로 옮기고(크기 제한 없음), to 를 생략하면 기본 위치로 간다.\n"
-    + "■ APK 만들기 (Local 의 웹앱 폴더, 폴더 바로 아래에 index.html 필요): {\"tool\":\"make_apk\",\"dir\":\"myapp\",\"name\":\"앱 이름\",\"pkg\":\"com.example.myapp\",\"out\":\"myapp.apk\"} (선택: version, code, url, permissions, orientation). 웹앱을 담은 WebView APK 를 빌드·서명해서 사용자에게 카드로 보여준다. 네이티브(Kotlin/Java) 앱 빌드가 아니라는 점을 사용자에게 알려라.\n"
-    + "■ 터미널 창 관리: {\"tool\":\"term_list\"} / {\"tool\":\"term_rename\",\"id\":\"t1\",\"new_name\":\"새 이름\"} / {\"tool\":\"term_close\",\"id\":\"t2\"}. 이름 변경·닫기는 사용자 확인창이 뜨고, 사용자가 거부하면 따른다.\n"
-    + "■ question-load (```question-load 블록): 진행에 꼭 필요한 정보가 없을 때만 사용자에게 묻는다(선택지는 '- '로 시작). 블록을 쓰면 작업이 멈추고 답을 기다린다.\n"
-    + "■ browser (```browser 블록, 크롬 확장 연결 시): 사용자가 보고 있는 탭을 읽고 조작한다.\n"
-    + "■ 진행 규칙: 매 단계 맨 앞에 지금 무엇을 할지 한두 문장으로 먼저 말하고 블록을 쓴다. 다 끝나면 도구 없이 1~2문장으로 결과를 알린다. 설정에서 '가상 Linux_Local'을 고르면 내 컴퓨터가 아니라 브라우저 안 격리 환경(runcmd 스킬)에서 실행된다.\n";
+  return "\n\n[스킬 안내 — Local(사용자의 컴퓨터·폰 작업 폴더)]\n" + deviceUseGuide()
+    + "너는 아래 스킬을 '실제로 가지고 있다'. 없다고 말하지 말고, 사용자가 물으면 쉬운 말로 설명한다.\n"
+    + "■ 로컬 도구 — ```tool 블록, JSON 한 줄에 하나. 경로는 작업 폴더 기준 상대 경로, JSON 안 줄바꿈은 \\n:\n"
+    + "  읽기: {\"tool\":\"read_file\",\"path\":\"src/a.js\"} · {\"tool\":\"list_dir\",\"path\":\".\"} · {\"tool\":\"glob\",\"pattern\":\"**/*.js\"} · {\"tool\":\"grep\",\"pattern\":\"정규식\"}\n"
+    + "  쓰기: {\"tool\":\"edit_file\",\"path\":\"a.js\",\"old_string\":\"바꿀 부분\",\"new_string\":\"새 내용\"} · {\"tool\":\"write_file\",\"path\":\"a.js\",\"content\":\"전체 내용\"}\n"
+    + "  실행: {\"tool\":\"run_command\",\"command\":\"npm test\"} (키보드 입력 없음 — 질문하는 명령은 -y 나 printf 'y\\n' | 명령) · {\"tool\":\"bg_run\",\"command\":\"python bot.py\",\"wait_sec\":15} 오래 도는 프로그램(시간 제한 없음, 사용자 설정값 우선) · {\"tool\":\"bg_log\",\"id\":1} · {\"tool\":\"bg_input\",\"id\":1,\"text\":\"y\"} 질문에 답하기 · {\"tool\":\"bg_stop\",\"id\":1} · {\"tool\":\"bg_list\"}\n"
+    + "  기타: {\"tool\":\"todo_write\",\"items\":[{\"text\":\"할 일\",\"status\":\"pending\"}]} · {\"tool\":\"to_sandbox\",\"from\":\"Local경로\",\"to\":\"/user/경로\"} / {\"tool\":\"from_sandbox\",\"from\":\"/user/경로\",\"to\":\"Local경로\"} (Local↔SandBox, 폴더째·크기 제한 없음, to 생략 가능) · {\"tool\":\"make_apk\",\"dir\":\"myapp\",\"name\":\"앱 이름\",\"pkg\":\"com.example.myapp\"} (폴더에 index.html 필요, WebView APK — 네이티브 빌드가 아님을 알릴 것) · {\"tool\":\"term_list\"} / {\"tool\":\"term_rename\",\"id\":\"t1\",\"new_name\":\"이름\"} / {\"tool\":\"term_close\",\"id\":\"t2\"} (사용자 확인)\n"
+    + "  예시(여러 줄 = 한 번에 실행):\n```tool\n{\"tool\":\"list_dir\",\"path\":\".\"}\n{\"tool\":\"read_file\",\"path\":\"package.json\"}\n```\n"
+    + "■ upload — ```upload 블록에 만든 파일 경로를 한 줄에 하나 → 사용자에게 미리보기/다운로드 카드. 파일을 만들었다면 마지막에 꼭.\n"
+    + "■ question-load — 꼭 필요한 정보가 없을 때만 묻는다(선택지 '- '). 쓰면 답을 기다리며 멈춘다.\n"
+    + "■ browser — 크롬 확장이 연결돼 있으면 ```browser 블록으로 사용자의 탭을 읽고 조작한다.\n"
+    + SPEED_RULE
+    + "■ 규칙: 매 단계 앞에 할 일 1~2문장 → 블록. 블록을 쓴 답변은 거기서 끝내고 [도구 실행 결과]를 기다린다(결과를 상상해 이어 쓰지 않음). 작업 폴더 밖·위험한 명령은 앱이 막거나 사용자 승인을 받는다. 이 모드에선 runcmd(가상 Linux)를 쓰지 않는다. 끝나면 도구 없이 1~2문장.\n";
 }
 function browserSkillHead(){
   return "[브라우저 스킬]\n이 대화에서 너는 ```browser 스킬로 사용자의 크롬 브라우저(지금 보고 있는 사이트)를 '실제로 볼 수 있고 조작할 수 있다'. \"사이트를 볼 수 없다\"고 말하지 마라. 사용자가 '이 사이트/이 화면/이 페이지'를 물으면 추측하지 말고 먼저 read_text / snapshot / screenshot 으로 확인한 뒤 답해라.\n\n";
@@ -1489,7 +1476,12 @@ function useLocalTerminal(){
   return desktopTerminalAvailable() && window.CHOIMINI_MODE === "code" && ((settings.mode||"") === "work" || (settings.mode||"") === "code");
 }
 function isCodeMode(){ return (settings.mode||"") === "code"; }
-function execPref(){ return settings.execTarget === "linux" ? "linux" : "local"; }
+/* 작업 위치 선택: 사용자가 Local 을 직접 고른 경우에만 Local. (예전엔 기본값이 Local 이라 화면엔 SandBox Linux 로 보이는데
+   WORK 를 누르면 앱의 Local 보안문자가 뜨고, SandBox 용 jCAPTCHA 는 뜨지 않았다) */
+function execPref(){
+  if(settings.execTarget === "local" || settings.execTarget === "linux") return settings.execTarget;
+  return window.CHOIMINI_APP === "desktop" ? "linux" : "local";   // 고른 적 없으면: Desktop 은 SandBox, Android 는 예전처럼 Local
+}
 function requestLocal(on){
   if(!desktopTerminalAvailable() || typeof LB().setLocal !== "function") return Promise.resolve(false);
   return Promise.resolve(LB().setLocal(!!on)).catch(()=>false).then(ok=>{ updateExecUI(); return ok; });
@@ -1500,8 +1492,9 @@ function updateExecUI(){
   const desk = hasApp && typeof LB().setLocal === "function";
   row.classList.toggle("show", hasApp || window.CHOIMINI_APP === "desktop"); /* Local | SandBox Linux 전환은 데스크톱 앱에서만 보인다 */
   const local = desk && window.CHOIMINI_MODE === "code";
+  const wantLocal = desk && (local || execPref() === "local");   // 화면 표시는 사용자가 고른 작업 위치 기준
   row.querySelectorAll("[data-exec]").forEach(b=>{
-    b.classList.toggle("active", (b.dataset.exec === "local") === local);
+    b.classList.toggle("active", (b.dataset.exec === "local") === wantLocal);
     if(b.dataset.exec === "local") b.style.opacity = desk ? "" : ".5";
   });
   const perm = window.CHOIMINI_PERM || "manual", sel = document.getElementById("permSel");
@@ -2987,13 +2980,32 @@ async function streamSSEOnce(url, init, onEvent){
 }
 /* 사고 과정(thinking) 토큰은 눈에 안 보이는 내부 작업이라 소모량에는 35% 만 반영한다. 에이전트(WORK/CODE)에서 '자동'이면 사고량도 4096 으로 제한 → 도구를 여러 번 쓰는 작업이 비싸지지 않게. */
 const THOUGHT_COST_W = 0.35;
-function geminiThinkingBudget(model, level, preset){
+/* 작업 단계 종류: first = 사용자의 실제 요청(계획이 필요), followup = 도구 결과를 받고 다음 동작만 정하면 되는 단계,
+   followup-error = 도구 결과에 오류가 있어 원인을 따져야 하는 단계. (사고 시간을 단계에 맞게 나눠 쓴다) */
+const STEP_ERR_RE = /오류:|\[실행 오류\]|\[종료 코드 [1-9-]|\[시간 초과|Traceback|Exception|\bError\b|error:|\bfailed\b|실패|\[거부\]|\[중지됨\]|"ok":\s*false|not found|No such file|찾지 못했|없어요|exit code [1-9]/i;
+function stepKind(chat){
+  const msgs = (chat && chat.messages) || [];
+  for(let i = msgs.length - 1; i >= 0; i--){
+    const m = msgs[i]; if(m.role !== "user") continue;
+    if(!m.auto) return "first";
+    const c = String(m.content || "");
+    if(!/^\[(도구|브라우저|Linux_Local) 실행 결과\]/.test(c)) return "followup-error";   // 업로드 누락 안내 등 (다시 생각이 필요)
+    return STEP_ERR_RE.test(c) ? "followup-error" : "followup";
+  }
+  return "first";
+}
+function geminiThinkingBudget(model, level, preset, step){
   const pro = /pro/i.test(model);
+  if((!level || level === "auto") && isAgentMode() && step && step !== "first"){
+    // 자동: 계획(첫 단계)은 충분히, 결과를 보고 다음 동작만 정하는 단계는 짧게, 오류 수정 단계는 중간
+    if(step === "followup") return preset === "max" ? 2048 : 512;
+    return preset === "max" ? -1 : 2048;
+  }
   if(!level || level === "auto") return preset === "max" ? -1 : (isAgentMode() ? 4096 : undefined);
   if(level === "off") return pro ? 128 : 0; // Pro 계열은 사고를 완전히 끌 수 없어서 최소값
   return { low:1024, medium:8192, high:24576 }[level];
 }
-async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutputTokens, signal, onDelta){
+async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutputTokens, signal, onDelta, opts){
   const contents = history.map(m=>({
     role: m.role==="user" ? "user" : "model",
     parts: buildGeminiParts(m)
@@ -3010,7 +3022,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   if(maxOutputTokens) generationConfig.maxOutputTokens = maxOutputTokens;
   // 사고 과정 강도 설정(자동/끔/낮음/보통/높음) → Gemini thinkingBudget.
   // 자동일 땐 예전처럼 Max 프리셋만 확장 사고(-1 = 동적 예산)를 켠다.
-  let tb = geminiThinkingBudget(model, settings.thinkingLevel, preset);
+  let tb = geminiThinkingBudget(model, settings.thinkingLevel, preset, opts && opts.step);
   if(tb === undefined && preset === "lite" && !/pro/i.test(model)) tb = 0; // lite/NO BRAIN 은 사고 단계를 건너뛰어 훨씬 빠르게
   // 짧은 보조 요청(채팅 제목 등, 출력 400토큰 이하)은 사고를 끈다. 안 끄면 에이전트 모드의 사고 예산(4096)이 출력 한도를 다 먹어서 빈 응답이 났다
   if(maxOutputTokens && maxOutputTokens <= 400) tb = /pro/i.test(model) ? 128 : 0;
@@ -3338,6 +3350,7 @@ async function generateReply(chat, signal, onDelta){
   // 일시 오류(429/503/빈 응답)나 존재하지 않는 모델(404)이면 같은 모델을 한 번 더, 그래도 안 되면 다른 프리셋 모델로 자동 전환한다.
   // ("AI를 사용할 수 없음" 이 CODE 모드에서 가끔 뜨던 문제 — 긴 에이전트 작업 중 한 번의 일시 오류로 전체가 멈추던 것을 방지)
   const sys = buildSystemPrompt();
+  const step = stepKind(chat);
   const order = [preset].concat(["medium","lite","high","max"].filter(p=>p!==preset));
   const tried = new Set(); let lastErr = null;
   for(const pr of order){
@@ -3352,13 +3365,13 @@ async function generateReply(chat, signal, onDelta){
         const t0 = Date.now(); let tText = 0, tThought = 0;
         const od = onDelta ? (t, x)=>{ if(t && !tText) tText = Date.now(); if(x && x.thought && !tThought) tThought = Date.now(); onDelta(t, Object.assign({ t0 }, x||{})); } : undefined;
         if(onDelta) onDelta("", { t0 }); // 재시도/모델 전환 시 이전에 보이던 부분 응답을 비운다
-        if(provider === "gemini") out = await callGemini(m, apiKey, sys, history, pr, undefined, signal, od);
+        if(provider === "gemini") out = await callGemini(m, apiKey, sys, history, pr, undefined, signal, od, { step });
         else if(provider === "openai") out = await callOpenAI(m, apiKey, sys, history, undefined, signal, od);
         else if(provider === "anthropic") out = await callAnthropic(m, apiKey, sys, history, undefined, signal, od);
         else throw new Error("알 수 없는 제공자");
         if(tried.size > 1) toast(`ℹ️ ${m} 모델로 전환해서 응답했어요`);
         const tEnd = Date.now();
-        const stats = { model: m, thinkMs: (tText || tEnd) - t0, totalMs: tEnd - t0, thoughtTokens: out.thoughtTokens || 0, outTokens: out.outTokens || 0, inTokens: out.inTokens || 0, thoughts: String(out.thoughts || "").slice(0, 4000), retries: attempt + tried.size - 1 };
+        const stats = { step, model: m, thinkMs: (tText || tEnd) - t0, totalMs: tEnd - t0, thoughtTokens: out.thoughtTokens || 0, outTokens: out.outTokens || 0, inTokens: out.inTokens || 0, thoughts: String(out.thoughts || "").slice(0, 4000), retries: attempt + tried.size - 1 };
         return { text: out.text, provider, usedLocal: false, usageAmount: out.usageAmount, streamed: !!out.streamed, stats };
       }catch(e){
         if(e && e.name === "AbortError") throw e;
@@ -4248,6 +4261,7 @@ function statsHtml(m){
   const head = [`🧠 ${fmtSec(st.thinkMs)} 생각`]; if(write > 300) head.push(`작성 ${fmtSec(write)}`);
   const det = [];
   if(st.model) det.push(st.model);
+  if(st.step) det.push({ first:"계획 단계", followup:"다음 단계(짧게 생각)", "followup-error":"오류 확인 단계" }[st.step] || st.step);
   det.push(`총 ${fmtSec(st.totalMs)}`);
   const tk = [];
   if(st.thoughtTokens) tk.push(`사고 ${fmtTok(st.thoughtTokens)}`);
@@ -5352,7 +5366,9 @@ function refreshDeviceRow(){
     pane.classList.toggle("show", !chat);
     const m = $("messages"), c = document.querySelector(".composer");
     if(m) m.style.display = chat ? "" : "none"; if(c) c.style.display = chat ? "" : "none";
-    if(!chat){ if(!sessions.length) init(); setPrompt(); if(cur && !cur.out.childElementCount) line("meta", "Chminal\n· help: 명령어 목록\n· pkg install python: 패키지 설치 (처음엔 리눅스가 자동으로 설치돼요)\n· 최미나이가 실행한 명령도 여기에 표시돼요", cur); setTimeout(()=>inp.focus(), 50); }
+    if(!chat){ if(!sessions.length) init(); setPrompt(); if(cur && !cur.out.childElementCount) line("meta", kind() === "desktop"
+      ? "Chminal · 실제 Windows 터미널 (CMD / PowerShell)\n· 시작 위치: 작업 폴더\n· 프로그램 설치: winget install Python.Python.3.12 · pip install 이름 · npm install 이름\n· 실행 중 질문(y/n)엔 그대로 입력 · Ctrl+C 중지\n· 최미나이가 실행한 명령도 여기에 표시돼요"
+      : "Chminal\n· help: 명령어 목록\n· pkg install python: 패키지 설치 (처음엔 리눅스가 자동으로 설치돼요)\n· 최미나이가 실행한 명령도 여기에 표시돼요", cur); setTimeout(()=>inp.focus(), 50); }
   }
   tabs.querySelectorAll("button").forEach(b=>b.addEventListener("click", ()=>{ if(kind()) showTab(b.dataset.tab); }));
 })();
