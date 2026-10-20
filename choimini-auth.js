@@ -154,6 +154,10 @@
         '    <button id="clgSendBtn" class="clg-mini" style="flex:1;padding:11px 8px">Supabase 메일로 받기</button>' +
         '    <button id="clgCustomBtn" class="clg-mini" style="flex:1;padding:11px 8px;background:#6366f1">커스텀 메일로 받기</button>' +
         '  </div>' +
+        '  <div id="clgCodeRow" class="clg-row" style="display:none">' +
+        '    <input id="clgCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="메일의 인증번호 입력" />' +
+        '    <button id="clgCodeBtn" class="clg-mini" style="padding:11px 14px">확인</button>' +
+        '  </div>' +
         '  <div id="clgError" class="clg-error"></div>' +
         '</div>';
       document.body.appendChild(gate);
@@ -161,6 +165,8 @@
       document.getElementById("clgSendBtn").addEventListener("click", function () { sendEmailCode(false); });
       document.getElementById("clgCustomBtn").addEventListener("click", function () { sendEmailCode(true); });
       document.getElementById("clgEmail").addEventListener("keydown", function (e) { if (e.key === "Enter") sendEmailCode(false); });
+      document.getElementById("clgCodeBtn").addEventListener("click", verifyEmailCode);
+      document.getElementById("clgCode").addEventListener("keydown", function (e) { if (e.key === "Enter") verifyEmailCode(); });
     }
     gate.style.display = "flex";
     document.documentElement.classList.add("choimini-locked");
@@ -208,6 +214,21 @@
     for (const m of MAIL_WEB) if (m[0].test(dom)) return { name: m[1], url: m[2](email) };
     return null;
   }
+  /* 메일의 인증번호로 로그인 — 링크가 시스템 브라우저에서 열리는 Android/데스크톱 앱용 */
+  async function verifyEmailCode() {
+    const email = pendingEmail || (document.getElementById("clgEmail").value || "").trim().toLowerCase();
+    const token = (document.getElementById("clgCode").value || "").replace(/\s+/g, "");
+    if (!email || !/^\d{6,10}$/.test(token)) { gateError("메일에 적힌 인증번호(숫자)를 입력해줘"); return; }
+    const btn = document.getElementById("clgCodeBtn"); btn.disabled = true; gateError("");
+    try {
+      let r = await supabase.auth.verifyOtp({ email: email, token: token, type: "email" });
+      if (r.error) r = await supabase.auth.verifyOtp({ email: email, token: token, type: "magiclink" });
+      if (r.error) throw r.error;
+      await bootstrapSession();
+    } catch (e) {
+      gateError("인증번호가 맞지 않거나 만료됐어요. 메일을 다시 받아줘");
+    } finally { btn.disabled = false; }
+  }
   const isAndroid = APP === "android" || /Android/i.test(navigator.userAgent || "");
   function openMailUrl(url, preWin) {
     if (APP === "desktop" || APP === "desktop-code") { // 데스크톱 앱: 시스템 브라우저로
@@ -232,7 +253,8 @@
         if (error) throw error;
       }
       pendingEmail = email;
-      gateError("로그인 링크를 메일로 보냈어요. 같은 브라우저에서 메일의 링크를 눌러주세요. (스팸함도 확인)");
+      const cr = document.getElementById("clgCodeRow"); if (cr) { cr.style.display = ""; try { document.getElementById("clgCode").focus(); } catch (_) {} }
+      gateError("메일을 보냈어요. 같은 브라우저면 링크를 누르고, 앱이면 메일의 인증번호를 아래에 입력해줘. (스팸함도 확인)");
       if (svc) {
         const opened = openMailUrl(svc.url, preWin);
         const el = document.getElementById("clgError");
