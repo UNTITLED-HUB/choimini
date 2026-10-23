@@ -27,7 +27,9 @@
     { key: "gemma3-1b", label: "Gemma 3 1B", approxMB: 550,  minRamGB: 3, url: "https://huggingface.co/litert-community/Gemma3-1B-IT" },
     { key: "gemma2-2b", label: "Gemma 2 2B", approxMB: 2500, minRamGB: 6, url: "https://huggingface.co/litert-community/Gemma2-2B-IT" },
   ];
-  function recommendNative(ramGB) {
+  function recommendNative(ramGB, choice) {
+    const picked = NATIVE_GUIDE.find(function (g) { return g.key === choice; });
+    if (picked) return picked;
     if (!(ramGB >= 3)) return null;
     return ramGB >= 6 ? NATIVE_GUIDE[1] : NATIVE_GUIDE[0];
   }
@@ -100,7 +102,7 @@
       backend: st.backend, native: native,
       supported: !!st.wgpu, f16: st.f16, ramGB: st.ramGB, ramKnown: !!st.ramKnown,
       enabled: c.enabled, consent: c.consent, choice: c.model, model: m, models: MODELS,
-      guide: native ? NATIVE_GUIDE : null, nativeRecommend: native ? recommendNative(st.ramGB) : null,
+      guide: native ? NATIVE_GUIDE : null, nativeRecommend: native ? recommendNative(st.ramGB, c.model) : null,
       hasModelFile: native ? !!(st.native && st.native.hasModel) : null,
       modelName: native && st.native ? st.native.modelName : "", modelMB: native && st.native ? st.native.modelMB : 0,
       possible: possible(),

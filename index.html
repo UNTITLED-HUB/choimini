@@ -636,7 +636,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <script src="./choimini-shell-cmds.js?v=20261011"></script>
 <script src="./choimini-apk.js?v=20261004"></script>
 <script src="./choimini-preview.js?v=20261013"></script>
-<script src="./choimini-localai.js?v=20261023"></script>
+<script src="./choimini-localai.js?v=20261024"></script>
 
 
     <!-- Cloudflare Turnstile 접속 게이트: 통과 전까지 페이지 콘텐츠를 가림 -->
@@ -771,8 +771,8 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         </div>
         <div class="local-promo" id="localPromo" role="note" style="display:none;margin:0 0 8px;padding:9px 12px;border:1px solid var(--border);border-radius:12px;background:var(--panel);font-size:12.5px;line-height:1.5;">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="flex:1;min-width:150px"><b>Local AI로 토큰을 절약해보세요</b><br><span style="color:var(--text-dim)">화면 조작의 빠른 판단을 이 기기에서 무료로 처리해요.</span></span>
-            <button id="localPromoOn" type="button" style="padding:6px 10px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">설정하기</button>
+            <span style="flex:1;min-width:150px"><b>Local AI로 토큰을 절약해보세요</b><br><span style="color:var(--text-dim)">빠른 판단을 이 기기에서 무료로 처리해요.</span></span>
+            <button id="localPromoOn" type="button" style="padding:6px 10px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">켜기</button>
             <button id="localPromoLater" type="button" style="padding:6px 8px;border-radius:8px;background:none;color:var(--text-dim);border:0;font-size:11.5px;text-decoration:underline;cursor:pointer">하루동안 숨기기</button>
             <button id="localPromoClose" type="button" aria-label="닫기" style="padding:4px 6px;background:none;color:var(--text-dim);border:0;font-size:15px;cursor:pointer">✕</button>
           </div>
@@ -848,14 +848,12 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <option value="auto">자동 · 기기 램에 맞는 Gemma 선택</option>
         </select>
         <div id="localAIStatus" style="font-size:12px;opacity:.8;margin-top:6px;line-height:1.5"></div>
-        <div id="localAIGuide" style="display:none;font-size:12px;line-height:1.65;margin-top:8px;padding:9px 11px;border:1px dashed var(--border);border-radius:8px;">
-          <b>Android에서 로컬 AI 쓰는 방법</b><br>
-          ① [모델 받는 곳 열기]로 Hugging Face 에 로그인하고 Gemma 라이선스에 동의한 뒤 <b>.task</b> 파일을 내려받아요 (모델은 라이선스 때문에 앱이 대신 받을 수 없어요).<br>
-          ② [모델 파일 선택]으로 받은 파일을 고르면 끝이에요. 파일은 이 앱 안에만 복사돼요.<br>
-          <span id="localAIRec" style="opacity:.85"></span>
+        <div id="localAIGuide" style="display:none;font-size:12px;line-height:1.6;margin-top:8px;padding:9px 11px;border:1px dashed var(--border);border-radius:8px;">
+          <span id="localAIRec"></span><br>
+          <span style="opacity:.8">[다운로드] → Hugging Face에서 동의 후 .task 파일 저장 → 돌아오면 파일 선택 → 자동 설정</span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            <button id="localAIOpenHF" type="button" style="padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">모델 받는 곳 열기</button>
-            <button id="localAIPick" type="button" style="padding:6px 10px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">모델 파일 선택</button>
+            <button id="localAIOpenHF" type="button" style="padding:6px 12px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">다운로드</button>
+            <button id="localAIPick" type="button" style="padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">받은 파일 선택</button>
           </div>
         </div>
         <button id="localAIClear" type="button" style="margin-top:6px;padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">내려받은 로컬 모델 지우기</button>
@@ -2251,6 +2249,7 @@ function updateLocalAIUI(){
   const sel = document.getElementById("localAISelect"), box = document.getElementById("localAIStatus");
   if(!sel || !LocalAI || !settings || !settings.localAI) return;
   const stt = LocalAI.status();
+  if(sel.options.length <= 2 && stt.native) LocalAI.NATIVE_GUIDE.forEach(g=>{ const o = document.createElement("option"); o.value = g.key; o.textContent = `직접 선택 · ${g.label} (약 ${g.approxMB >= 1000 ? (g.approxMB/1000).toFixed(1) + "GB" : g.approxMB + "MB"})`; sel.appendChild(o); });
   if(sel.options.length <= 2 && !stt.native) LocalAI.MODELS.forEach(m=>{ const o = document.createElement("option"); o.value = m.id; o.textContent = `직접 선택 · ${m.label} (내려받기 약 ${m.mb >= 1000 ? (m.mb/1000).toFixed(1) + "GB" : m.mb + "MB"})`; sel.appendChild(o); });
   sel.value = !settings.localAI.enabled ? "off" : (settings.localAI.model || "auto");
   if(sel.value !== (!settings.localAI.enabled ? "off" : (settings.localAI.model || "auto"))) sel.value = settings.localAI.enabled ? "auto" : "off";
@@ -2259,14 +2258,14 @@ function updateLocalAIUI(){
     : `이 기기: 램 약 ${stt.ramGB}GB${stt.ramKnown ? "" : "(확인 불가, 보수적으로 가정)"} · WebGPU ${stt.supported === false ? "미지원" : (stt.supported ? "지원" : "확인 전")}`;
   let line = "";
   const en = settings.localAI.enabled;
-  if(!en) line = "꺼져 있어요. 켜면 화면 조작의 다음 동작을 이 기기의 Gemma 가 판단해요(서버 전송·토큰 소모 없음).";
-  else if(stt.state === "needs-model") line = "📥 Gemma 모델 파일이 필요해요. 아래 안내대로 한 번만 가져오면 돼요.";
+  if(!en) line = "꺼짐 · 켜면 빠른 판단을 이 기기의 Gemma가 해요(토큰 0).";
+  else if(stt.state === "needs-model") line = "📥 모델 파일이 필요해요. 아래 [다운로드]를 눌러주세요.";
   else if(stt.state === "copying") line = `⏳ ${stt.text || "모델 가져오는 중"} ${stt.progress}%`;
   else if(stt.state === "loading") line = `⏳ ${stt.text || "준비 중"} ${stt.native ? "" : stt.progress + "%"}`;
   else if(stt.state === "ready") line = stt.native ? `✅ ${stt.modelName || "Gemma"} 사용 중 (기기 안에서 실행)` : `✅ ${stt.model ? stt.model.label : "Gemma"} 사용 중 (기기 안에서 실행)`;
   else if(stt.state === "unsupported" || stt.state === "error") line = `⚠️ ${stt.error} — 클라우드 Lite 로 대신해요`;
   else line = stt.model ? `선택된 모델: ${stt.model.label}` : (stt.native ? "모델 파일을 가져오면 바로 쓸 수 있어요" : "이 기기에서는 권장 모델이 없어요(클라우드 Lite 사용)");
-  if(!en && stt.supported === false) line += "\n이 앱/브라우저는 WebGPU 를 지원하지 않아 로컬 AI 를 쓸 수 없어요. (Android 앱은 앱 내장 엔진을 써요 — 최신 앱으로 업데이트하세요)";
+  if(!en && stt.supported === false) line += "\nWebGPU 미지원이라 이 환경에선 쓸 수 없어요.";
   if(box){ box.textContent = line + "\n" + dev; box.style.whiteSpace = "pre-line"; }
   const guide = document.getElementById("localAIGuide");
   if(guide){
@@ -2274,12 +2273,13 @@ function updateLocalAIUI(){
     guide.style.display = show ? "" : "none";
     const rec = stt.nativeRecommend;
     const r = document.getElementById("localAIRec");
-    if(r) r.textContent = rec ? `이 기기(램 약 ${stt.ramGB}GB)에는 ${rec.label} (약 ${rec.approxMB >= 1000 ? (rec.approxMB/1000).toFixed(1) + "GB" : rec.approxMB + "MB"}) 를 추천해요.` : "이 기기는 램이 적어서 로컬 AI 를 권장하지 않아요.";
+    if(r) r.textContent = rec ? `${rec.label} · 약 ${rec.approxMB >= 1000 ? (rec.approxMB/1000).toFixed(1) + "GB" : rec.approxMB + "MB"} (이 기기 램 ${stt.ramGB}GB)` : "램이 적어 권장하지 않아요.";
   }
   const rb = document.getElementById("localAIClear"); if(rb) rb.textContent = stt.native ? "가져온 로컬 모델 지우기" : "내려받은 로컬 모델 지우기";
   updateLocalPromo();
 }
 /* ---- 채팅창 배너: "Local AI로 토큰을 절약해보세요" (쓸 수 있는 기기에서만, 꺼져 있을 때만) ---- */
+let awaitingModelFile = false;
 const LOCAL_PROMO_KEY = "choimini.localPromo";
 function localPromoHidden(){
   try{ const v = JSON.parse(localStorage.getItem(LOCAL_PROMO_KEY) || "null"); if(!v) return false; if(v.closed) return true; return Date.now() < (v.until || 0); }catch(_){ return false; }
@@ -2295,10 +2295,18 @@ function updateLocalPromo(){
   const put = o=>{ try{ localStorage.setItem(LOCAL_PROMO_KEY, JSON.stringify(o)); }catch(_){} updateLocalPromo(); };
   if(g("localPromoLater")) g("localPromoLater").addEventListener("click", ()=>put({ until: Date.now() + 24*3600*1000 }));
   if(g("localPromoClose")) g("localPromoClose").addEventListener("click", ()=>put({ closed: true }));
-  if(g("localPromoOn")) g("localPromoOn").addEventListener("click", ()=>{ syncSettingsUI(); openModal("settingsModal"); setTimeout(()=>{ const x = g("localAISelect"); if(x && x.scrollIntoView) x.scrollIntoView({ block:"center" }); }, 120); });
+  if(g("localPromoOn")) g("localPromoOn").addEventListener("click", async ()=>{ await applyLocalAIChoice("auto"); if(settings.localAI.enabled){ syncSettingsUI(); openModal("settingsModal"); setTimeout(()=>{ const x = g("localAIGuide") || g("localAISelect"); if(x && x.scrollIntoView) x.scrollIntoView({ block:"center" }); }, 150); } });
   if(g("localAIOpenHF")) g("localAIOpenHF").addEventListener("click", ()=>{
     const stt = LocalAI.status(); const rec = stt.nativeRecommend || (stt.guide && stt.guide[0]); if(!rec) return;
+    awaitingModelFile = true;   // 다운로드 후 앱으로 돌아오면 파일 선택창을 자동으로 띄움
     try{ if(window.AndroidBridge && AndroidBridge.openExternal) AndroidBridge.openExternal(rec.url); else window.open(rec.url, "_blank"); }catch(_){}
+  });
+  document.addEventListener("visibilitychange", ()=>{
+    if(document.visibilityState === "visible" && awaitingModelFile){
+      awaitingModelFile = false;
+      const stt = LocalAI && LocalAI.status();
+      if(stt && stt.native && !stt.hasModelFile && settings.localAI.enabled) setTimeout(()=>LocalAI.pickNativeModel(), 400);
+    }
   });
   if(g("localAIPick")) g("localAIPick").addEventListener("click", ()=>{ if(LocalAI) LocalAI.pickNativeModel(); });
 })();
@@ -2312,7 +2320,7 @@ async function applyLocalAIChoice(v){
   if(!settings.localAI.consent){
     const size = m ? (m.mb >= 1000 ? (m.mb/1000).toFixed(1) + "GB" : m.mb + "MB") : "수백 MB~수 GB";
     const nat = LocalAI.status().native;
-    const ok = nat ? confirm("로컬 Gemma 모델을 사용하도록 허용할까요?\n\n· 직접 받은 Gemma 모델 파일(.task)을 이 앱 안에 복사해서 기기 안에서 실행해요 (파일 크기만큼 저장공간 사용)\n· 실행 중 램·배터리를 더 써요\n· 대화/화면 내용은 서버로 보내지 않고, 토큰도 쓰지 않아요\n· 설정에서 언제든 끄고 파일을 지울 수 있어요") : confirm("로컬 Gemma 모델을 사용하도록 허용할까요?\n\n· " + (m ? m.label : "기기에 맞는 Gemma") + " 를 이 기기에 내려받아요 (약 " + size + ", 저장공간 사용)\n· 실행 중 램·배터리를 더 써요\n· 대화/화면 내용은 서버로 보내지 않고, 토큰도 쓰지 않아요\n· 설정에서 언제든 끄고, 내려받은 파일을 지울 수 있어요");
+    const ok = nat ? confirm("로컬 Gemma 모델을 사용하도록 허용할까요?\n\n· 모델 파일(.task)을 받아 이 앱 안에서 실행 (저장공간 사용)\n· 램·배터리를 더 써요\n· 내용은 서버로 안 보내고 토큰도 안 써요\n· 설정에서 언제든 끄고 지울 수 있어요") : confirm("로컬 Gemma 모델을 사용하도록 허용할까요?\n\n· " + (m ? m.label : "기기에 맞는 Gemma") + " 를 이 기기에 내려받아요 (약 " + size + ", 저장공간 사용)\n· 실행 중 램·배터리를 더 써요\n· 대화/화면 내용은 서버로 보내지 않고, 토큰도 쓰지 않아요\n· 설정에서 언제든 끄고, 내려받은 파일을 지울 수 있어요");
     if(!confirm || !ok){ updateLocalAIUI(); return; }
     settings.localAI.consent = true;
   }
