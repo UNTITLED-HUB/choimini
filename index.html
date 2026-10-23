@@ -636,6 +636,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <script src="./choimini-shell-cmds.js?v=20261011"></script>
 <script src="./choimini-apk.js?v=20261004"></script>
 <script src="./choimini-preview.js?v=20261013"></script>
+<script src="./choimini-localai.js?v=20261023"></script>
 
 
     <!-- Cloudflare Turnstile 접속 게이트: 통과 전까지 페이지 콘텐츠를 가림 -->
@@ -830,6 +831,16 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <option value="always">항상 · CODE 포함 모든 다음 단계</option>
           <option value="off">끔 · 모든 단계를 고른 모델로</option>
         </select>
+      </div>
+
+      <div class="field-group">
+        <label>로컬 빠른 판단 AI (Gemma) <span style="font-weight:400;opacity:.7">· 화면 조작의 다음 동작을 이 기기 안에서 무료로</span></label>
+        <select id="localAISelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
+          <option value="off">끔 (기본) · 클라우드 Lite 사용</option>
+          <option value="auto">자동 · 기기 램에 맞는 Gemma 선택</option>
+        </select>
+        <div id="localAIStatus" style="font-size:12px;opacity:.8;margin-top:6px;line-height:1.5"></div>
+        <button id="localAIClear" type="button" style="margin-top:6px;padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">내려받은 로컬 모델 지우기</button>
       </div>
 
       <div class="field-group">
@@ -1474,6 +1485,7 @@ function defaultSettings(){
     compressEvery: 8, // 0(안함) | 3 | 5 | 8 | 12
     thinkingLevel: "auto", // 사고 과정 강도: auto | off | low | medium | high
     fastFollow: "auto",    // 빠른 후속 판단: auto(WORK·화면/브라우저 조작) | always | off
+    localAI: { enabled:false, consent:false, model:"auto" }, // 로컬 Gemma(기기 안 실행) 빠른 판단: 최초 동의 후에만 사용
     terminalMode: "local" // 데스크톱 앱 터미널: "local"(실제 로컬 터미널) | "virtual"(가상 Linux_Local)
   };
 }
@@ -1551,6 +1563,9 @@ function init(){
   if(![0,3,5,8,12].includes(settings.compressEvery)) settings.compressEvery = 8;
   if(!["auto","off","low","medium","high"].includes(settings.thinkingLevel)) settings.thinkingLevel = "auto";
   if(!["auto","always","off"].includes(settings.fastFollow)) settings.fastFollow = "auto";
+  if(!settings.localAI || typeof settings.localAI !== "object") settings.localAI = {};
+  settings.localAI = { enabled: !!settings.localAI.enabled && !!settings.localAI.consent, consent: !!settings.localAI.consent, model: typeof settings.localAI.model === "string" ? settings.localAI.model : "auto" };
+  setTimeout(()=>{ try{ startLocalAI(); }catch(_){} }, 0);
   chats = loadJSON(LS.chats, {});
   Object.values(chats).forEach(c=>{ if(c && c.pendingReply){ delete c.pendingReply; const l=(c.messages||[]).slice(-1)[0]; if(l && l.role==='user') c.messages.push({ id: uid(), role:'system', content:'📱 백그라운드에서 답변이 끊겼어요. 아래 버튼으로 이어 받기', ts: Date.now(), canRetry:true }); } });
   activeChatId = localStorage.getItem(LS.activeChat) || null;
@@ -2194,6 +2209,7 @@ if(memoryLevelSliderEl){
 }
 const THINKING_LABEL = { auto:"자동", off:"끔", low:"낮음", medium:"보통", high:"높음" };
 function updateThinkingUI(){
+  try{ updateLocalAIUI(); }catch(_){}
   const ff = document.getElementById("fastFollowSelect"); if(ff) ff.value = settings.fastFollow || "auto";
   const sel = document.getElementById("thinkingLevelSelect"), lab = document.getElementById("thinkingLevelLabel");
   if(sel) sel.value = settings.thinkingLevel || "auto";
@@ -2210,6 +2226,46 @@ if(thinkingLevelSelectEl){
 }
 const fastFollowSelectEl = document.getElementById("fastFollowSelect");
 if(fastFollowSelectEl) fastFollowSelectEl.addEventListener("change", ()=>{ settings.fastFollow = fastFollowSelectEl.value; saveJSON(LS.settings, settings); toast("⚡ 빠른 후속 판단: " + ({ auto:"자동", always:"항상", off:"끔" })[settings.fastFollow]); });
+/* ---- 로컬 Gemma (빠른 판단) 설정 ---- */
+const LocalAI = window.ChoiminiLocalAI;
+if(LocalAI) LocalAI.bind(()=>({ localAI: (settings && settings.localAI) || {} }));
+function updateLocalAIUI(){
+  const sel = document.getElementById("localAISelect"), box = document.getElementById("localAIStatus");
+  if(!sel || !LocalAI || !settings || !settings.localAI) return;
+  const stt = LocalAI.status();
+  if(sel.options.length <= 2) LocalAI.MODELS.forEach(m=>{ const o = document.createElement("option"); o.value = m.id; o.textContent = `직접 선택 · ${m.label} (내려받기 약 ${m.mb >= 1000 ? (m.mb/1000).toFixed(1) + "GB" : m.mb + "MB"})`; sel.appendChild(o); });
+  sel.value = !settings.localAI.enabled ? "off" : (settings.localAI.model || "auto");
+  const dev = `이 기기: 램 약 ${stt.ramGB}GB${stt.ramKnown ? "" : "(확인 불가, 보수적으로 가정)"} · WebGPU ${stt.supported === false ? "미지원" : (stt.supported ? "지원" : "확인 전")}`;
+  let line = "";
+  if(!settings.localAI.enabled) line = "꺼져 있어요. 켜면 화면 조작의 다음 동작을 이 기기의 Gemma 가 판단해요(서버 전송·토큰 소모 없음).";
+  else if(stt.state === "loading") line = `⏳ ${stt.text || "준비 중"} ${stt.progress}%`;
+  else if(stt.state === "ready") line = `✅ ${stt.model ? stt.model.label : "Gemma"} 사용 중 (기기 안에서 실행)`;
+  else if(stt.state === "unsupported" || stt.state === "error") line = `⚠️ ${stt.error} — 클라우드 Lite 로 대신해요`;
+  else line = stt.model ? `선택된 모델: ${stt.model.label}` : "이 기기에서는 권장 모델이 없어요(클라우드 Lite 사용)";
+  if(box) box.textContent = line + "\n" + dev;
+  if(box) box.style.whiteSpace = "pre-line";
+}
+if(LocalAI) LocalAI.onChange(updateLocalAIUI);
+async function applyLocalAIChoice(v){
+  if(!LocalAI) return;
+  if(v === "off"){ settings.localAI.enabled = false; saveJSON(LS.settings, settings); LocalAI.unload(); updateLocalAIUI(); toast("로컬 Gemma 를 껐어요"); return; }
+  await LocalAI.probe();
+  const m = v === "auto" ? LocalAI.recommend(LocalAI.status().ramGB, LocalAI.status().f16) : LocalAI.MODELS.find(x=>x.id === v);
+  if(!settings.localAI.consent){
+    const size = m ? (m.mb >= 1000 ? (m.mb/1000).toFixed(1) + "GB" : m.mb + "MB") : "수백 MB~수 GB";
+    const ok = confirm("로컬 Gemma 모델을 사용하도록 허용할까요?\n\n· " + (m ? m.label : "기기에 맞는 Gemma") + " 를 이 기기에 내려받아요 (약 " + size + ", 저장공간 사용)\n· 실행 중 램·배터리를 더 써요\n· 대화/화면 내용은 서버로 보내지 않고, 토큰도 쓰지 않아요\n· 설정에서 언제든 끄고, 내려받은 파일을 지울 수 있어요");
+    if(!confirm || !ok){ updateLocalAIUI(); return; }
+    settings.localAI.consent = true;
+  }
+  settings.localAI.enabled = true; settings.localAI.model = v;
+  saveJSON(LS.settings, settings); updateLocalAIUI();
+  LocalAI.load().then(()=>updateLocalAIUI());
+}
+const localAISelectEl = document.getElementById("localAISelect");
+if(localAISelectEl) localAISelectEl.addEventListener("change", ()=>applyLocalAIChoice(localAISelectEl.value));
+const localAIClearEl = document.getElementById("localAIClear");
+if(localAIClearEl) localAIClearEl.addEventListener("click", async ()=>{ if(!LocalAI) return; if(!confirm("내려받은 로컬 모델 파일을 지울까요? (다시 쓰려면 새로 내려받아야 해요)")) return; settings.localAI.enabled = false; saveJSON(LS.settings, settings); await LocalAI.clearCache(); updateLocalAIUI(); toast("로컬 모델 파일을 지웠어요"); });
+function startLocalAI(){ if(LocalAI) LocalAI.probe().then(()=>{ updateLocalAIUI(); if(settings.localAI.enabled && settings.localAI.consent) LocalAI.load().then(()=>updateLocalAIUI()); }); }
 const cmdWaitSelectEl = document.getElementById("cmdWaitSelect");
 if(cmdWaitSelectEl) cmdWaitSelectEl.addEventListener("change", ()=>{ settings.cmdWaitSec = parseInt(cmdWaitSelectEl.value, 10) || 0; saveJSON(LS.settings, settings); toast(settings.cmdWaitSec ? "명령 실행 후 " + settings.cmdWaitSec + "초 뒤 결과 확인" : "결과 확인 시간: 자동"); });
 const compressEverySelectEl = document.getElementById("compressEverySelect");
@@ -3337,6 +3393,45 @@ function noBrainReply(){
   return NO_BRAIN_BANK[Math.floor(Math.random()*NO_BRAIN_BANK.length)];
 }
 
+/* ---- 로컬 Gemma 빠른 판단: 화면 조작(device_) 후속 단계의 "다음 동작"만 기기 안에서 판단한다 ----
+   계획·완료 판단·복잡한 오류는 Gemini(클라우드)가 맡는다. 로컬 결과가 없거나 이상하면 곧바로 클라우드 Lite 로 넘어간다. */
+const LOCAL_FAST_SYS = "너는 화면 조작을 실행하는 보조 AI다. [계획]과 [직전 결과]를 보고 다음 동작만 ```tool 블록에 한 줄에 JSON 하나로 쓴다(한 블록에 최대 3줄). 설명은 한 줄 이내. "
+  + "도구: device_screen, device_screenshot, device_find{text}, device_click{id 또는 text 또는 x,y}, device_tap{x,y}, device_long_press{id 또는 text}, device_scroll{dir:down|up}, device_scroll_to{text,click}, device_type{text,enter}, device_key{key:back|home|enter}, device_open_app{name}, device_open_url{url}, device_wait_for{text,ms}, device_focus{title}. 이름과 값은 소문자. "
+  + "계획에 없는 동작, 로그인·결제·삭제·비밀번호·인증 입력은 하지 않는다. 확신이 없거나 작업이 끝났으면 도구 블록 없이 '판단 불가' 라고만 쓴다.";
+function localFastEligible(chat){
+  if(!window.ChoiminiLocalAI || !window.ChoiminiLocalAI.ready() || !devBridge()) return false;
+  const msgs = (chat && chat.messages) || [];
+  for(let i = msgs.length - 1; i >= 0; i--){ if(msgs[i].role === "ai") return /"tool"\s*:\s*"device_/i.test(String(msgs[i].content || "")); }
+  return false;
+}
+function localFastMessages(chat){
+  const msgs = ((chat && chat.messages) || []).filter(m=>m.role === "user" || m.role === "ai");
+  let start = 0; for(let i = msgs.length - 1; i >= 0; i--){ if(msgs[i].role === "user" && !msgs[i].auto){ start = i; break; } }
+  const strip = t=>String(t || "").replace(/```[\s\S]*?```/g, "").trim();
+  const goal = strip(msgs[start] && msgs[start].content).slice(0, 300);
+  let plan = ""; for(let i = start + 1; i < msgs.length; i++){ if(msgs[i].role === "ai"){ plan = strip(msgs[i].content).slice(0, 700); break; } }
+  const lastAi = [...msgs].reverse().find(m=>m.role === "ai"), lastUser = msgs[msgs.length - 1];
+  const act = String((lastAi && lastAi.content) || "").match(/```tool[\s\S]*?```/); 
+  const user = "[요청] " + goal + "\n[계획] " + (plan || "(없음)") + "\n[직전 동작]\n" + (act ? act[0].slice(0, 400) : "") + "\n[직전 결과]\n" + String(lastUser && lastUser.content || "").slice(0, 2200) + "\n\n다음 동작을 ```tool 블록으로.";
+  return { messages: [{ role:"system", content: LOCAL_FAST_SYS }, { role:"user", content: user }], lastAct: act ? act[0] : "" };
+}
+function validLocalTools(text, lastAct){
+  const m = String(text || "").match(/```tool\s*\n([\s\S]*?)```/); if(!m) return false;
+  const lines = m[1].split("\n").map(x=>x.trim()).filter(Boolean); if(!lines.length || lines.length > 3) return false;
+  for(const ln of lines){ let j; try{ j = JSON.parse(ln); }catch(_){ return false; } if(!j || typeof j.tool !== "string" || !/^device_[a-z_]+$/.test(j.tool)) return false; }
+  if(lastAct && lastAct.replace(/\s+/g, "") === m[0].replace(/\s+/g, "")) return false;   // 같은 동작 반복이면 클라우드가 다시 판단
+  return true;
+}
+async function tryLocalFast(chat, signal, onDelta){
+  const t0 = Date.now(); const { messages, lastAct } = localFastMessages(chat);
+  if(onDelta) onDelta("", { t0 });
+  const r = await window.ChoiminiLocalAI.generate(messages, { signal, maxTokens: 260 });
+  const text = String(r.text || "").trim();
+  if(!validLocalTools(text, lastAct)) return null;
+  const st = window.ChoiminiLocalAI.status(); const tEnd = Date.now();
+  return { text, provider: settings.provider, usedLocal: false, localFast: true, streamed: false,
+    stats: { step: "fast-local", model: st.model ? st.model.label + " (로컬)" : "Gemma (로컬)", thinkMs: tEnd - t0, totalMs: tEnd - t0, thoughtTokens: 0, outTokens: (r.usage && r.usage.completion_tokens) || 0, inTokens: (r.usage && r.usage.prompt_tokens) || 0, thoughts: "" } };
+}
 async function generateReply(chat, signal, onDelta){
   // Code 모드에서 <NO BRAIN>(짧은 필러 답변)이면 코딩을 못 하므로, Code 모드는 항상 일반 응답 경로로 보낸다.
   if(settings.noBrain){
@@ -3403,6 +3498,10 @@ async function generateReply(chat, signal, onDelta){
   const first = escalate ? (preset === "high" ? "max" : "high") : (fast ? "lite" : preset);
   if(escalate) toast("🔼 오류가 이어져서 더 강한 모델로 다시 시도해요");
   const order = [first].concat(["medium","lite","high","max"].filter(p=>p!==first));
+  if(fast && !escalate && localFastEligible(chat)){
+    try{ const lr = await tryLocalFast(chat, signal, onDelta); if(lr) return lr; }
+    catch(e){ if(e && e.name === "AbortError") throw e; console.warn("[로컬 Gemma 실패 → 클라우드 Lite]", e && (e.message || e)); }
+  }
   const tried = new Set(); let lastErr = null;
   for(const pr of order){
     const m = settings.models[provider][pr];
@@ -3690,13 +3789,13 @@ async function appendAiReply(chat, preset, depth, signal, live){
     showTokenOutModal();
     return;
   }
-  const { text: replyText, provider: usedProvider, usedLocal, skipDeduct, noBrain, noBrainCost, usageAmount, stats } = result;
+  const { text: replyText, provider: usedProvider, usedLocal, skipDeduct, noBrain, noBrainCost, usageAmount, stats, localFast } = result;
   let normalCost = 0;
   const chargeTarget = { charges: [] }; // 답변 만들기 차감 기록 → 아래 AI 메시지에 붙인다
   let costPromise = Promise.resolve();
   if(noBrain && !skipDeduct){
     costPromise = spendTokensServer(noBrainCost);
-  } else if(!skipDeduct){
+  } else if(!skipDeduct && !localFast){   // 로컬 Gemma 판단은 무료
     // 답변을 받자마자 차감을 시작하되, 서버 응답을 기다리지 않고 답변부터 보여준다(체감 속도). 잔액보다 크면 잔액까지만 차감된다.
     const want = computeNormalCost(replyText, usageAmount);
     normalCost = Math.min(want, tokensInternal);
@@ -3708,7 +3807,9 @@ async function appendAiReply(chat, preset, depth, signal, live){
     ? (usedLocal
         ? `<NO BRAIN> 모드 · 오프라인 응답 · -${noBrainCost/TOKEN_MULT} 토큰`
         : `<NO BRAIN> 모드 · ${PROVIDER_LABEL[usedProvider]} 소량 사용 · -${noBrainCost/TOKEN_MULT} 토큰`)
-    : (skipDeduct
+    : (localFast
+        ? `로컬 Gemma(기기 안 실행) · 무료${memoryTag}`
+        : skipDeduct
         ? `키/토큰 부족 · 차감 없음`
         : (usedLocal
             ? `기본 엔진(오프라인) · -${normalCost/TOKEN_MULT} 토큰${memoryTag}`
@@ -4312,7 +4413,7 @@ function statsHtml(m){
   const head = [`🧠 ${fmtSec(st.thinkMs)} 생각`]; if(write > 300) head.push(`작성 ${fmtSec(write)}`);
   const det = [];
   if(st.model) det.push(st.model);
-  if(st.step) det.push({ first:"계획 단계", followup:"다음 단계(짧게 생각)", "followup-error":"오류 확인 단계", fast:"⚡ 빠른 후속 판단(Lite)" }[st.step] || st.step);
+  if(st.step) det.push({ first:"계획 단계", followup:"다음 단계(짧게 생각)", "followup-error":"오류 확인 단계", fast:"⚡ 빠른 후속 판단(Lite)", "fast-local":"⚡ 로컬 Gemma 빠른 판단 · 무료" }[st.step] || st.step);
   det.push(`총 ${fmtSec(st.totalMs)}`);
   const tk = [];
   if(st.thoughtTokens) tk.push(`사고 ${fmtTok(st.thoughtTokens)}`);
