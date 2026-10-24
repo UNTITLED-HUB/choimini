@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <title>Choimini · 최미나이</title>
+<!-- 외부 호스트 연결을 미리 열어 둔다(DNS·TLS 왕복을 첫 요청 전에 끝내 둠) -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://untitled-hub.github.io">
+<link rel="preconnect" href="https://cfozaatwytsitimvjkyz.supabase.co" crossorigin>
+<link rel="dns-prefetch" href="https://generativelanguage.googleapis.com">
 <style>
 :root{
   /* 항상 다크 테마 고정 (검은색 + 파란색 위주) */
@@ -70,9 +75,6 @@ input,textarea,select{font-family:inherit;color:inherit;}
 .empty-state{max-width:520px;margin:64px auto;text-align:center;color:var(--text-dim);}
 .empty-state .dot-big{width:52px;height:52px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;margin:0 auto 18px;font-weight:700;}
 .empty-state h2{color:var(--text);margin:0 0 6px;font-weight:600;font-size:22px;}
-.suggest-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:18px;}
-.suggest-chip{border:1px solid var(--border);background:var(--panel);padding:9px 16px;border-radius:20px;font-size:12.5px;color:var(--text);}
-.suggest-chip:hover{background:var(--panel-2);}
 
 .row{display:flex;gap:12px;align-items:flex-start;}
 .row.user{flex-direction:row-reverse;}
@@ -197,12 +199,6 @@ details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
 .send-btn{width:34px;height:34px;border-radius:50%;border:none;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
 .send-btn:disabled{opacity:.35;}
 .composer-hint{text-align:center;font-size:11px;color:var(--text-dim);margin-top:10px;}
-.nobrain-row{display:flex;justify-content:flex-end;margin-bottom:6px;}
-.nobrain-toggle{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--panel-2);color:var(--text-dim);border-radius:20px;padding:5px 12px 5px 8px;font-size:11.5px;font-weight:600;letter-spacing:.02em;}
-.nobrain-toggle .nb-dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim);}
-.nobrain-toggle.on{border-color:var(--accent);color:var(--accent);}
-.nobrain-toggle.on .nb-dot{background:var(--accent);}
-.nobrain-toggle.off{border-color:#3ddc84;color:#3ddc84;}
 .mode-row{display:flex;justify-content:flex-end;margin-bottom:6px;}
 .mode-switch{display:inline-flex;border:1px solid var(--border);background:var(--panel-2);border-radius:20px;padding:3px;gap:2px;}
 .mode-btn{border:none;background:transparent;color:var(--text-dim);font-size:11.5px;font-weight:700;letter-spacing:.02em;padding:5px 12px;border-radius:16px;cursor:pointer;transition:background .15s,color .15s;}
@@ -241,7 +237,6 @@ details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
 .err-retry-btn{border:none;background:var(--accent);color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px;}
 .stream-cursor{display:inline-block;animation:blink 0.9s steps(1) infinite;color:var(--accent);}
 @keyframes blink{50%{opacity:0;}}
-.nobrain-toggle.off .nb-dot{background:#3ddc84;}
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:16px;}
@@ -456,7 +451,7 @@ code.md-code{background:var(--panel-2);border:1px solid var(--border);border-rad
 }
 body{background:radial-gradient(1200px 600px at 80% -10%,rgba(59,130,246,.07),transparent 60%),var(--bg);-webkit-font-smoothing:antialiased;letter-spacing:-.005em;}
 *{-webkit-tap-highlight-color:transparent;}
-button,.chat-item,.model-card,.suggest-chip,.footer-btn,.icon-btn{transition:background-color .18s var(--ease),border-color .18s var(--ease),transform .12s var(--ease),box-shadow .18s var(--ease),opacity .18s;}
+button,.chat-item,.model-card,.footer-btn,.icon-btn{transition:background-color .18s var(--ease),border-color .18s var(--ease),transform .12s var(--ease),box-shadow .18s var(--ease),opacity .18s;}
 button:active:not(:disabled){transform:scale(.97);}
 ::-webkit-scrollbar{width:6px;height:6px;} ::-webkit-scrollbar-thumb{background:#2a2f44;border-radius:6px;} ::-webkit-scrollbar-thumb:hover{background:#3a4160;}
 
@@ -474,7 +469,6 @@ button:active:not(:disabled){transform:scale(.97);}
 .row.user .bubble{background:linear-gradient(135deg,#1d2132,#171a27);border:1px solid rgba(255,255,255,.05);border-radius:20px 20px 6px 20px;box-shadow:var(--shadow-sm);}
 .row.ai .bubble{line-height:1.7;}
 .system-notice{background:rgba(26,29,41,.8);border-radius:99px;backdrop-filter:blur(6px);}
-.suggest-chip{border-radius:99px;background:linear-gradient(180deg,var(--panel),#0f1119);} .suggest-chip:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-sm);}
 
 .composer{background:linear-gradient(180deg,transparent,var(--bg) 28%);}
 .input-box{background:rgba(18,20,28,.92);border:1px solid #2a2f44;border-radius:28px;box-shadow:var(--shadow-md);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);}
@@ -548,20 +542,10 @@ button:focus:not(:focus-visible),select:focus:not(:focus-visible){outline:none;}
 
 /* ---------- 환영 화면 ---------- */
 /* renderMessages() 가 display:"" 로 되돌리므로 기본 display 값을 여기서 정한다 */
-.empty-state{display:block;max-width:760px;width:100%;margin:clamp(20px,6vh,64px) auto 0;padding:0 20px 24px;text-align:center;}
-.empty-state .dot-big{width:56px;height:56px;font-size:23px;margin:0 auto 18px;}
-.empty-state h2{font-size:clamp(21px,3.2vw,29px);font-weight:700;letter-spacing:-.022em;margin:0 0 8px;word-break:keep-all;}
-.empty-sub{margin:0 auto;max-width:460px;font-size:13.5px;line-height:1.65;color:var(--text-dim);word-break:keep-all;}
-.suggest-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:620px;margin:26px auto 0;text-align:left;}
-.suggest-card{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:linear-gradient(180deg,var(--surface-1),var(--surface-2));color:var(--text);}
-.suggest-card:hover{border-color:rgba(59,130,246,.55);background:linear-gradient(180deg,rgba(33,39,58,.9),rgba(20,23,33,.78));transform:translateY(-2px);box-shadow:var(--shadow-sm);}
-.suggest-card .sc-ico{display:flex;align-items:center;justify-content:center;width:30px;height:30px;margin-bottom:9px;border-radius:9px;background:var(--accent-dim);color:var(--accent-2);}
-.suggest-card .sc-ico .ic{width:17px;height:17px;}
-.suggest-card .sc-t{font-size:13.5px;font-weight:600;color:var(--text);word-break:keep-all;}
-.suggest-card .sc-d{font-size:12px;line-height:1.45;color:var(--text-dim);word-break:keep-all;}
-.empty-modes{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:22px;}
-.empty-modes span{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border:1px solid var(--hair);border-radius:99px;background:rgba(255,255,255,.02);font-size:11px;color:var(--text-dim);}
-.empty-modes b{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--accent-2);}
+/* 로고 + 한 줄만. renderMessages() 가 style.display="" 로 되돌리므로 기본값을 block 으로 둔다 */
+.empty-state{display:block;width:100%;margin:clamp(28px,12vh,110px) auto 0;padding:0 20px 24px;text-align:center;}
+.empty-state .dot-big{width:56px;height:56px;font-size:23px;margin:0 auto 16px;}
+.empty-sub{margin:0;font-size:14px;line-height:1.6;color:var(--text-dim);word-break:keep-all;}
 
 /* ---------- 입력창 ---------- */
 .composer-hint{font-size:11px;color:var(--text-dim);margin-top:9px;text-align:center;line-height:1.5;}
@@ -584,23 +568,17 @@ button:focus:not(:focus-visible),select:focus:not(:focus-visible){outline:none;}
 
 /* ---------- 좁은 화면 ---------- */
 @media(max-width:560px){
-  .suggest-grid{grid-template-columns:1fr;gap:8px;max-width:none;}
-  .suggest-card{flex-direction:row;align-items:center;gap:12px;padding:12px 14px;}
-  .suggest-card .sc-ico{margin-bottom:0;flex:none;}
-  .suggest-card .sc-d{display:none;}
   .empty-state{padding-bottom:16px;}
-  .empty-state .dot-big{width:46px;height:46px;font-size:19px;margin-bottom:14px;}
-  .empty-modes{display:none;}
+  .empty-state .dot-big{width:46px;height:46px;font-size:19px;margin-bottom:12px;}
+  .empty-sub{font-size:13px;}
   .composer-hint{display:none;}
 }
 @media(max-width:420px){
   .mode-row::before{display:none;}
 }
 @media(max-height:700px){
-  .empty-state{margin-top:12px;padding-bottom:10px;}
+  .empty-state{margin-top:24px;padding-bottom:10px;}
   .empty-state .dot-big{margin-bottom:10px;}
-  .suggest-grid{margin-top:14px;}
-  .empty-modes{display:none;}
 }
 </style>
 
@@ -831,35 +809,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
     <div class="messages" id="messages">
       <div class="empty-state" id="emptyState">
         <div class="dot-big">최</div>
-        <h2>무엇을 도와드릴까요?</h2>
-        <p class="empty-sub">대화부터 작업 자동화, 코딩까지 한곳에서. 아래를 눌러 바로 시작해 보세요.</p>
-        <div class="suggest-grid" id="suggestGrid">
-          <button type="button" class="suggest-chip suggest-card" data-q="재미있는 사실 하나만 짧게 알려줘">
-            <span class="sc-ico">💬</span>
-            <span class="sc-t">가볍게 물어보기</span>
-            <span class="sc-d">궁금한 걸 바로 물어보기</span>
-          </button>
-          <button type="button" class="suggest-chip suggest-card" data-q="파이썬으로 CSV 파일에서 중복된 줄을 지우는 스크립트를 만들어줘">
-            <span class="sc-ico">💻</span>
-            <span class="sc-t">코드 짜기</span>
-            <span class="sc-d">만들고 바로 실행까지</span>
-          </button>
-          <button type="button" class="suggest-chip suggest-card" data-q="아래 내용을 표로 정리해줘:">
-            <span class="sc-ico">🛠️</span>
-            <span class="sc-t">자료 정리</span>
-            <span class="sc-d">요약 · 번역 · 표 만들기</span>
-          </button>
-          <button type="button" class="suggest-chip suggest-card" data-q="지금 내 작업공간에 어떤 파일이 있는지 보여줘">
-            <span class="sc-ico">🗂️</span>
-            <span class="sc-t">파일 다루기</span>
-            <span class="sc-d">작업공간 파일 읽고 고치기</span>
-          </button>
-        </div>
-        <div class="empty-modes" aria-hidden="true">
-          <span><b>NO BRAIN</b>빠른 답변</span>
-          <span><b>WORK</b>도구 쓰는 작업</span>
-          <span><b>CODE</b>코딩 · 실행</span>
-        </div>
+        <p class="empty-sub">무엇이든 물어보세요</p>
       </div>
       <div class="msg-wrap" id="msgWrap"></div>
     </div>
@@ -907,9 +857,9 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         </div>
         <div class="mode-row">
           <div class="mode-switch" id="modeSwitch">
-            <button class="mode-btn" type="button" data-mode="nobrain">NO BRAIN</button>
-            <button class="mode-btn" type="button" data-mode="work">WORK</button>
-            <button class="mode-btn" type="button" data-mode="code">CODE</button>
+            <button class="mode-btn" type="button" data-mode="nobrain" title="간단한 질문 전용 · 가장 빠르고 토큰을 적게 써요">NO BRAIN</button>
+            <button class="mode-btn" type="button" data-mode="work" title="파일·검색·문서 같은 작업 · 도구를 직접 써요">WORK</button>
+            <button class="mode-btn" type="button" data-mode="code" title="코딩·실행 · 만들고 바로 확인까지 해요">CODE</button>
           </div>
         </div>
         <div class="input-box">
@@ -951,19 +901,29 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <div class="field-group">
         <label>빠른 후속 판단</label>
         <select id="fastFollowSelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
-          <option value="auto">자동 (기본) · WORK·화면 조작의 다음 단계는 가벼운 모델</option>
+          <option value="auto">자동 (기본) · WORK·화면 조작의 다음 단계는 가벼운 모델(또는 로컬 AI)</option>
           <option value="always">항상 · CODE 포함 모든 다음 단계</option>
           <option value="off">끔 · 모든 단계를 고른 모델로</option>
         </select>
       </div>
 
       <div class="field-group">
-        <label>로컬 빠른 판단 AI (Gemma) <span style="font-weight:400;opacity:.7">· 화면 조작의 다음 동작을 이 기기 안에서 무료로</span></label>
+        <label>로컬 AI (Gemma) <span style="font-weight:400;opacity:.7">· 단순한 다음 단계를 이 기기에서 무료로 처리</span></label>
         <select id="localAISelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
           <option value="off">끔 (기본) · 클라우드 Lite 사용</option>
           <option value="auto">자동 · 기기 램에 맞는 Gemma 선택</option>
         </select>
         <div id="localAIStatus" style="font-size:12px;opacity:.8;margin-top:6px;line-height:1.5"></div>
+        <div id="localAIScopeBox" style="display:none;margin-top:8px;padding:9px 11px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;line-height:1.6">
+          <div style="font-weight:600;margin-bottom:6px">Gemma 가 맡을 단계</div>
+          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
+            <input type="checkbox" id="localScopeDevice" style="margin:0"> 화면 조작 <span style="opacity:.65">· 다음에 누를 곳 판단</span></label>
+          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
+            <input type="checkbox" id="localScopeCmd" style="margin:0"> 명령 실행 · 결과 확인 <span style="opacity:.65">· 다음 명령, 로그 보기</span></label>
+          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
+            <input type="checkbox" id="localScopeRead" style="margin:0"> 파일 읽기 · 검색 <span style="opacity:.65">· 토큰을 가장 많이 아낌</span></label>
+          <div style="margin-top:7px;opacity:.7">코드 작성 · 파일 수정 · 계획 세우기 · 오류 원인 찾기는 언제나 Gemini 가 맡아요. 설치·삭제 같은 되돌리기 어려운 명령도 Gemini 로 넘깁니다.</div>
+        </div>
         <div id="localAIGuide" style="display:none;font-size:12px;line-height:1.6;margin-top:8px;padding:9px 11px;border:1px dashed var(--border);border-radius:8px;">
           <span id="localAIRec"></span><br>
           <span style="opacity:.8">공식 모델을 백그라운드로 받아요. 앱을 닫아도 계속되고, 끝나면 자동으로 켜져요.</span>
@@ -1592,6 +1552,7 @@ function buildSystemPrompt(){
   }
   if(agent) p += agentTailPrompt();
   if(window.ChoiminiBrowser && ChoiminiBrowser.available && ChoiminiBrowser.available()) p += "\n" + ChoiminiBrowser.PROMPT_KO;
+  if(nbStayActive()) p += "\n\n" + NB_STAY_NOTE;
   return p;
 }
 
@@ -1628,7 +1589,9 @@ function defaultSettings(){
     compressEvery: 8, // 0(안함) | 3 | 5 | 8 | 12
     thinkingLevel: "auto", // 사고 과정 강도: auto | off | low | medium | high
     fastFollow: "auto",    // 빠른 후속 판단: auto(WORK·화면/브라우저 조작) | always | off
-    localAI: { enabled:false, consent:false, model:"auto" }, // 로컬 Gemma(기기 안 실행) 빠른 판단: 최초 동의 후에만 사용
+    // 로컬 Gemma(기기 안 실행) 빠른 판단: 최초 동의 후에만 사용.
+    // scope = Gemma 가 맡을 단계(화면 조작·명령 실행은 기본 ON, 파일 확인은 OFF). 파일 수정·코드 작성·계획은 언제나 Gemini.
+    localAI: { enabled:false, consent:false, model:"auto", scope:{ device:true, cmd:true, read:false } },
     terminalMode: "local" // 데스크톱 앱 터미널: "local"(실제 로컬 터미널) | "virtual"(가상 Linux_Local)
   };
 }
@@ -1707,7 +1670,10 @@ function init(){
   if(!["auto","off","low","medium","high"].includes(settings.thinkingLevel)) settings.thinkingLevel = "auto";
   if(!["auto","always","off"].includes(settings.fastFollow)) settings.fastFollow = "auto";
   if(!settings.localAI || typeof settings.localAI !== "object") settings.localAI = {};
-  settings.localAI = { enabled: !!settings.localAI.enabled && !!settings.localAI.consent, consent: !!settings.localAI.consent, model: typeof settings.localAI.model === "string" ? settings.localAI.model : "auto" };
+  const _sc = settings.localAI.scope || {};
+  settings.localAI = { enabled: !!settings.localAI.enabled && !!settings.localAI.consent, consent: !!settings.localAI.consent,
+    model: typeof settings.localAI.model === "string" ? settings.localAI.model : "auto",
+    scope: { device: _sc.device !== false, cmd: _sc.cmd !== false, read: !!_sc.read } };
   setTimeout(()=>{ try{ startLocalAI(); }catch(_){} }, 0);
   chats = loadJSON(LS.chats, {});
   Object.values(chats).forEach(c=>{ if(c && c.pendingReply){ delete c.pendingReply; const l=(c.messages||[]).slice(-1)[0]; if(l && l.role==='user') c.messages.push({ id: uid(), role:'system', content:'📱 백그라운드에서 답변이 끊겼어요. 아래 버튼으로 이어 받기', ts: Date.now(), canRetry:true }); } });
@@ -2072,18 +2038,25 @@ function renderMessageRow(m, isLast, idx){
     row.className = "row system";
     const box = document.createElement("div");
     box.className = "mode-suggest";
-    box.innerHTML = `<div>이 작업은 <b>WORK</b> 또는 <b>CODE</b> 모드에서 더 적합할 수 있어요.</div>
+    const want = m.suggestMode === "code" ? "code" : "work";
+    const wantName = want === "code" ? "CODE" : "WORK";
+    box.innerHTML = `<div><b>NO BRAIN</b>은 간단한 질문 전용이에요. 이 요청은 <b>${wantName}</b> 모드가 맞아요.</div>
       <div class="btn-row">
-        <button data-go="work" style="background:#3ddc84;color:#06341c;">WORK 사용</button>
-        <button data-go="code" style="background:#ff9f43;color:#3a2100;">CODE 사용</button>
+        <button data-go="work" style="background:#3ddc84;color:#06341c;${want==="work"?"":"opacity:.75;"}">WORK 로 하기</button>
+        <button data-go="code" style="background:#ff9f43;color:#3a2100;${want==="code"?"":"opacity:.75;"}">CODE 로 하기</button>
       </div>
-      <div class="btn-row"><button data-go="stay" style="background:var(--panel-2);color:var(--text-dim);border:1px solid var(--border);width:100%;">그냥 NO BRAIN으로 계속</button></div>`;
+      <div class="btn-row"><button data-go="stay" style="background:var(--panel-2);color:var(--text-dim);border:1px solid var(--border);width:100%;">그냥 NO BRAIN으로 계속 (짧게 답변)</button></div>`;
     row.appendChild(box);
     box.querySelectorAll("[data-go]").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
         const go = btn.dataset.go;
         const chat = currentChat();
         if(go !== "stay") applyMode(go);
+        else{
+          // NO BRAIN 유지: 이 질문엔 다시 묻지 않고, 모델에게도 짧게 답하라고 알린다
+          const lastUser = [...chat.messages].reverse().find(x=>x.role === "user" && !x.auto);
+          if(lastUser) lastUser.nbStay = true;
+        }
         // 안내 메시지는 지우고 같은 질문으로 다시 생성한다
         const idx = chat.messages.findIndex(x=>x.id===m.id);
         if(idx >= 0) chat.messages.splice(idx, 1);
@@ -2404,7 +2377,7 @@ function updateLocalAIUI(){
     : `이 기기: 램 약 ${stt.ramGB}GB${stt.ramKnown ? "" : "(확인 불가, 보수적으로 가정)"} · WebGPU ${stt.supported === false ? "미지원" : (stt.supported ? "지원" : "확인 전")}`;
   let line = "";
   const en = settings.localAI.enabled;
-  if(!en) line = "꺼짐 · 켜면 빠른 판단을 이 기기의 Gemma가 해요(토큰 0).";
+  if(!en) line = "꺼짐 · 켜면 단순한 다음 단계를 이 기기의 Gemma가 처리해요(토큰 0).";
   else if(stt.state === "needs-model") line = "📥 모델 파일이 필요해요. 아래 [다운로드]를 눌러주세요.";
   else if(stt.state === "downloading") line = `⬇️ ${stt.text || "받는 중"} ${stt.progress}% · 백그라운드 진행`;
   else if(stt.state === "copying") line = `⏳ ${stt.text || "모델 가져오는 중"} ${stt.progress}%`;
@@ -2421,6 +2394,17 @@ function updateLocalAIUI(){
     const rec = stt.nativeRecommend;
     const r = document.getElementById("localAIRec");
     if(r) r.textContent = rec ? `${rec.label} · 약 ${rec.approxMB >= 1000 ? (rec.approxMB/1000).toFixed(1) + "GB" : rec.approxMB + "MB"} (이 기기 램 ${stt.ramGB}GB)` : "램이 적어 권장하지 않아요.";
+  }
+  // Gemma 가 맡을 단계 체크박스 — 로컬 AI 가 켜져 있을 때만 보여 준다
+  const scopeBox = document.getElementById("localAIScopeBox");
+  if(scopeBox){
+    scopeBox.style.display = en ? "" : "none";
+    const sc = (settings.localAI.scope) || {};
+    const map = { localScopeDevice:"device", localScopeCmd:"cmd", localScopeRead:"read" };
+    Object.keys(map).forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.checked = map[id] === "read" ? !!sc.read : sc[map[id]] !== false;
+    });
   }
   try{ renderLocalBench(stt); }catch(_){}
   const bar = document.getElementById("localAIBar"); if(bar) bar.style.width = ((stt.state === "downloading" || stt.state === "copying") ? stt.progress : 0) + "%";
@@ -2568,6 +2552,19 @@ const localAISelectEl = document.getElementById("localAISelect");
 if(localAISelectEl) localAISelectEl.addEventListener("change", ()=>applyLocalAIChoice(localAISelectEl.value));
 const localAIClearEl = document.getElementById("localAIClear");
 if(localAIClearEl) localAIClearEl.addEventListener("click", async ()=>{ if(!LocalAI) return; if(!confirm("내려받은 로컬 모델 파일을 지울까요? (다시 쓰려면 새로 내려받아야 해요)")) return; settings.localAI.enabled = false; saveJSON(LS.settings, settings); await LocalAI.clearCache(); updateLocalAIUI(); toast("로컬 모델 파일을 지웠어요"); });
+/* Gemma 가 맡을 단계 체크박스. 전부 끄면 로컬을 쓸 일이 없으므로 그 점을 알려 준다. */
+[["localScopeDevice","device","화면 조작"],["localScopeCmd","cmd","명령 실행"],["localScopeRead","read","파일 확인"]].forEach(([id, key, label])=>{
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener("change", ()=>{
+    if(!settings.localAI.scope) settings.localAI.scope = { device:true, cmd:true, read:false };
+    settings.localAI.scope[key] = el.checked;
+    saveJSON(LS.settings, settings);
+    const sc = settings.localAI.scope;
+    if(!sc.device && !sc.cmd && !sc.read) toast("맡을 단계가 없어요 · 전부 Gemini 가 처리해요");
+    else toast((el.checked ? "✅ " : "⬜ ") + label + " → " + (el.checked ? "Gemma" : "Gemini"));
+  });
+});
 function startLocalAI(){ if(LocalAI) LocalAI.probe().then(()=>{ updateLocalAIUI(); if(settings.localAI.enabled && settings.localAI.consent) LocalAI.load().then(()=>updateLocalAIUI()); }); }
 const cmdWaitSelectEl = document.getElementById("cmdWaitSelect");
 if(cmdWaitSelectEl) cmdWaitSelectEl.addEventListener("change", ()=>{ settings.cmdWaitSec = parseInt(cmdWaitSelectEl.value, 10) || 0; saveJSON(LS.settings, settings); toast(settings.cmdWaitSec ? "명령 실행 후 " + settings.cmdWaitSec + "초 뒤 결과 확인" : "결과 확인 시간: 자동"); });
@@ -3158,10 +3155,40 @@ function fitCaptchaToScreen(){
   });
 }
 // 위젯이 실패 후 문제를 새로 렌더링(DOM 변경)할 때마다 다시 맞춰줌
-const jcaptchaObserver = new MutationObserver(()=>{ if(captchaState) fitCaptchaToScreen(); });
+/* jCAPTCHA 음원 경로 고치기 ---------------------------------------------------
+   jcaptcha.min.js 는 <audio src="gwitricks.mp3"> 를 "페이지 기준" 상대경로로 넣는다.
+   음원 파일은 스크립트가 있는 저장소(/choimin/)에 있는데, 이 사이트는 /choimini/ 라서
+   /choimini/gwitricks.mp3 를 찾다가 404 → 문제 10(귀트릭스)·14(mc1) 의 음원이 안 나왔다.
+   (앱들도 같은 사이트를 쓰니 똑같이 안 나왔다.)
+   스크립트 URL 의 한 단계 위 폴더를 기준으로 src 를 다시 붙여서 고친다. */
+const JC_AUDIO_BASE = (function(){
+  try{
+    const src = [...document.scripts].map(x=>x.src).find(u=>/jcaptcha(\.min)?\.js/i.test(u || ""));
+    if(src) return new URL("../", src).href;              // .../Jcaptcha_Modules/ → .../
+  }catch(_){}
+  return "https://untitled-hub.github.io/choimin/";
+})();
+function fixJcAudio(el){
+  if(!el || el.dataset.jcFixed) return;
+  const raw = el.getAttribute("src") || "";
+  if(!raw || /^(https?:|data:|blob:|\/)/i.test(raw)) return;   // 이미 절대경로면 그대로 둔다
+  el.dataset.jcFixed = "1";
+  try{ el.src = new URL(raw.replace(/^\.?\//, ""), JC_AUDIO_BASE).href; el.load(); }
+  catch(e){ console.warn("[jcaptcha 음원 경로]", e); }
+}
+function scanJcAudio(root){
+  if(!root || root.nodeType !== 1) return;
+  if(root.matches && root.matches("audio.jc-audio")) fixJcAudio(root);
+  if(root.querySelectorAll) root.querySelectorAll("audio.jc-audio").forEach(fixJcAudio);
+}
+const jcaptchaObserver = new MutationObserver((ms)=>{ for(const m of ms) m.addedNodes.forEach(scanJcAudio); if(captchaState) fitCaptchaToScreen(); });
 document.addEventListener("DOMContentLoaded", ()=>{
   const mount = document.getElementById("jcaptchaMount");
-  if(mount) jcaptchaObserver.observe(mount, { childList:true, subtree:true });
+  if(mount){ jcaptchaObserver.observe(mount, { childList:true, subtree:true }); scanJcAudio(mount); }
+  // 접속 게이트(#cfgate-gate)에도 같은 위젯이 붙으므로 문서 전체를 한 번 훑고, 이후 추가분은 아래 감시자가 맡는다
+  scanJcAudio(document.body);
+  new MutationObserver((ms)=>{ for(const m of ms) m.addedNodes.forEach(scanJcAudio); })
+    .observe(document.body, { childList:true, subtree:true });
 });
 window.addEventListener("resize", ()=>{ if(captchaState) fitCaptchaToScreen(); });
 
@@ -3416,11 +3443,12 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   }));
   // 기본 키(프록시) 경로: 서버가 systemInstruction 을 서버 시크릿으로 덮어쓰기 때문에, 작업 에이전트 규칙(스킬 사용법)이
   // 모델에 전달되지 않는다. 그래서 이 경우에만 규칙을 첫 사용자 메시지 앞에 붙여서 보낸다.
-  if(!apiKey && (isCodeMode() || isWorkMode() || browserAvailable())){
-    const pre = agentProxyPreamble();
+  const nbNote = nbStayActive() ? NB_STAY_NOTE : "";
+  if(!apiKey && (isCodeMode() || isWorkMode() || browserAvailable() || nbNote)){
+    const pre = (isCodeMode() || isWorkMode() || browserAvailable()) ? agentProxyPreamble() : "";
     const fu = contents.find(c=>c.role==="user");
-    if(fu) fu.parts.unshift({ text: pre });
-    else contents.unshift({ role:"user", parts:[{ text: pre }] });
+    if(fu) fu.parts.unshift({ text: pre + nbNote });
+    else contents.unshift({ role:"user", parts:[{ text: pre + nbNote }] });
   }
   const generationConfig = { temperature: agentTemperature() };
   if(maxOutputTokens) generationConfig.maxOutputTokens = maxOutputTokens;
@@ -3431,6 +3459,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   if(tb === undefined && preset === "lite" && !/pro/i.test(model)) tb = 0; // lite/NO BRAIN 은 사고 단계를 건너뛰어 훨씬 빠르게
   // 짧은 보조 요청(채팅 제목 등, 출력 400토큰 이하)은 사고를 끈다. 안 끄면 에이전트 모드의 사고 예산(4096)이 출력 한도를 다 먹어서 빈 응답이 났다
   if(maxOutputTokens && maxOutputTokens <= 400) tb = /pro/i.test(model) ? 128 : 0;
+  if(nbNote && (!settings.thinkingLevel || settings.thinkingLevel === "auto")) tb = /pro/i.test(model) ? 128 : 0; // NO BRAIN 유지: 고민하지 말고 바로
   if(tb !== undefined) generationConfig.thinkingConfig = { thinkingBudget: tb };
   // 사고 요약(무엇을 생각했는지)도 받아서 답변 위에 보여준다. 사고를 끈 경우(0)는 요청하지 않는다
   if(tb !== 0 && onDelta) generationConfig.thinkingConfig = Object.assign(generationConfig.thinkingConfig || {}, { includeThoughts: true });
@@ -3449,7 +3478,9 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   const headers = useProxy
     ? { "Content-Type":"application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }
     : { "Content-Type":"application/json", "x-goog-api-key": apiKey };
-  const payload = useProxy ? { provider:"gemini", model, body } : body;
+  // 프록시는 systemInstruction 을 서버 시크릿(BOT_SYSTEM_PROMPT)으로 교체한다.
+  // 모드를 같이 보내면 서버가 모드별 캐릭터 강도(NO BRAIN 70 / WORK 30 / CODE 10)를 적용한다.
+  const payload = useProxy ? { provider:"gemini", model, body, mode: currentModeName() } : body;
 
   if(onDelta){
     let acc = "", usageMd = {}, fin = "", th = "";
@@ -3696,23 +3727,82 @@ function noBrainReply(){
   return NO_BRAIN_BANK[Math.floor(Math.random()*NO_BRAIN_BANK.length)];
 }
 
-/* ---- 로컬 Gemma 빠른 판단: 화면 조작(device_) 후속 단계의 "다음 동작"만 기기 안에서 판단한다 ----
-   계획·완료 판단·복잡한 오류는 Gemini(클라우드)가 맡는다. 로컬 결과가 없거나 이상하면 곧바로 클라우드 Lite 로 넘어간다. */
+/* ---- 로컬 Gemma 빠른 판단 ----
+   설정에서 켜 둔 종류의 "다음 동작"만 기기 안에서 판단한다(화면 조작 / 명령 실행·결과 확인 / 파일 읽기).
+   계획 세우기·완료 판단·오류 원인 분석·코드 작성·파일 수정은 언제나 Gemini(클라우드)가 맡는다.
+   로컬 결과가 없거나 형식이 이상하면 곧바로 클라우드 Lite 로 넘어간다. */
 const LOCAL_FAST_SYS = "너는 화면 조작을 실행하는 보조 AI다. [계획]과 [직전 결과]를 보고 다음 동작만 ```tool 블록에 한 줄에 JSON 하나로 쓴다(한 블록에 최대 3줄). 설명은 한 줄 이내. "
   + "도구: device_screen, device_screenshot, device_find{text}, device_click{id 또는 text 또는 x,y}, device_tap{x,y}, device_long_press{id 또는 text}, device_scroll{dir:down|up}, device_scroll_to{text,click}, device_type{text,enter}, device_key{key:back|home|enter}, device_open_app{name}, device_open_url{url}, device_wait_for{text,ms}, device_focus{title}. 이름과 값은 소문자. "
   + "계획에 없는 동작, 로그인·결제·삭제·비밀번호·인증 입력은 하지 않는다. 확신이 없거나 작업이 끝났으면 도구 블록 없이 '판단 불가' 라고만 쓴다.\n"
   + "출력 예시:\n```tool\n{\"tool\":\"device_click\",\"text\":\"확인\"}\n```\n```tool\n{\"tool\":\"device_scroll\",\"dir\":\"down\"}\n```\n```tool\n{\"tool\":\"device_wait_for\",\"text\":\"완료\",\"ms\":5000}\n```";
+/* 명령 실행·결과 확인 단계용. 새 코드를 쓰거나 파일을 고치는 판단은 하지 않는다(그건 Gemini). */
+const LOCAL_FAST_SYS_CMD = "너는 명령 실행을 돕는 보조 AI다. [계획]과 [직전 결과]를 보고 다음에 실행할 명령/확인만 ```tool 블록에 한 줄에 JSON 하나로 쓴다(한 블록에 최대 3줄). 설명은 한 줄 이내. "
+  + "도구: {\"tool\":\"run_command\",\"command\":\"명령\"} · {\"tool\":\"bg_log\",\"id\":1} · {\"tool\":\"bg_input\",\"id\":1,\"text\":\"y\"} · {\"tool\":\"bg_stop\",\"id\":1} · {\"tool\":\"bg_list\"} · {\"tool\":\"read_file\",\"path\":\"경로\"} · {\"tool\":\"list_dir\",\"path\":\".\"} · {\"tool\":\"grep\",\"pattern\":\"정규식\"} · {\"tool\":\"glob\",\"pattern\":\"**/*.js\"}. "
+  + "직전 결과가 성공이면 계획의 다음 명령으로 넘어가고, 로그를 더 봐야 하면 bg_log 나 read_file 로 확인한다. "
+  + "파일을 새로 만들거나 고치는 판단, 코드 작성, 오류 원인 분석, 작업 완료 선언은 네 몫이 아니다 — 그럴 땐 도구 블록 없이 '판단 불가' 라고만 쓴다. "
+  + "설치·삭제·전송·배포처럼 되돌리기 어려운 명령도 '판단 불가' 로 넘긴다.\n"
+  + "출력 예시:\n```tool\n{\"tool\":\"run_command\",\"command\":\"npm test\"}\n```\n```tool\n{\"tool\":\"bg_log\",\"id\":1}\n```\n```tool\n{\"tool\":\"read_file\",\"path\":\"package.json\"}\n```";
+/* 파일 읽기·검색만 하는 단계용 */
+const LOCAL_FAST_SYS_READ = "너는 파일을 찾아보는 보조 AI다. [계획]과 [직전 결과]를 보고 다음에 읽거나 찾을 것만 ```tool 블록에 한 줄에 JSON 하나로 쓴다(한 블록에 최대 3줄). 설명은 한 줄 이내. "
+  + "도구: {\"tool\":\"read_file\",\"path\":\"경로\"} · {\"tool\":\"list_dir\",\"path\":\".\"} · {\"tool\":\"glob\",\"pattern\":\"**/*.js\"} · {\"tool\":\"grep\",\"pattern\":\"정규식\"}. "
+  + "읽은 내용을 해석하거나 고치는 판단, 작업 완료 선언은 네 몫이 아니다 — 도구 블록 없이 '판단 불가' 라고만 쓴다.\n"
+  + "출력 예시:\n```tool\n{\"tool\":\"read_file\",\"path\":\"src/a.js\"}\n```\n```tool\n{\"tool\":\"grep\",\"pattern\":\"TODO\"}\n```";
+const LOCAL_FAST_SYS_BY_KIND = { device: LOCAL_FAST_SYS, cmd: LOCAL_FAST_SYS_CMD, read: LOCAL_FAST_SYS_READ };
+const LOCAL_KIND_LABEL = { device: "화면 조작", cmd: "명령 실행", read: "파일 확인" };
 /* 로컬 Gemma 보호장치: 너무 느리거나 형식을 자꾸 틀리면 이번 실행 동안 클라우드 Lite 로 대신한다 */
 const localGuard = { slow:0, bad:0, off:false, note:false };
 function localGuardTrip(why){ localGuard.off = true; if(!localGuard.note){ localGuard.note = true; try{ toast("⚡ 이 기기에서는 로컬 AI가 " + why + " 클라우드 Lite 로 대신해요"); }catch(_){} } }
 function localGuardReset(){ localGuard.slow = 0; localGuard.bad = 0; localGuard.off = false; localGuard.note = false; }
-function localFastEligible(chat){
-  if(localGuard.off || !window.ChoiminiLocalAI || !window.ChoiminiLocalAI.ready() || !devBridge()) return false;
-  const msgs = (chat && chat.messages) || [];
-  for(let i = msgs.length - 1; i >= 0; i--){ if(msgs[i].role === "ai") return /"tool"\s*:\s*"device_/i.test(String(msgs[i].content || "")); }
-  return false;
+/* ---- 로컬 Gemma 가 맡을 수 있는 "단계 종류" ----
+   device : 화면 조작(device_*) 다음 동작
+   cmd    : 명령 실행·결과 확인(run_command / bg_* / ```runcmd), 확인용 읽기 도구 포함
+   read   : 파일 읽기·검색만(read_file / list_dir / glob / grep)
+   그 외(파일 수정·코드 작성·업로드·계획 세우기·완료 판단)는 언제나 Gemini 가 맡는다.
+   설정 settings.localAI.scope 로 종류별로 켜고 끈다. */
+const LOCAL_KIND_TOOLS = {
+  device: /^device_[a-z_]+$/,
+  cmd: /^(run_command|bg_run|bg_log|bg_input|bg_stop|bg_list|read_file|list_dir|glob|grep)$/,
+  read: /^(read_file|list_dir|glob|grep)$/
+};
+/* 로컬에 절대 맡기지 않는 도구 — 되돌리기 어렵거나 판단이 복잡한 것들 */
+const LOCAL_NEVER = /^(write_file|edit_file|make_apk|to_sandbox|from_sandbox|to_local|from_local|term_close|term_rename)$/;
+function localScope(){
+  const sc = (settings && settings.localAI && settings.localAI.scope) || {};
+  return { device: sc.device !== false, cmd: sc.cmd !== false, read: !!sc.read };
 }
-function localFastMessages(chat){
+/* 직전 AI 답변이 어떤 종류의 단계였는지 — 그 종류의 "다음 동작"을 로컬이 이어받을 수 있다 */
+function localStepKind(content){
+  const text = String(content || "");
+  const names = [];
+  for(const blk of (text.match(/```tool\s*\n[\s\S]*?```/g) || [])){
+    for(const ln of blk.replace(/```tool\s*\n/, "").replace(/```$/, "").split("\n")){
+      const t = ln.trim(); if(!t) continue;
+      let j; try{ j = JSON.parse(t); }catch(_){ continue; }
+      // 모델이 "Device_Key" 처럼 대문자로 쓰는 경우가 있어 소문자로 맞춰 비교한다(normTool 이 나중에 정규화함)
+      if(j && typeof j.tool === "string") names.push(j.tool.toLowerCase());
+    }
+  }
+  if(!names.length) return null;
+  if(names.some(n=>LOCAL_NEVER.test(n))) return null;              // 파일 수정 등이 섞였으면 클라우드
+  if(names.some(n=>/^device_/.test(n))) return "device";
+  // run_command·bg_*·read_file 같은 도구는 Local(앱이 도구를 실행하는) 모드에만 있다.
+  // SandBox Linux 의 ```runcmd 블록은 로컬에 맡기지 않는다 — 작은 모델이 ```tool 형식으로 답해 버리면
+  // 그 환경엔 없는 도구라 실행이 안 되기 때문.
+  if(!useLocalTerminal()) return null;
+  if(names.some(n=>/^(run_command|bg_)/.test(n))) return "cmd";
+  if(names.every(n=>LOCAL_KIND_TOOLS.read.test(n))) return "read";
+  return null;
+}
+function localFastEligible(chat){
+  if(localGuard.off || !window.ChoiminiLocalAI || !window.ChoiminiLocalAI.ready()) return false;
+  const msgs = (chat && chat.messages) || [];
+  let kind = null;
+  for(let i = msgs.length - 1; i >= 0; i--){ if(msgs[i].role === "ai"){ kind = localStepKind(msgs[i].content); break; } }
+  if(!kind || !localScope()[kind]) return false;
+  if(kind === "device" && !devBridge()) return false;              // 화면 조작은 브리지가 있어야 의미가 있다
+  return kind;
+}
+function localFastMessages(chat, kind){
   const msgs = ((chat && chat.messages) || []).filter(m=>m.role === "user" || m.role === "ai");
   let start = 0; for(let i = msgs.length - 1; i >= 0; i--){ if(msgs[i].role === "user" && !msgs[i].auto){ start = i; break; } }
   const strip = t=>String(t || "").replace(/```[\s\S]*?```/g, "").trim();
@@ -3721,17 +3811,25 @@ function localFastMessages(chat){
   const lastAi = [...msgs].reverse().find(m=>m.role === "ai"), lastUser = msgs[msgs.length - 1];
   const act = String((lastAi && lastAi.content) || "").match(/```tool[\s\S]*?```/); 
   const user = "[요청] " + goal + "\n[계획] " + (plan || "(없음)") + "\n[직전 동작]\n" + (act ? act[0].slice(0, 220) : "") + "\n[직전 결과]\n" + String(lastUser && lastUser.content || "").slice(0, (window.ChoiminiLocalAI && window.ChoiminiLocalAI.ctxChars) ? window.ChoiminiLocalAI.ctxChars() : 2200) + "\n\n다음 동작을 ```tool 블록으로.";
-  return { messages: [{ role:"system", content: LOCAL_FAST_SYS }, { role:"user", content: user }], lastAct: act ? act[0] : "" };
+  const sys = LOCAL_FAST_SYS_BY_KIND[kind] || LOCAL_FAST_SYS;
+  return { messages: [{ role:"system", content: sys }, { role:"user", content: user }], lastAct: act ? act[0] : "" };
 }
-function validLocalTools(text, lastAct){
+function validLocalTools(text, lastAct, kind){
+  const allow = LOCAL_KIND_TOOLS[kind] || LOCAL_KIND_TOOLS.device;
   const m = String(text || "").match(/```tool\s*\n([\s\S]*?)```/); if(!m) return false;
   const lines = m[1].split("\n").map(x=>x.trim()).filter(Boolean); if(!lines.length || lines.length > 3) return false;
-  for(const ln of lines){ let j; try{ j = JSON.parse(ln); }catch(_){ return false; } if(!j || typeof j.tool !== "string" || !/^device_[a-z_]+$/.test(j.tool)) return false; }
+  for(const ln of lines){
+    let j; try{ j = JSON.parse(ln); }catch(_){ return false; }
+    if(!j || typeof j.tool !== "string" || !allow.test(j.tool.toLowerCase())) return false;
+    // 되돌리기 어려운 명령은 로컬 판단으로 실행하지 않는다 (설치·삭제·전송·배포·권한 변경)
+    if(j.tool === "run_command" && /(^|[\s;&|])(rm|rmdir|del|mv|mkfs|dd|chmod|chown|shutdown|reboot|kill)\b|\b(npm|pip|pip3|apt|apt-get|yarn|pnpm|brew)\s+(i|install|add|remove|uninstall)\b|\bgit\s+(push|reset|clean)\b|\b(curl|wget)\b/i.test(String(j.command || ""))) return false;
+  }
   if(lastAct && lastAct.replace(/\s+/g, "") === m[0].replace(/\s+/g, "")) return false;   // 같은 동작 반복이면 클라우드가 다시 판단
   return true;
 }
-async function tryLocalFast(chat, signal, onDelta){
-  const t0 = Date.now(); const { messages, lastAct } = localFastMessages(chat);
+async function tryLocalFast(chat, signal, onDelta, kind){
+  kind = kind || "device";
+  const t0 = Date.now(); const { messages, lastAct } = localFastMessages(chat, kind);
   if(onDelta) onDelta("", { t0 });
   let r;
   try{ r = await window.ChoiminiLocalAI.generate(messages, { signal, maxTokens: 120, timeoutMs: 10000 }); }
@@ -3739,11 +3837,11 @@ async function tryLocalFast(chat, signal, onDelta){
   const dt = Date.now() - t0;
   if(dt > 8000){ if(++localGuard.slow >= 2) localGuardTrip("느려서"); } else if(dt < 5000) localGuard.slow = 0;
   const text = String(r.text || "").trim();
-  if(!validLocalTools(text, lastAct)){ if(++localGuard.bad >= 3) localGuardTrip("도구 형식을 자꾸 틀려서"); return null; }
+  if(!validLocalTools(text, lastAct, kind)){ if(++localGuard.bad >= 3) localGuardTrip("도구 형식을 자꾸 틀려서"); return null; }
   localGuard.bad = 0;
   const st = window.ChoiminiLocalAI.status(); const tEnd = Date.now();
   return { text, provider: settings.provider, usedLocal: false, localFast: true, streamed: false,
-    stats: { step: "fast-local", model: st.model ? st.model.label + " (로컬)" : "Gemma (로컬)", thinkMs: tEnd - t0, totalMs: tEnd - t0, thoughtTokens: 0, outTokens: (r.usage && r.usage.completion_tokens) || 0, inTokens: (r.usage && r.usage.prompt_tokens) || 0, thoughts: "" } };
+    stats: { step: "fast-local", localKind: kind, model: (st.model ? st.model.label : "Gemma") + " (로컬 · " + (LOCAL_KIND_LABEL[kind] || "판단") + ")", thinkMs: tEnd - t0, totalMs: tEnd - t0, thoughtTokens: 0, outTokens: (r.usage && r.usage.completion_tokens) || 0, inTokens: (r.usage && r.usage.prompt_tokens) || 0, thoughts: "" } };
 }
 async function generateReply(chat, signal, onDelta){
   // Code 모드에서 <NO BRAIN>(짧은 필러 답변)이면 코딩을 못 하므로, Code 모드는 항상 일반 응답 경로로 보낸다.
@@ -3811,8 +3909,11 @@ async function generateReply(chat, signal, onDelta){
   const first = escalate ? (preset === "high" ? "max" : "high") : (fast ? "lite" : preset);
   if(escalate) toast("🔼 오류가 이어져서 더 강한 모델로 다시 시도해요");
   const order = [first].concat(["medium","lite","high","max"].filter(p=>p!==first));
-  if(fast && !escalate && localFastEligible(chat)){
-    try{ const lr = await tryLocalFast(chat, signal, onDelta); if(lr) return lr; }
+  // 로컬 Gemma 가 맡을 수 있는 단계면(설정에서 켜 둔 종류만) 기기 안에서 먼저 판단해 본다.
+  // 실패하거나 형식이 틀리면 그대로 클라우드 Lite 로 내려간다.
+  const localKind = (fast && !escalate) ? localFastEligible(chat) : false;
+  if(localKind){
+    try{ const lr = await tryLocalFast(chat, signal, onDelta, localKind); if(lr) return lr; }
     catch(e){ if(e && e.name === "AbortError") throw e; console.warn("[로컬 Gemma 실패 → 클라우드 Lite]", e && (e.message || e)); }
   }
   const tried = new Set(); let lastErr = null;
@@ -3971,6 +4072,39 @@ function suggestModeFor(text){
   if(WORK_SUGGEST_RE.test(text)) return "work";
   return null;
 }
+/* NO BRAIN 은 "간단한 질문" 전용 모드다. 아래에 걸리면 WORK/CODE 를 먼저 권한다(토큰을 쓰기 전에).
+   - 키워드로 이미 코드/작업 요청이라고 판단된 경우
+   - 글이 아주 긴 경우(400자+) — 붙여넣은 문서·로그를 통째로 처리해 달라는 요청일 때가 많다
+   - 번호/불릿 목록이 3줄 이상 — 다단계 작업 지시
+   - 어느 정도 길면서(150자+) 만들기·고치기 같은 '작업' 동사가 있는 경우
+   - 파일을 첨부한 경우 */
+const NB_MAKE_RE = /(만들어|만들어줘|작성해|구현해|고쳐|수정해|분석해|정리해|번역해|리팩터|리팩토링|최적화해)/i;
+function nobrainTooComplex(text, fileCount){
+  const t = String(text || "");
+  const byKeyword = suggestModeFor(t);
+  if(byKeyword) return byKeyword;
+  if(fileCount > 0) return "work";
+  if(t.length > 400) return "work";
+  const listLines = (t.match(/^\s*(?:[-*•]|\d+[.)])\s+\S/gm) || []).length;
+  if(listLines >= 3) return "work";
+  if(t.length > 150 && NB_MAKE_RE.test(t)) return "work";
+  return null;
+}
+/* 복잡한 요청인데도 사용자가 "그냥 NO BRAIN으로 계속"을 고른 경우, 모델에게 깊게 고민하지 말고
+   짧게 답하라고 알려 준다(NO BRAIN 의 취지 = 빠르고 적게 쓰는 답). */
+const NB_STAY_NOTE = "[NO BRAIN 안내 · 시스템 지시] 이번 요청은 원래 WORK/CODE 모드에 맞는 작업이지만, 사용자가 NO BRAIN 으로 계속하기를 직접 골랐다. 그러니 깊게 고민하지 말고 도구·스킬을 쓰려 하지 말고, 핵심만 3~5문장으로 짧게 답해라. 전체 코드·완성 파일·여러 단계 작업이 필요한 부분은 \"그건 WORK/CODE 모드에서 해드릴게요\" 한 줄로만 안내한다.\n\n";
+/* 지금 모드 이름 — 프록시(Edge Function)에 보내 캐릭터 프롬프트 강도를 정하는 데 쓴다 */
+function currentModeName(){
+  try{ return settings.mode || (settings.noBrain === false ? "work" : "nobrain"); }catch(_){ return "nobrain"; }
+}
+function nbStayActive(){
+  try{
+    if((settings.mode || "nobrain") !== "nobrain") return false;
+    const c = currentChat(); if(!c) return false;
+    const last = [...c.messages].reverse().find(m=>m.role === "user" && !m.auto);
+    return !!(last && last.nbStay);
+  }catch(_){ return false; }
+}
 
 /* ---------------- send flow ---------------- */
 /* 첫 질문을 받으면 가벼운(lite) 모델이 짧은 채팅 제목을 자동으로 정한다. 실패하거나 사용자가 그 사이에 이름을 바꿨으면 그대로 둔다. */
@@ -4036,7 +4170,7 @@ async function sendMessage(){
   if(attachTotalFee > 0){ try{ await chargeTokens(attachTotalFee * TOKEN_MULT, "파일 첨부", userMsg); saveChats(); renderMessages(); }catch(_){} }
   // NO BRAIN인데 WORK/CODE가 더 적합해 보이면, 토큰을 쓰지 않고 모드 전환을 먼저 안내한다.
   if((settings.mode||"nobrain") === "nobrain"){
-    const suggested = suggestModeFor(raw);
+    const suggested = userMsg && userMsg.nbStay ? null : nobrainTooComplex(raw, (userMsg && userMsg.files ? userMsg.files.length : 0));
     if(suggested){
       chat.messages.push({ id: uid(), role:"system-suggest", suggestMode: suggested, content: raw.trim(), ts: Date.now() });
       saveChats();
@@ -4726,7 +4860,8 @@ function statsHtml(m){
   const head = [`🧠 ${fmtSec(st.thinkMs)} 생각`]; if(write > 300) head.push(`작성 ${fmtSec(write)}`);
   const det = [];
   if(st.model) det.push(st.model);
-  if(st.step) det.push({ first:"계획 단계", followup:"다음 단계(짧게 생각)", "followup-error":"오류 확인 단계", fast:"⚡ 빠른 후속 판단(Lite)", "fast-local":"⚡ 로컬 Gemma 빠른 판단 · 무료" }[st.step] || st.step);
+  if(st.step) det.push({ first:"계획 단계", followup:"다음 단계(짧게 생각)", "followup-error":"오류 확인 단계", fast:"⚡ 빠른 후속 판단(Lite)",
+    "fast-local":"⚡ 로컬 Gemma · " + ({ device:"화면 조작", cmd:"명령 실행", read:"파일 확인" }[st.localKind] || "빠른 판단") + " · 무료" }[st.step] || st.step);
   det.push(`총 ${fmtSec(st.totalMs)}`);
   const tk = [];
   if(st.thoughtTokens) tk.push(`사고 ${fmtTok(st.thoughtTokens)}`);
@@ -4894,13 +5029,6 @@ msgInput.addEventListener("keydown", (e)=>{
     e.preventDefault();
     sendMessage();
   }
-});
-
-document.querySelectorAll(".suggest-chip").forEach(btn=>{
-  btn.addEventListener("click", ()=>{
-    msgInput.value = btn.dataset.q;
-    sendMessage();
-  });
 });
 
 document.getElementById("attachBtn").addEventListener("click", ()=>{
