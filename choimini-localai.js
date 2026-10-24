@@ -23,15 +23,18 @@
   const byId = function (id) { return MODELS.find(function (m) { return m.id === id; }) || null; };
 
   /* ---- native 엔진용 안내 (Hugging Face 의 LiteRT 커뮤니티 Gemma .task 파일. 라이선스 동의 + 로그인 필요) ---- */
+  const HF = "https://huggingface.co/litert-community/";
   const NATIVE_GUIDE = [
-    { key: "gemma3-1b", label: "Gemma 3 1B", approxMB: 550,  minRamGB: 3, url: "https://huggingface.co/litert-community/Gemma3-1B-IT" },
-    { key: "gemma2-2b", label: "Gemma 2 2B", approxMB: 2500, minRamGB: 6, url: "https://huggingface.co/litert-community/Gemma2-2B-IT" },
+    { key: "gemma4-e2b", label: "Gemma 4 E2B", approxMB: 2650, minRamGB: 5, url: HF + "gemma-4-E2B-it-litert-lm",
+      dl: HF + "gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm" },
+    { key: "gemma4-e4b", label: "Gemma 4 E4B", approxMB: 3740, minRamGB: 9, url: HF + "gemma-4-E4B-it-litert-lm",
+      dl: HF + "gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm" },
   ];
+  /* 램 5GB 이상이면 E2B (빠른 판단용으로 E4B 보다 빠름). E4B 는 직접 고를 때만 */
   function recommendNative(ramGB, choice) {
     const picked = NATIVE_GUIDE.find(function (g) { return g.key === choice; });
     if (picked) return picked;
-    if (!(ramGB >= 3)) return null;
-    return ramGB >= 6 ? NATIVE_GUIDE[1] : NATIVE_GUIDE[0];
+    return ramGB >= 5 ? NATIVE_GUIDE[0] : null;
   }
 
   const NB = function () { const b = window.AndroidBridge; return (b && typeof b.localLlmStatus === "function") ? b : null; };
@@ -50,7 +53,7 @@
       if (ns && ns.available) {
         st.backend = "native"; st.native = ns; st.wgpu = true;
         st.ramGB = Math.round((ns.ramMB || 0) / 1024 * 10) / 10; st.ramKnown = ns.ramMB > 0;
-        if (st.state === "idle" && !ns.hasModel) st.state = "needs-model";
+        if (ns.downloading) st.state = "downloading"; else if (st.state === "idle" && !ns.hasModel) st.state = "needs-model";
         return st;
       }
     }
@@ -116,9 +119,10 @@
   let nativeLoadWait = null;
   window.__choiminiLocalLlmEvent = function (json) {
     let e; try { e = JSON.parse(json); } catch (x) { return; }
-    if (e.type === "copy") set({ state: "copying", progress: e.pct || 0, text: (e.name || "모델") + " 가져오는 중…", error: "" });
+    if (e.type === "download") set({ state: "downloading", progress: e.pct || 0, text: e.paused ? "네트워크 연결을 기다리는 중…" : ((e.mb || 0) + "MB" + (e.totalMB ? " / " + e.totalMB + "MB" : "") + " 받는 중"), error: "" });
+    else if (e.type === "copy") set({ state: "copying", progress: e.pct || 0, text: (e.name || "모델") + " 가져오는 중…", error: "" });
     else if (e.type === "copied") { st.native = nativeStatus(); set({ state: "idle", progress: 100, text: "", error: "" }); if (cfg().enabled && cfg().consent) load(); }
-    else if (e.type === "cancel") { set({ state: st.native && st.native.hasModel ? "idle" : "needs-model" }); }
+    else if (e.type === "cancel") { st.native = nativeStatus(); set({ state: st.native && st.native.hasModel ? "idle" : "needs-model", progress: 0, text: "" }); }
     else if (e.type === "deleted") { st.native = nativeStatus(); set({ state: "needs-model", progress: 0, text: "", modelId: "" }); }
     else if (e.type === "loaded") { st.native = nativeStatus(); set({ state: "ready", progress: 100, text: "준비됨", error: "", modelId: "native" }); if (nativeLoadWait) { nativeLoadWait(true); nativeLoadWait = null; } }
     else if (e.type === "error") { st.native = nativeStatus(); set({ state: "error", error: String(e.msg || "오류"), text: "" }); if (nativeLoadWait) { nativeLoadWait(false); nativeLoadWait = null; } }
@@ -127,7 +131,27 @@
       if (e.error) p.reject(new Error(e.error)); else p.resolve(String(e.text || ""));
     }
   };
+  /* 공식 모델을 즉시 백그라운드 다운로드 시작(앱을 닫아도 계속, 알림에 진행률). 끝나면 자동으로 불러와서 사용 */
+  function downloadNative() {
+    if (!NB() || typeof NB().localLlmDownload !== "function") return "이 앱 버전은 다운로드를 지원하지 않아요";
+    const rec = recommendNative(st.ramGB, cfg().model); if (!rec) return "이 기기는 램이 적어서 로컬 AI를 권장하지 않아요";
+    const err = NB().localLlmDownload(rec.dl, rec.label, rec.approxMB);
+    if (err) { set({ state: "error", error: String(err), text: "" }); return String(err); }
+    set({ state: "downloading", progress: 0, text: "받기 시작…", error: "" });
+    return "";
+  }
+  function cancelDownload() { try { NB().localLlmCancelDownload(); } catch (e) {} }
   function pickNativeModel() { if (NB()) { set({ state: "copying", progress: 0, text: "파일 선택 중…" }); NB().localLlmPickModel(); } }
+
+  /* LiteRT-LM 은 엔진이 대화 형식(템플릿)을 직접 입히므로 순수 글로 보낸다 */
+  function plainPrompt(messages) {
+    let sys = "", out = "";
+    messages.forEach(function (m) {
+      if (m.role === "system") sys += (sys ? "\n" : "") + m.content;
+      else out += (out ? "\n\n" : "") + (m.role === "assistant" ? "[이전 답변]\n" : "") + m.content;
+    });
+    return (sys ? sys + "\n\n" : "") + out;
+  }
 
   /* Gemma 대화 형식 (system 역할이 없어서 첫 user 턴에 합친다) */
   function gemmaPrompt(messages) {
@@ -152,8 +176,8 @@
       try {
         await probe();
         if (st.backend === "native") {
-          if (!recommendNative(st.ramGB) && !(st.native && st.native.hasModel)) { set({ state: "unsupported", error: "램이 부족해서 로컬 모델을 쓰기 어려워요(클라우드 Lite 사용)", text: "" }); return false; }
-          if (!st.native.hasModel) { set({ state: "needs-model", error: "", text: "" }); return false; }
+          if (!recommendNative(st.ramGB, cfg().model) && !(st.native && st.native.hasModel)) { set({ state: "unsupported", error: "램이 부족해서 로컬 모델을 쓰기 어려워요(클라우드 Lite 사용)", text: "" }); return false; }
+          if (!st.native.hasModel) { if (st.state !== "downloading") set({ state: "needs-model", error: "", text: "" }); return false; }
           if (st.state === "ready") return true;
           set({ state: "loading", progress: 0, error: "", text: "모델을 메모리에 올리는 중… (처음엔 1분 정도 걸릴 수 있어요)" });
           const done = new Promise(function (res) { nativeLoadWait = res; });
@@ -215,7 +239,7 @@
         pending[id] = { resolve: resolve, reject: reject, timer: timer };
         if (opt.signal) opt.signal.addEventListener("abort", function () { if (pending[id]) { clearTimeout(timer); delete pending[id]; const e = new Error("aborted"); e.name = "AbortError"; reject(e); } }, { once: true });
       });
-      NB().localLlmGenerate(id, gemmaPrompt(messages));
+      NB().localLlmGenerate(id, plainPrompt(messages));
       const text = await p;
       return { text: text, usage: null };
     }
@@ -242,7 +266,7 @@
   window.ChoiminiLocalAI = {
     MODELS: MODELS, NATIVE_GUIDE: NATIVE_GUIDE, probe: probe, recommend: recommend, recommendNative: recommendNative, usable: usable, status: status,
     load: load, unload: unload, clearCache: clearCache, ready: ready, generate: generate, pickModel: pickModel, possible: possible,
-    pickNativeModel: pickNativeModel, ctxChars: ctxChars, gemmaPrompt: gemmaPrompt,
+    pickNativeModel: pickNativeModel, downloadNative: downloadNative, cancelDownload: cancelDownload, plainPrompt: plainPrompt, ctxChars: ctxChars, gemmaPrompt: gemmaPrompt,
     bind: function (fn) { getSettings = fn; },
     onChange: function (cb) { listeners.push(cb); },
   };
