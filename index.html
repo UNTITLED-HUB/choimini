@@ -320,7 +320,7 @@ details > .field-group{margin-top:8px;}
 .code-locked .lock-icon{font-size:18px;}
 .code-locked .verify-btn{margin-left:auto;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;}
 .code-locked .verify-btn:hover{opacity:.9;}
-.md-h{display:block;font-weight:700;margin:10px 0 4px;color:var(--text);line-height:1.35;}
+.md-h{display:block;font-weight:700;margin:18px 0 6px;color:var(--text);line-height:1.35;}
 .md-h1{font-size:26px;}
 .md-h2{font-size:23px;}
 .md-h3{font-size:20px;}
@@ -515,6 +515,93 @@ details.act,.act-line,.act-run{border-radius:12px;background:rgba(26,29,41,.7);}
 }
 .think-line,.ai-stats summary{max-width:100%;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+/* ===== Design v3 (2026-10-24) — 실제 AI 서비스 톤으로 다듬기 =====
+   기존 다크/블루 아이덴티티는 유지하고, 레이아웃 버그와 빈 화면만 손봤다.
+   규칙: 기존 id·data-* 는 건드리지 않는다(테스트/JS 가 선택자로 쓴다). */
+:root{
+  --hair:rgba(255,255,255,.07);
+  --surface-1:rgba(26,29,41,.72);
+  --surface-2:rgba(18,20,28,.60);
+}
+
+/* 포커스 링 — 키보드 사용자에게만 보이게 */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px;}
+button:focus:not(:focus-visible),select:focus:not(:focus-visible){outline:none;}
+
+/* ---------- 사이드바 ---------- */
+.brand{font-size:15.5px;letter-spacing:-.01em;padding-bottom:12px;}
+.footer-btn{font-size:13px;}
+/* 대화가 하나도 없을 때 사이드바가 텅 비어 보이던 문제 */
+#chatList:empty::after{content:"아직 대화가 없어요";display:block;padding:20px 12px;font-size:12px;color:var(--sidebar-dim);text-align:center;line-height:1.6;}
+
+/* ---------- 상단바 ---------- */
+.topbar{padding:12px 22px;}
+.model-pill{color:var(--text);background:rgba(255,255,255,.03);border:1px solid var(--hair);font-size:12.5px;}
+.model-pill:hover{background:var(--panel-2);border-color:var(--border);}
+.token-badge{border:1px solid var(--hair);border-radius:99px;background:rgba(255,255,255,.03);font-size:12.5px;}
+
+/* ---------- 메시지 영역 ---------- */
+.messages{padding:26px 0 18px;scroll-padding-bottom:24px;}
+.msg-wrap{max-width:760px;}
+.row.ai .bubble{line-height:1.72;}
+
+/* ---------- 환영 화면 ---------- */
+/* renderMessages() 가 display:"" 로 되돌리므로 기본 display 값을 여기서 정한다 */
+.empty-state{display:block;max-width:760px;width:100%;margin:clamp(20px,6vh,64px) auto 0;padding:0 20px 24px;text-align:center;}
+.empty-state .dot-big{width:56px;height:56px;font-size:23px;margin:0 auto 18px;}
+.empty-state h2{font-size:clamp(21px,3.2vw,29px);font-weight:700;letter-spacing:-.022em;margin:0 0 8px;word-break:keep-all;}
+.empty-sub{margin:0 auto;max-width:460px;font-size:13.5px;line-height:1.65;color:var(--text-dim);word-break:keep-all;}
+.suggest-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:620px;margin:26px auto 0;text-align:left;}
+.suggest-card{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:14px 16px;border:1px solid var(--border);border-radius:16px;background:linear-gradient(180deg,var(--surface-1),var(--surface-2));color:var(--text);}
+.suggest-card:hover{border-color:rgba(59,130,246,.55);background:linear-gradient(180deg,rgba(33,39,58,.9),rgba(20,23,33,.78));transform:translateY(-2px);box-shadow:var(--shadow-sm);}
+.suggest-card .sc-ico{display:flex;align-items:center;justify-content:center;width:30px;height:30px;margin-bottom:9px;border-radius:9px;background:var(--accent-dim);color:var(--accent-2);}
+.suggest-card .sc-ico .ic{width:17px;height:17px;}
+.suggest-card .sc-t{font-size:13.5px;font-weight:600;color:var(--text);word-break:keep-all;}
+.suggest-card .sc-d{font-size:12px;line-height:1.45;color:var(--text-dim);word-break:keep-all;}
+.empty-modes{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:22px;}
+.empty-modes span{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border:1px solid var(--hair);border-radius:99px;background:rgba(255,255,255,.02);font-size:11px;color:var(--text-dim);}
+.empty-modes b{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--accent-2);}
+
+/* ---------- 입력창 ---------- */
+.composer-hint{font-size:11px;color:var(--text-dim);margin-top:9px;text-align:center;line-height:1.5;}
+.mode-row{justify-content:flex-end;align-items:center;gap:8px;}
+.mode-row::before{content:"사고 모드";font-size:11px;color:var(--text-dim);}
+.mode-btn{font-size:12px;padding:6px 13px;}
+
+/* ---------- 앱 안내 팝업 ----------
+   예전엔 position:fixed 라 입력창·모드 스위치 위에 떠서 클릭을 가로챘다
+   (모바일에선 입력창을 통째로 덮었고, 테스트 t19 도 이것 때문에 실패했다).
+   입력창 위에 자연스럽게 끼어드는 안내 카드로 바꿔 겹침 자체를 없앴다. */
+.app-promo{position:relative;right:auto;bottom:auto;left:auto;max-width:none;margin:0 0 8px;padding:10px 40px 10px 13px;border-radius:14px;background:linear-gradient(180deg,var(--surface-1),var(--surface-2));box-shadow:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
+.app-promo b{font-size:13px;padding-right:0;margin-bottom:2px;}
+.app-promo p{font-size:11.5px;}
+.app-promo .x{top:7px;right:9px;}
+.app-promo .later{margin-top:7px;}
+@media(max-width:560px){
+  .app-promo{position:relative;left:auto;right:auto;bottom:auto;max-width:none;}
+}
+
+/* ---------- 좁은 화면 ---------- */
+@media(max-width:560px){
+  .suggest-grid{grid-template-columns:1fr;gap:8px;max-width:none;}
+  .suggest-card{flex-direction:row;align-items:center;gap:12px;padding:12px 14px;}
+  .suggest-card .sc-ico{margin-bottom:0;flex:none;}
+  .suggest-card .sc-d{display:none;}
+  .empty-state{padding-bottom:16px;}
+  .empty-state .dot-big{width:46px;height:46px;font-size:19px;margin-bottom:14px;}
+  .empty-modes{display:none;}
+  .composer-hint{display:none;}
+}
+@media(max-width:420px){
+  .mode-row::before{display:none;}
+}
+@media(max-height:700px){
+  .empty-state{margin-top:12px;padding-bottom:10px;}
+  .empty-state .dot-big{margin-bottom:10px;}
+  .suggest-grid{margin-top:14px;}
+  .empty-modes{display:none;}
+}
 </style>
 
 <style id="cfgate-gate-style">
@@ -744,7 +831,35 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
     <div class="messages" id="messages">
       <div class="empty-state" id="emptyState">
         <div class="dot-big">최</div>
-        <h2>Choimini</h2>
+        <h2>무엇을 도와드릴까요?</h2>
+        <p class="empty-sub">대화부터 작업 자동화, 코딩까지 한곳에서. 아래를 눌러 바로 시작해 보세요.</p>
+        <div class="suggest-grid" id="suggestGrid">
+          <button type="button" class="suggest-chip suggest-card" data-q="재미있는 사실 하나만 짧게 알려줘">
+            <span class="sc-ico">💬</span>
+            <span class="sc-t">가볍게 물어보기</span>
+            <span class="sc-d">궁금한 걸 바로 물어보기</span>
+          </button>
+          <button type="button" class="suggest-chip suggest-card" data-q="파이썬으로 CSV 파일에서 중복된 줄을 지우는 스크립트를 만들어줘">
+            <span class="sc-ico">💻</span>
+            <span class="sc-t">코드 짜기</span>
+            <span class="sc-d">만들고 바로 실행까지</span>
+          </button>
+          <button type="button" class="suggest-chip suggest-card" data-q="아래 내용을 표로 정리해줘:">
+            <span class="sc-ico">🛠️</span>
+            <span class="sc-t">자료 정리</span>
+            <span class="sc-d">요약 · 번역 · 표 만들기</span>
+          </button>
+          <button type="button" class="suggest-chip suggest-card" data-q="지금 내 작업공간에 어떤 파일이 있는지 보여줘">
+            <span class="sc-ico">🗂️</span>
+            <span class="sc-t">파일 다루기</span>
+            <span class="sc-d">작업공간 파일 읽고 고치기</span>
+          </button>
+        </div>
+        <div class="empty-modes" aria-hidden="true">
+          <span><b>NO BRAIN</b>빠른 답변</span>
+          <span><b>WORK</b>도구 쓰는 작업</span>
+          <span><b>CODE</b>코딩 · 실행</span>
+        </div>
       </div>
       <div class="msg-wrap" id="msgWrap"></div>
     </div>
@@ -804,6 +919,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <button class="stop-btn" id="stopBtn" type="button">⏹ 답변 중지</button>
           <button class="send-btn" id="sendBtn">➤</button>
         </div>
+        <div class="composer-hint">Choimini도 실수할 수 있어요. 중요한 내용은 한 번 더 확인해 주세요.</div>
       </div>
     </div>
   </main>
@@ -2088,7 +2204,11 @@ function renderContentWithCode(content){
   // String.split with capturing groups yields: [plain, lang, code, plain, lang, code, ... plain]
   let html = "";
   for(let i=0; i<parts.length; i+=3){
-    const plain = parts[i] || "";
+    /* 코드블록은 그 자체로 위아래 여백(.code-block margin)을 가지므로,
+       앞뒤 글에 붙어 있던 빈 줄은 지운다(간격이 두 번 들어가 벌어지던 문제). */
+    let plain = parts[i] || "";
+    if(i > 0) plain = plain.replace(/^\n+/, "");
+    if(parts[i+2] !== undefined) plain = plain.replace(/\n+$/, "");
     if(plain) html += '<span class="uc">' + mdInline(escapeHtml(plain)) + '</span>';
     const lang = parts[i+1];
     const code = parts[i+2];
@@ -2105,11 +2225,13 @@ function renderContentWithCode(content){
 function mdInline(escapedText){
   const lines = escapedText.split('\n');
   const out = [];
+  const blk = []; // out[i] 가 블록 요소(제목·목록·인용)인지 — 줄바꿈 <br> 를 넣을지 판단에 쓴다
+  function put(html, isBlock){ out.push(html); blk.push(!!isBlock); }
   let listBuf = null; // {type:'ul'|'ol', items:[]}
   function flushList(){
     if(!listBuf) return;
     const tag = listBuf.type;
-    out.push(`<${tag} class="md-list">` + listBuf.items.map(i=>`<li>${i}</li>`).join('') + `</${tag}>`);
+    put(`<${tag} class="md-list">` + listBuf.items.map(i=>`<li>${i}</li>`).join('') + `</${tag}>`, true);
     listBuf = null;
   }
   function mdSpan(text){
@@ -2125,13 +2247,13 @@ function mdInline(escapedText){
     if(h){
       flushList();
       const level = h[1].length;
-      out.push(`<span class="md-h md-h${level}">${mdSpan(h[2])}</span>`);
+      put(`<span class="md-h md-h${level}">${mdSpan(h[2])}</span>`, true);
       continue;
     }
     const bq = raw.match(/^>\s?(.*)$/);
     if(bq){
       flushList();
-      out.push(`<blockquote class="md-quote">${mdSpan(bq[1])}</blockquote>`);
+      put(`<blockquote class="md-quote">${mdSpan(bq[1])}</blockquote>`, true);
       continue;
     }
     const ul = raw.match(/^[-*]\s+(.+)$/);
@@ -2147,10 +2269,22 @@ function mdInline(escapedText){
       continue;
     }
     flushList();
-    out.push(raw.length ? mdSpan(raw) : '');
+    put(raw.length ? mdSpan(raw) : '', false);
   }
   flushList();
-  return out.join('<br>');
+  /* 블록 요소(제목·목록·인용) 바로 앞뒤의 빈 줄은 지우고, 블록과 맞닿는 자리에는 <br> 를 넣지 않는다.
+     예전엔 전부 '<br>' 로 이어 붙여서 "## 제목" 다음에 빈 줄 + 블록 여백이 겹쳐 간격이 과하게 벌어졌다. */
+  for(let i = out.length - 1; i >= 0; i--){
+    if(out[i] === "" && ((i > 0 && blk[i-1]) || (i < out.length - 1 && blk[i+1]))){
+      out.splice(i, 1); blk.splice(i, 1);
+    }
+  }
+  let html = "";
+  for(let i = 0; i < out.length; i++){
+    if(i > 0 && !blk[i] && !blk[i-1]) html += '<br>';
+    html += out[i];
+  }
+  return html;
 }
 
 function scrollToBottom(){
