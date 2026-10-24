@@ -636,7 +636,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <script src="./choimini-shell-cmds.js?v=20261011"></script>
 <script src="./choimini-apk.js?v=20261004"></script>
 <script src="./choimini-preview.js?v=20261013"></script>
-<script src="./choimini-localai.js?v=20261025"></script>
+<script src="./choimini-localai.js?v=20261027"></script>
 
 
     <!-- Cloudflare Turnstile 접속 게이트: 통과 전까지 페이지 콘텐츠를 가림 -->
@@ -855,6 +855,16 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
             <button id="localAIOpenHF" type="button" style="padding:6px 12px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">다운로드</button>
             <button id="localAIPick" type="button" style="padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">받은 파일 선택</button>
+          </div>
+        </div>
+        <div id="localAIBenchBox" style="display:none;margin-top:8px;padding:9px 11px;border:1px dashed var(--border);border-radius:8px;font-size:12px;line-height:1.6">
+          <b>🧪 모델 비교 테스트 (임시)</b>
+          <div style="opacity:.8">받은 모델마다 같은 문제 4개를 풀게 해서 속도와 정확도를 비교해요.</div>
+          <div id="localAIBenchList" style="margin-top:6px;white-space:pre-line"></div>
+          <div id="localAIBenchStatus" style="margin-top:4px;opacity:.85"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button id="localAIGetAll" type="button" style="padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">작은 모델 전부 받기</button>
+            <button id="localAIRunBench" type="button" style="padding:6px 10px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">받은 모델 전부 테스트</button>
           </div>
         </div>
         <button id="localAIClear" type="button" style="margin-top:6px;padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">내려받은 로컬 모델 지우기</button>
@@ -2250,8 +2260,9 @@ function updateLocalAIUI(){
   const sel = document.getElementById("localAISelect"), box = document.getElementById("localAIStatus");
   if(!sel || !LocalAI || !settings || !settings.localAI) return;
   const stt = LocalAI.status();
-  if(sel.options.length <= 2 && stt.native) LocalAI.NATIVE_GUIDE.forEach(g=>{ const o = document.createElement("option"); o.value = g.key; o.textContent = `직접 선택 · ${g.label} (약 ${(g.approxMB/1000).toFixed(1)}GB${g.minRamGB ? " · 램 " + g.minRamGB + "GB+" : ""})`; sel.appendChild(o); });
-  if(sel.options.length <= 2 && !stt.native) LocalAI.MODELS.forEach(m=>{ const o = document.createElement("option"); o.value = m.id; o.textContent = `직접 선택 · ${m.label} (내려받기 약 ${m.mb >= 1000 ? (m.mb/1000).toFixed(1) + "GB" : m.mb + "MB"})`; sel.appendChild(o); });
+  if(sel.options.length <= 2 && stt.backend && stt.native) LocalAI.NATIVE_GUIDE.forEach(g=>{ const o = document.createElement("option"); o.value = g.key; o.textContent = `${g.label} · ${g.approxMB >= 1000 ? (g.approxMB/1000).toFixed(1) + "GB" : g.approxMB + "MB"} · ${g.tag}`; sel.appendChild(o); });
+  if(stt.native && (stt.installed || []).some(x=>x.key === "custom") && !sel.querySelector('option[value="custom"]')){ const o = document.createElement("option"); o.value = "custom"; o.textContent = "직접 고른 파일"; sel.appendChild(o); }
+  if(sel.options.length <= 2 && stt.backend && !stt.native) LocalAI.MODELS.forEach(m=>{ const o = document.createElement("option"); o.value = m.id; o.textContent = `직접 선택 · ${m.label} (내려받기 약 ${m.mb >= 1000 ? (m.mb/1000).toFixed(1) + "GB" : m.mb + "MB"})`; sel.appendChild(o); });
   sel.value = !settings.localAI.enabled ? "off" : (settings.localAI.model || "auto");
   if(sel.value !== (!settings.localAI.enabled ? "off" : (settings.localAI.model || "auto"))) sel.value = settings.localAI.enabled ? "auto" : "off";
   const dev = stt.native
@@ -2277,6 +2288,7 @@ function updateLocalAIUI(){
     const r = document.getElementById("localAIRec");
     if(r) r.textContent = rec ? `${rec.label} · 약 ${rec.approxMB >= 1000 ? (rec.approxMB/1000).toFixed(1) + "GB" : rec.approxMB + "MB"} (이 기기 램 ${stt.ramGB}GB)` : "램이 적어 권장하지 않아요.";
   }
+  try{ renderLocalBench(stt); }catch(_){}
   const bar = document.getElementById("localAIBar"); if(bar) bar.style.width = ((stt.state === "downloading" || stt.state === "copying") ? stt.progress : 0) + "%";
   const dbtn = document.getElementById("localAIOpenHF"); if(dbtn) dbtn.textContent = stt.state === "downloading" ? "취소" : "다운로드";
   const rb = document.getElementById("localAIClear"); if(rb) rb.textContent = stt.native ? "가져온 로컬 모델 지우기" : "내려받은 로컬 모델 지우기";
@@ -2307,6 +2319,94 @@ function updateLocalPromo(){
   });
   if(g("localAIPick")) g("localAIPick").addEventListener("click", ()=>{ if(LocalAI) LocalAI.pickNativeModel(); });
 })();
+/* ---- 로컬 모델 비교 테스트 (임시): 받은 모델마다 같은 문제 4개 → 속도·정확도 ---- */
+const LOCAL_BENCH_KEY = "choimini.localBench";
+const LOCAL_BENCH_CASES = [
+  { goal:"설정에서 Wi-Fi 켜기", plan:"설정 앱을 열고 Wi-Fi 항목을 누른다", act:'{"tool":"device_open_app","name":"설정"}', res:'설정 앱이 열렸어요.\n[1] 텍스트 "설정" (540,120)\n[2] 버튼 "연결" (540,400)\n[3] 버튼 "Wi-Fi" (540,600)\n[4] 버튼 "소리" (540,800)', ok:/"id"\s*:\s*3\b|"text"\s*:\s*"Wi-?Fi"/i },
+  { goal:"메모 앱에서 '회의' 검색", plan:"검색창을 눌러 '회의'를 입력한다", act:'{"tool":"device_open_app","name":"메모"}', res:'메모 앱이 열렸어요.\n[1] 텍스트 "메모" (300,100)\n[2] 입력란 "검색" (540,220)\n[3] 버튼 "새 메모" (900,2100)', ok:/"id"\s*:\s*2\b|"text"\s*:\s*"검색"/ },
+  { goal:"파일 다운로드가 끝날 때까지 기다리기", plan:"'다운로드 완료' 글자가 보일 때까지 기다린다", act:'{"tool":"device_click","text":"다운로드"}', res:'눌렀어요.\n[1] 텍스트 "다운로드 중 63%" (540,900)\n[2] 버튼 "취소" (540,1100)', ok:/device_wait/ },
+  { goal:"설정에서 Wi-Fi 켜기", plan:"설정 앱을 열고 Wi-Fi 스위치를 켠다", act:'{"tool":"device_click","id":3}', res:'눌렀어요.\n[3] 스위치 "Wi-Fi" 켜짐 (900,600)\n작업 목표를 모두 마쳤어요.', none:true },
+];
+function localBenchLoad(){ try{ return JSON.parse(localStorage.getItem(LOCAL_BENCH_KEY) || "{}") || {}; }catch(_){ return {}; } }
+function localBenchSave(o){ try{ localStorage.setItem(LOCAL_BENCH_KEY, JSON.stringify(o)); }catch(_){} }
+let localBenchRunning = false, localBenchMsg = "";
+function renderLocalBench(stt){
+  const box = document.getElementById("localAIBenchBox"); if(!box) return;
+  box.style.display = (stt && stt.native) ? "" : "none"; if(!stt || !stt.native) return;
+  const res = localBenchLoad();
+  const rows = (stt.installed || []).map(x=>{ const g = LocalAI.guideByKey(x.key); const r = res[x.key]; return { key:x.key, name:g ? g.label : (x.name || x.key), mb:x.mb, r }; });
+  rows.sort((a,b)=>(a.r ? a.r.avgMs : 1e9) - (b.r ? b.r.avgMs : 1e9));
+  const list = document.getElementById("localAIBenchList");
+  list.innerHTML = "";
+  if(!rows.length){ list.textContent = "받은 모델이 없어요. [작은 모델 전부 받기]를 눌러보세요."; }
+  rows.forEach(w=>{
+    const line = document.createElement("div"); line.style.cssText = "display:flex;gap:6px;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)";
+    const t = document.createElement("span");
+    t.textContent = `${w.name} (${w.mb}MB)` + (w.key === stt.activeKey ? " ★사용중" : "") + "\n" + (w.r ? `  평균 ${(w.r.avgMs/1000).toFixed(1)}초 · 정확 ${w.r.pass}/${w.r.n} · 형식 ${w.r.fmt}/${w.r.n} · 로드 ${(w.r.loadMs/1000).toFixed(1)}초 ${w.r.backend}` : "  아직 테스트 전");
+    t.style.whiteSpace = "pre-line";
+    const del = document.createElement("button"); del.type = "button"; del.textContent = "삭제"; del.style.cssText = "padding:3px 8px;border-radius:6px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:11px;cursor:pointer";
+    del.onclick = ()=>{ if(confirm(w.name + " 파일을 지울까요?")){ LocalAI.deleteKey(w.key); setTimeout(()=>updateLocalAIUI(), 600); } };
+    line.appendChild(t); line.appendChild(del); list.appendChild(line);
+  });
+  const stEl = document.getElementById("localAIBenchStatus"); if(stEl) stEl.textContent = localBenchMsg || (stt.state === "downloading" ? `⬇️ ${stt.dlKey || ""} ${stt.progress}% 받는 중` : "");
+  const rb = document.getElementById("localAIRunBench"); if(rb) rb.disabled = localBenchRunning || !rows.length;
+}
+async function runLocalBench(){
+  if(localBenchRunning || !LocalAI) return; localBenchRunning = true;
+  try{
+    const st0 = LocalAI.refresh(); const res = localBenchLoad();
+    for(const x of (st0.installed || [])){
+      const g = LocalAI.guideByKey(x.key); const nm = g ? g.label : x.key;
+      localBenchMsg = `⏳ ${nm} 올리는 중…`; renderLocalBench(LocalAI.status());
+      const ld = await LocalAI.benchLoad(x.key);
+      if(!ld.ok){ res[x.key] = { avgMs:9e6, pass:0, fmt:0, n:LOCAL_BENCH_CASES.length, loadMs:0, backend:"실패" }; localBenchSave(res); continue; }
+      let tot = 0, pass = 0, fmt = 0;
+      for(let i = 0; i < LOCAL_BENCH_CASES.length; i++){
+        const c = LOCAL_BENCH_CASES[i]; localBenchMsg = `🧪 ${nm} 문제 ${i+1}/${LOCAL_BENCH_CASES.length}…`; renderLocalBench(LocalAI.status());
+        const user = "[요청] " + c.goal + "\n[계획] " + c.plan + "\n[직전 동작]\n```tool\n" + c.act + "\n```\n[직전 결과]\n" + c.res + "\n\n다음 동작을 ```tool 블록으로.";
+        const t0 = Date.now(); let text = "";
+        try{ const r = await LocalAI.generate([{ role:"system", content:LOCAL_FAST_SYS }, { role:"user", content:user }], { force:true, timeoutMs:90000, maxTokens:120 }); text = String(r.text || ""); }catch(_){ text = ""; }
+        tot += Date.now() - t0;
+        const valid = validLocalTools(text, "");
+        if(c.none){ if(!/```tool/.test(text)) { fmt++; pass++; } }
+        else { if(valid) fmt++; if(valid && c.ok.test(text)) pass++; }
+      }
+      res[x.key] = { avgMs: Math.round(tot / LOCAL_BENCH_CASES.length), pass, fmt, n: LOCAL_BENCH_CASES.length, loadMs: ld.ms || 0, backend: ld.backend || "", at: Date.now() };
+      localBenchSave(res);
+    }
+    localBenchMsg = "✅ 테스트 끝. 평균 시간이 짧고 정확도가 높은 모델을 고르세요.";
+  }catch(e){ localBenchMsg = "⚠️ 테스트 중 오류: " + String((e && e.message) || e).slice(0, 80); }
+  finally{
+    localBenchRunning = false;
+    try{ if(settings.localAI.enabled && settings.localAI.consent) await LocalAI.load(); }catch(_){}
+    updateLocalAIUI();
+  }
+}
+/* 작은 모델 전부 받기: 하나씩 순서대로(램이 모자란 큰 모델·E4B 는 제외) */
+let localGetQueue = [];
+function localGetNext(){
+  const stt = LocalAI.refresh(); if(!stt.native) return;
+  const have = new Set((stt.installed || []).map(x=>x.key));
+  while(localGetQueue.length && have.has(localGetQueue[0])) localGetQueue.shift();
+  if(!localGetQueue.length){ localBenchMsg = "✅ 모델을 다 받았어요. [받은 모델 전부 테스트]를 눌러보세요."; updateLocalAIUI(); return; }
+  const k = localGetQueue[0]; const er = LocalAI.downloadKey(k);
+  localBenchMsg = er ? ("⚠️ " + er) : `⬇️ ${LocalAI.guideByKey(k).label} 받는 중… (남은 ${localGetQueue.length}개)`;
+  if(er) localGetQueue = [];
+  updateLocalAIUI();
+}
+window.addEventListener("choimini-localai-copied", ()=>{ if(localGetQueue.length) setTimeout(localGetNext, 500); });
+(function(){
+  const g = id=>document.getElementById(id);
+  if(g("localAIRunBench")) g("localAIRunBench").addEventListener("click", ()=>{ if(!settings.localAI.consent){ toast("먼저 로컬 AI를 켜서 동의해 주세요"); return; } runLocalBench(); });
+  if(g("localAIGetAll")) g("localAIGetAll").addEventListener("click", ()=>{
+    const stt = LocalAI.refresh(); if(!stt.native) return;
+    if(!settings.localAI.consent){ toast("먼저 로컬 AI를 켜서 동의해 주세요"); return; }
+    const want = LocalAI.NATIVE_GUIDE.filter(x=>x.key !== "gemma4-e4b" && x.minRamGB <= stt.ramGB + 0.5).sort((a,b)=>a.approxMB - b.approxMB).map(x=>x.key);
+    const mb = LocalAI.NATIVE_GUIDE.filter(x=>want.includes(x.key) && !(stt.installed || []).some(i=>i.key === x.key)).reduce((s,x)=>s + x.approxMB, 0);
+    if(!confirm("테스트용으로 모델 " + want.length + "개를 순서대로 받아요 (아직 안 받은 것 합계 약 " + (mb/1000).toFixed(1) + "GB, 저장공간·데이터 사용). 백그라운드로 받고 알림에 진행률이 떠요. 진행할까요?")) return;
+    localGetQueue = want; localGetNext();
+  });
+})();
 if(LocalAI) LocalAI.onChange(updateLocalAIUI);
 setInterval(()=>{ try{ updateLocalPromo(); }catch(_){} }, 3000);
 async function applyLocalAIChoice(v){
@@ -2323,6 +2423,7 @@ async function applyLocalAIChoice(v){
     if(!confirm || !ok){ updateLocalAIUI(); return; }
     settings.localAI.consent = true;
   }
+  localGuardReset();
   settings.localAI.enabled = true; settings.localAI.model = v;
   saveJSON(LS.settings, settings); updateLocalAIUI();
   const s2 = LocalAI.status();
@@ -3465,9 +3566,14 @@ function noBrainReply(){
    계획·완료 판단·복잡한 오류는 Gemini(클라우드)가 맡는다. 로컬 결과가 없거나 이상하면 곧바로 클라우드 Lite 로 넘어간다. */
 const LOCAL_FAST_SYS = "너는 화면 조작을 실행하는 보조 AI다. [계획]과 [직전 결과]를 보고 다음 동작만 ```tool 블록에 한 줄에 JSON 하나로 쓴다(한 블록에 최대 3줄). 설명은 한 줄 이내. "
   + "도구: device_screen, device_screenshot, device_find{text}, device_click{id 또는 text 또는 x,y}, device_tap{x,y}, device_long_press{id 또는 text}, device_scroll{dir:down|up}, device_scroll_to{text,click}, device_type{text,enter}, device_key{key:back|home|enter}, device_open_app{name}, device_open_url{url}, device_wait_for{text,ms}, device_focus{title}. 이름과 값은 소문자. "
-  + "계획에 없는 동작, 로그인·결제·삭제·비밀번호·인증 입력은 하지 않는다. 확신이 없거나 작업이 끝났으면 도구 블록 없이 '판단 불가' 라고만 쓴다.";
+  + "계획에 없는 동작, 로그인·결제·삭제·비밀번호·인증 입력은 하지 않는다. 확신이 없거나 작업이 끝났으면 도구 블록 없이 '판단 불가' 라고만 쓴다.\n"
+  + "출력 예시:\n```tool\n{\"tool\":\"device_click\",\"text\":\"확인\"}\n```\n```tool\n{\"tool\":\"device_scroll\",\"dir\":\"down\"}\n```\n```tool\n{\"tool\":\"device_wait_for\",\"text\":\"완료\",\"ms\":5000}\n```";
+/* 로컬 Gemma 보호장치: 너무 느리거나 형식을 자꾸 틀리면 이번 실행 동안 클라우드 Lite 로 대신한다 */
+const localGuard = { slow:0, bad:0, off:false, note:false };
+function localGuardTrip(why){ localGuard.off = true; if(!localGuard.note){ localGuard.note = true; try{ toast("⚡ 이 기기에서는 로컬 AI가 " + why + " 클라우드 Lite 로 대신해요"); }catch(_){} } }
+function localGuardReset(){ localGuard.slow = 0; localGuard.bad = 0; localGuard.off = false; localGuard.note = false; }
 function localFastEligible(chat){
-  if(!window.ChoiminiLocalAI || !window.ChoiminiLocalAI.ready() || !devBridge()) return false;
+  if(localGuard.off || !window.ChoiminiLocalAI || !window.ChoiminiLocalAI.ready() || !devBridge()) return false;
   const msgs = (chat && chat.messages) || [];
   for(let i = msgs.length - 1; i >= 0; i--){ if(msgs[i].role === "ai") return /"tool"\s*:\s*"device_/i.test(String(msgs[i].content || "")); }
   return false;
@@ -3476,11 +3582,11 @@ function localFastMessages(chat){
   const msgs = ((chat && chat.messages) || []).filter(m=>m.role === "user" || m.role === "ai");
   let start = 0; for(let i = msgs.length - 1; i >= 0; i--){ if(msgs[i].role === "user" && !msgs[i].auto){ start = i; break; } }
   const strip = t=>String(t || "").replace(/```[\s\S]*?```/g, "").trim();
-  const goal = strip(msgs[start] && msgs[start].content).slice(0, 300);
-  let plan = ""; for(let i = start + 1; i < msgs.length; i++){ if(msgs[i].role === "ai"){ plan = strip(msgs[i].content).slice(0, 700); break; } }
+  const goal = strip(msgs[start] && msgs[start].content).slice(0, 160);
+  let plan = ""; for(let i = start + 1; i < msgs.length; i++){ if(msgs[i].role === "ai"){ plan = strip(msgs[i].content).slice(0, 350); break; } }
   const lastAi = [...msgs].reverse().find(m=>m.role === "ai"), lastUser = msgs[msgs.length - 1];
   const act = String((lastAi && lastAi.content) || "").match(/```tool[\s\S]*?```/); 
-  const user = "[요청] " + goal + "\n[계획] " + (plan || "(없음)") + "\n[직전 동작]\n" + (act ? act[0].slice(0, 400) : "") + "\n[직전 결과]\n" + String(lastUser && lastUser.content || "").slice(0, (window.ChoiminiLocalAI && window.ChoiminiLocalAI.ctxChars) ? window.ChoiminiLocalAI.ctxChars() : 2200) + "\n\n다음 동작을 ```tool 블록으로.";
+  const user = "[요청] " + goal + "\n[계획] " + (plan || "(없음)") + "\n[직전 동작]\n" + (act ? act[0].slice(0, 220) : "") + "\n[직전 결과]\n" + String(lastUser && lastUser.content || "").slice(0, (window.ChoiminiLocalAI && window.ChoiminiLocalAI.ctxChars) ? window.ChoiminiLocalAI.ctxChars() : 2200) + "\n\n다음 동작을 ```tool 블록으로.";
   return { messages: [{ role:"system", content: LOCAL_FAST_SYS }, { role:"user", content: user }], lastAct: act ? act[0] : "" };
 }
 function validLocalTools(text, lastAct){
@@ -3493,9 +3599,14 @@ function validLocalTools(text, lastAct){
 async function tryLocalFast(chat, signal, onDelta){
   const t0 = Date.now(); const { messages, lastAct } = localFastMessages(chat);
   if(onDelta) onDelta("", { t0 });
-  const r = await window.ChoiminiLocalAI.generate(messages, { signal, maxTokens: 260 });
+  let r;
+  try{ r = await window.ChoiminiLocalAI.generate(messages, { signal, maxTokens: 120, timeoutMs: 10000 }); }
+  catch(e){ if(e && e.name === "AbortError") throw e; if(++localGuard.slow >= 2) localGuardTrip("느려서"); throw e; }
+  const dt = Date.now() - t0;
+  if(dt > 8000){ if(++localGuard.slow >= 2) localGuardTrip("느려서"); } else if(dt < 5000) localGuard.slow = 0;
   const text = String(r.text || "").trim();
-  if(!validLocalTools(text, lastAct)) return null;
+  if(!validLocalTools(text, lastAct)){ if(++localGuard.bad >= 3) localGuardTrip("도구 형식을 자꾸 틀려서"); return null; }
+  localGuard.bad = 0;
   const st = window.ChoiminiLocalAI.status(); const tEnd = Date.now();
   return { text, provider: settings.provider, usedLocal: false, localFast: true, streamed: false,
     stats: { step: "fast-local", model: st.model ? st.model.label + " (로컬)" : "Gemma (로컬)", thinkMs: tEnd - t0, totalMs: tEnd - t0, thoughtTokens: 0, outTokens: (r.usage && r.usage.completion_tokens) || 0, inTokens: (r.usage && r.usage.prompt_tokens) || 0, thoughts: "" } };

@@ -24,18 +24,39 @@
 
   /* ---- native 엔진용 안내 (Hugging Face 의 LiteRT 커뮤니티 Gemma .task 파일. 라이선스 동의 + 로그인 필요) ---- */
   const HF = "https://huggingface.co/litert-community/";
+  /* 테스트용으로 로그인 없이 받을 수 있는 공식 litert-community 모델을 전부 넣어 둠(Gemma 3/FunctionGemma 는 로그인·동의가 필요해 제외).
+     tag: 정확도·속도 비교용 메모. think: Qwen 류가 <think> 를 내놓을 수 있어 제거/비활성 처리 */
   const NATIVE_GUIDE = [
-    { key: "gemma4-e2b", label: "Gemma 4 E2B", approxMB: 2650, minRamGB: 5, url: HF + "gemma-4-E2B-it-litert-lm",
-      dl: HF + "gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm" },
-    { key: "gemma4-e4b", label: "Gemma 4 E4B", approxMB: 3740, minRamGB: 9, url: HF + "gemma-4-E4B-it-litert-lm",
-      dl: HF + "gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm" },
+    { key: "gemma4-e2b",  label: "Gemma 4 E2B",        approxMB: 2650, minRamGB: 5, tag: "기본 · 가장 똑똑함", repo: "gemma-4-E2B-it-litert-lm", file: "gemma-4-E2B-it.litertlm" },
+    { key: "gemma4-e4b",  label: "Gemma 4 E4B",        approxMB: 3740, minRamGB: 9, tag: "더 똑똑 · 느림", repo: "gemma-4-E4B-it-litert-lm", file: "gemma-4-E4B-it.litertlm" },
+    { key: "lfm25-230m",  label: "LFM2.5 230M",        approxMB: 177,  minRamGB: 2, tag: "초경량", repo: "LFM2.5-230M", file: "LFM2.5-230M_int4.litertlm" },
+    { key: "smollm2-360m",label: "SmolLM2 360M",       approxMB: 374,  minRamGB: 2, tag: "초경량", repo: "SmolLM2-360M-Instruct", file: "SmolLM2_360M_instruct.litertlm" },
+    { key: "granite-350m",label: "Granite 4.0 350M",   approxMB: 468,  minRamGB: 2, tag: "경량 · 도구호출 강점", repo: "granite-4.0-350m-litert-lm", file: "granite-4.0-350m_q8_ekv1280.litertlm" },
+    { key: "qwen3-06b",   label: "Qwen3 0.6B",         approxMB: 344,  minRamGB: 3, tag: "경량 · 다국어", think: true, repo: "Qwen3-0.6B", file: "Qwen3-0.6B_dynamic_wi4b32_afp32.litertlm" },
+    { key: "qwen35-08b",  label: "Qwen3.5 0.8B",       approxMB: 965,  minRamGB: 3, tag: "경량 · 다국어", think: true, repo: "Qwen3.5-0.8B", file: "Qwen3.5-0.8B_int8.litertlm" },
+    { key: "lfm25-12b",   label: "LFM2.5 1.2B",        approxMB: 736,  minRamGB: 3, tag: "빠름(구조 효율)", repo: "LFM2.5-1.2B-Instruct", file: "LFM2.5-1.2B-Instruct_int4.litertlm" },
+    { key: "qwen3-17b",   label: "Qwen3 1.7B",         approxMB: 977,  minRamGB: 4, tag: "중간 · 다국어", think: true, repo: "Qwen3-1.7B", file: "Qwen3-1.7B_dynamic_wi4b32_afp32.litertlm" },
+    { key: "qwen25-15b",  label: "Qwen2.5 1.5B",       approxMB: 1600, minRamGB: 4, tag: "중간 · 안정적", repo: "Qwen2.5-1.5B-Instruct", file: "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm" },
+    { key: "qwen35-2b",   label: "Qwen3.5 2B",         approxMB: 2120, minRamGB: 5, tag: "중상 · 다국어", think: true, repo: "Qwen3.5-2B", file: "Qwen3.5-2B_int8.litertlm" },
   ];
-  /* 램 5GB 이상이면 E2B (빠른 판단용으로 E4B 보다 빠름). E4B 는 직접 고를 때만 */
+  NATIVE_GUIDE.forEach(function (g) { g.url = HF + g.repo; g.dl = HF + g.repo + "/resolve/main/" + g.file; });
+  const guideByKey = function (k) { return NATIVE_GUIDE.find(function (g) { return g.key === k; }) || null; };
+  /* 램 5GB 이상이면 기본 추천 Gemma 4 E2B, 그 미만이면 가장 가벼운 쪽 */
   function recommendNative(ramGB, choice) {
-    const picked = NATIVE_GUIDE.find(function (g) { return g.key === choice; });
+    const picked = guideByKey(choice);
     if (picked) return picked;
-    return ramGB >= 5 ? NATIVE_GUIDE[0] : null;
+    if (ramGB >= 5) return NATIVE_GUIDE[0];
+    if (ramGB >= 3) return guideByKey("qwen3-06b");
+    if (ramGB >= 2) return guideByKey("lfm25-230m");
+    return null;
   }
+  /* 지금 설정에서 쓰기로 한 모델 키 ("custom" = 사용자가 파일로 고른 것) */
+  function nativeKey() {
+    const c = cfg().model;
+    if (c === "custom") return "custom";
+    const r = recommendNative(st.ramGB, c); return r ? r.key : "";
+  }
+  function installedKeys() { return ((st.native && st.native.installed) || []).map(function (x) { return x.key; }); }
 
   const NB = function () { const b = window.AndroidBridge; return (b && typeof b.localLlmStatus === "function") ? b : null; };
 
@@ -94,7 +115,7 @@
 
   /* "이 기기에서 로컬 AI 를 쓸 수 있는가" — 채팅창 배너/설정 안내용 */
   function possible() {
-    if (st.backend === "native") return !!recommendNative(st.ramGB);
+    if (st.backend === "native") return !!recommendNative(st.ramGB) && !!st.native && st.native.available !== false;
     return !!st.wgpu && !!recommend(st.ramGB, st.f16);
   }
 
@@ -106,8 +127,9 @@
       supported: !!st.wgpu, f16: st.f16, ramGB: st.ramGB, ramKnown: !!st.ramKnown,
       enabled: c.enabled, consent: c.consent, choice: c.model, model: m, models: MODELS,
       guide: native ? NATIVE_GUIDE : null, nativeRecommend: native ? recommendNative(st.ramGB, c.model) : null,
-      hasModelFile: native ? !!(st.native && st.native.hasModel) : null,
-      modelName: native && st.native ? st.native.modelName : "", modelMB: native && st.native ? st.native.modelMB : 0,
+      hasModelFile: native ? installedKeys().indexOf(nativeKey()) >= 0 : null,
+      installed: native && st.native ? (st.native.installed || []) : [], activeKey: native ? nativeKey() : "", loadedKey: native ? st.loadedKey || "" : "", backendName: native && st.native ? st.native.backend || "" : "", dlKey: native && st.native ? st.native.dlKey || "" : "",
+      modelName: native ? (function () { const g = guideByKey(nativeKey()); return g ? g.label : (nativeKey() === "custom" ? "직접 고른 파일" : ""); })() : "", modelMB: 0,
       possible: possible(),
       state: st.state, progress: st.progress, text: st.text, error: st.error, loadedId: st.modelId,
       ready: st.state === "ready" && (native || !!st.engine),
@@ -121,10 +143,10 @@
     let e; try { e = JSON.parse(json); } catch (x) { return; }
     if (e.type === "download") set({ state: "downloading", progress: e.pct || 0, text: e.paused ? "네트워크 연결을 기다리는 중…" : ((e.mb || 0) + "MB" + (e.totalMB ? " / " + e.totalMB + "MB" : "") + " 받는 중"), error: "" });
     else if (e.type === "copy") set({ state: "copying", progress: e.pct || 0, text: (e.name || "모델") + " 가져오는 중…", error: "" });
-    else if (e.type === "copied") { st.native = nativeStatus(); set({ state: "idle", progress: 100, text: "", error: "" }); if (cfg().enabled && cfg().consent) load(); }
+    else if (e.type === "copied") { st.native = nativeStatus(); set({ state: "idle", progress: 100, text: "", error: "" }); if (cfg().enabled && cfg().consent && (!e.key || e.key === nativeKey())) load(); try { window.dispatchEvent(new CustomEvent("choimini-localai-copied", { detail: { key: e.key || "" } })); } catch (x) {} }
     else if (e.type === "cancel") { st.native = nativeStatus(); set({ state: st.native && st.native.hasModel ? "idle" : "needs-model", progress: 0, text: "" }); }
-    else if (e.type === "deleted") { st.native = nativeStatus(); set({ state: "needs-model", progress: 0, text: "", modelId: "" }); }
-    else if (e.type === "loaded") { st.native = nativeStatus(); set({ state: "ready", progress: 100, text: "준비됨", error: "", modelId: "native" }); if (nativeLoadWait) { nativeLoadWait(true); nativeLoadWait = null; } }
+    else if (e.type === "deleted") { st.native = nativeStatus(); if (!e.key || e.key === st.loadedKey) st.loadedKey = ""; set({ state: installedKeys().indexOf(nativeKey()) >= 0 ? "idle" : "needs-model", progress: 0, text: "", modelId: "" }); }
+    else if (e.type === "loaded") { st.native = nativeStatus(); st.loadedKey = e.key || st.loadedKey; st.lastLoad = { key: e.key, ms: e.ms || 0, backend: e.backend || "" }; set({ state: "ready", progress: 100, text: "준비됨", error: "", modelId: "native" }); if (nativeLoadWait) { nativeLoadWait(true); nativeLoadWait = null; } }
     else if (e.type === "error") { st.native = nativeStatus(); set({ state: "error", error: String(e.msg || "오류"), text: "" }); if (nativeLoadWait) { nativeLoadWait(false); nativeLoadWait = null; } }
     else if (e.type === "result") {
       const p = pending[e.id]; if (!p) return; delete pending[e.id]; clearTimeout(p.timer);
@@ -135,7 +157,12 @@
   function downloadNative() {
     if (!NB() || typeof NB().localLlmDownload !== "function") return "이 앱 버전은 다운로드를 지원하지 않아요";
     const rec = recommendNative(st.ramGB, cfg().model); if (!rec) return "이 기기는 램이 적어서 로컬 AI를 권장하지 않아요";
-    const err = NB().localLlmDownload(rec.dl, rec.label, rec.approxMB);
+    return downloadKey(rec.key);
+  }
+  function downloadKey(key) {
+    const rec = guideByKey(key); if (!rec) return "알 수 없는 모델이에요";
+    if (!NB() || typeof NB().localLlmDownload !== "function") return "이 앱 버전은 다운로드를 지원하지 않아요";
+    const err = NB().localLlmDownload(rec.key, rec.dl, rec.label, rec.approxMB);
     if (err) { set({ state: "error", error: String(err), text: "" }); return String(err); }
     set({ state: "downloading", progress: 0, text: "받기 시작…", error: "" });
     return "";
@@ -176,12 +203,13 @@
       try {
         await probe();
         if (st.backend === "native") {
-          if (!recommendNative(st.ramGB, cfg().model) && !(st.native && st.native.hasModel)) { set({ state: "unsupported", error: "램이 부족해서 로컬 모델을 쓰기 어려워요(클라우드 Lite 사용)", text: "" }); return false; }
-          if (!st.native.hasModel) { if (st.state !== "downloading") set({ state: "needs-model", error: "", text: "" }); return false; }
-          if (st.state === "ready") return true;
+          if (!recommendNative(st.ramGB, cfg().model) && !installedKeys().length) { set({ state: "unsupported", error: "램이 부족해서 로컬 모델을 쓰기 어려워요(클라우드 Lite 사용)", text: "" }); return false; }
+          const key = nativeKey(); st.native = nativeStatus();
+          if (installedKeys().indexOf(key) < 0) { if (st.state !== "downloading") set({ state: "needs-model", error: "", text: "" }); return false; }
+          if (st.state === "ready" && st.loadedKey === key) return true;
           set({ state: "loading", progress: 0, error: "", text: "모델을 메모리에 올리는 중… (처음엔 1분 정도 걸릴 수 있어요)" });
           const done = new Promise(function (res) { nativeLoadWait = res; });
-          NB().localLlmLoad();
+          NB().localLlmLoad(key);
           return await done;
         }
         if (!st.wgpu) { set({ state: "unsupported", error: "이 기기/앱은 WebGPU 를 지원하지 않아요", text: "" }); return false; }
@@ -208,14 +236,14 @@
   }
 
   async function unload() {
-    if (st.backend === "native") { try { NB().localLlmUnload(); } catch (e) {} set({ state: st.native && st.native.hasModel ? "idle" : "needs-model", progress: 0, text: "", modelId: "" }); return; }
+    if (st.backend === "native") { try { NB().localLlmUnload(); } catch (e) {} st.loadedKey = ""; set({ state: st.native && st.native.hasModel ? "idle" : "needs-model", progress: 0, text: "", modelId: "" }); return; }
     try { if (st.engine) await st.engine.unload(); } catch (e) {}
     st.engine = null; set({ state: "idle", progress: 0, text: "", modelId: "" });
   }
   /* 내려받은/가져온 모델 파일 지우기(저장공간 확보) */
   async function clearCache() {
     try {
-      if (st.backend === "native") { NB().localLlmDelete(); return true; }
+      if (st.backend === "native") { NB().localLlmDelete(""); return true; }
       await unload();
       if (!st.webllm) st.webllm = await import(/* @vite-ignore */ WEBLLM_URL());
       for (const m of MODELS) { try { if (await st.webllm.hasModelInCache(m.id)) await st.webllm.deleteModelAllInfoInCache(m.id); } catch (e) {} }
@@ -223,14 +251,14 @@
     } catch (e) { return false; }
   }
 
-  function ready() { const c = cfg(); return c.enabled && c.consent && st.state === "ready" && (st.backend === "native" || !!st.engine); }
+  function ready() { const c = cfg(); return c.enabled && c.consent && st.state === "ready" && (st.backend === "native" ? st.loadedKey === nativeKey() : !!st.engine); }
   /* 프롬프트에 넣을 이전 결과 글자 수 한도(엔진별 문맥 길이) */
-  function ctxChars() { return st.backend === "native" ? 1300 : 2200; }
+  function ctxChars() { return st.backend === "native" ? 700 : 2200; }
 
   /* messages: [{role:"system"|"user"|"assistant", content}] → {text, usage}. signal 로 중단 */
   async function generate(messages, opt) {
     opt = opt || {};
-    if (!ready()) throw new Error("local model not ready");
+    if (!ready() && !(opt.force && st.backend === "native" && st.state === "ready")) throw new Error("local model not ready");
     if (st.backend === "native") {
       if (opt.signal && opt.signal.aborted) { const e = new Error("aborted"); e.name = "AbortError"; throw e; }
       const id = "g" + Date.now() + Math.random().toString(36).slice(2, 6);
@@ -239,8 +267,10 @@
         pending[id] = { resolve: resolve, reject: reject, timer: timer };
         if (opt.signal) opt.signal.addEventListener("abort", function () { if (pending[id]) { clearTimeout(timer); delete pending[id]; const e = new Error("aborted"); e.name = "AbortError"; reject(e); } }, { once: true });
       });
-      NB().localLlmGenerate(id, plainPrompt(messages));
-      const text = await p;
+      const gk = guideByKey(st.loadedKey);
+      NB().localLlmGenerate(id, plainPrompt(messages) + (gk && gk.think && /^qwen3-/.test(gk.key) ? "\n/no_think" : ""));
+      let text = await p;
+      text = text.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/<think>[\s\S]*$/, "").trim();   // Qwen 류의 생각 구간 제거
       return { text: text, usage: null };
     }
     const engine = st.engine;
@@ -263,7 +293,23 @@
     return { text: acc, usage: usage };
   }
 
+  /* 속도 테스트용: 설정과 상관없이 받아 둔 특정 모델을 올린다 → {ok, ms, backend} */
+  function benchLoad(key) {
+    return new Promise(function (resolve) {
+      if (!NB()) { resolve({ ok: false }); return; }
+      st.native = nativeStatus();
+      if (installedKeys().indexOf(key) < 0) { resolve({ ok: false, error: "받지 않은 모델" }); return; }
+      if (st.loadedKey === key && st.state === "ready") { resolve({ ok: true, ms: 0, backend: (st.native && st.native.backend) || "" }); return; }
+      set({ state: "loading", progress: 0, error: "", text: "모델을 메모리에 올리는 중…" });
+      const t0 = Date.now();
+      nativeLoadWait = function (ok) { st.native = nativeStatus(); resolve({ ok: ok, ms: (st.lastLoad && st.lastLoad.ms) || (Date.now() - t0), backend: (st.lastLoad && st.lastLoad.backend) || "", error: ok ? "" : st.error }); };
+      NB().localLlmLoad(key);
+    });
+  }
+  function deleteKey(key) { try { NB().localLlmDelete(key); } catch (e) {} }
+
   window.ChoiminiLocalAI = {
+    refresh: function () { if (st.backend === "native" && NB()) st.native = nativeStatus(); return status(); }, benchLoad: benchLoad, downloadKey: downloadKey, deleteKey: deleteKey, guideByKey: guideByKey, nativeKey: nativeKey,
     MODELS: MODELS, NATIVE_GUIDE: NATIVE_GUIDE, probe: probe, recommend: recommend, recommendNative: recommendNative, usable: usable, status: status,
     load: load, unload: unload, clearCache: clearCache, ready: ready, generate: generate, pickModel: pickModel, possible: possible,
     pickNativeModel: pickNativeModel, downloadNative: downloadNative, cancelDownload: cancelDownload, plainPrompt: plainPrompt, ctxChars: ctxChars, gemmaPrompt: gemmaPrompt,
