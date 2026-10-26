@@ -547,6 +547,11 @@ button:focus:not(:focus-visible),select:focus:not(:focus-visible){outline:none;}
 .empty-state .dot-big{width:56px;height:56px;font-size:23px;margin:0 auto 16px;}
 .empty-sub{margin:0;font-size:14px;line-height:1.6;color:var(--text-dim);word-break:keep-all;}
 
+/* ---------- 설정 모달 탭 (일반 / 실험) ---------- */
+#settingsTabs{position:sticky;top:0;z-index:2;}
+.settings-pane{display:flex;flex-direction:column;gap:18px;}
+.settings-pane[hidden]{display:none;}
+
 /* ---------- 입력창 ---------- */
 .composer-hint{font-size:11px;color:var(--text-dim);margin-top:9px;text-align:center;line-height:1.5;}
 .mode-row{justify-content:flex-end;align-items:center;gap:8px;}
@@ -701,7 +706,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <script src="./choimini-shell-cmds.js?v=20261011"></script>
 <script src="./choimini-apk.js?v=20261004"></script>
 <script src="./choimini-preview.js?v=20261013"></script>
-<script src="./choimini-localai.js?v=20261027"></script>
+<script src="./choimini-localai.js?v=20261026b"></script>
 
 
     <!-- Cloudflare Turnstile 접속 게이트: 통과 전까지 페이지 콘텐츠를 가림 -->
@@ -834,14 +839,6 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <b id="appPromoTitle"></b><p id="appPromoDesc"></p>
           <button class="later" id="appPromoLater">7일 동안 보지 않기</button>
         </div>
-        <div class="local-promo" id="localPromo" role="note" style="display:none;margin:0 0 8px;padding:9px 12px;border:1px solid var(--border);border-radius:12px;background:var(--panel);font-size:12.5px;line-height:1.5;">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="flex:1;min-width:150px"><b>Local AI로 토큰을 절약해보세요</b><br><span style="color:var(--text-dim)">빠른 판단을 이 기기에서 무료로 처리해요.</span></span>
-            <button id="localPromoOn" type="button" style="padding:6px 10px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">켜기</button>
-            <button id="localPromoLater" type="button" style="padding:6px 8px;border-radius:8px;background:none;color:var(--text-dim);border:0;font-size:11.5px;text-decoration:underline;cursor:pointer">하루동안 숨기기</button>
-            <button id="localPromoClose" type="button" aria-label="닫기" style="padding:4px 6px;background:none;color:var(--text-dim);border:0;font-size:15px;cursor:pointer">✕</button>
-          </div>
-        </div>
         <div class="exec-row" id="execRow">
           <span class="exec-lbl">작업 위치</span>
           <div class="mode-switch" id="execSwitch">
@@ -880,6 +877,11 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
   <div class="modal">
     <div class="modal-header"><h3>AI / 모델 설정</h3><button class="modal-close" data-close="settingsModal">✕</button></div>
     <div class="modal-body">
+      <div class="tab-row" id="settingsTabs">
+        <button type="button" data-stab="general" class="active">일반</button>
+        <button type="button" data-stab="lab">실험</button>
+      </div>
+      <div class="settings-pane" id="settingsPaneGeneral">
       <div class="model-grid" id="modelGrid"></div>
 
       <div class="field-group">
@@ -907,44 +909,6 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         </select>
       </div>
 
-      <div class="field-group">
-        <label>로컬 AI (Gemma) <span style="font-weight:400;opacity:.7">· 단순한 다음 단계를 이 기기에서 무료로 처리</span></label>
-        <select id="localAISelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
-          <option value="off">끔 (기본) · 클라우드 Lite 사용</option>
-          <option value="auto">자동 · 기기 램에 맞는 Gemma 선택</option>
-        </select>
-        <div id="localAIStatus" style="font-size:12px;opacity:.8;margin-top:6px;line-height:1.5"></div>
-        <div id="localAIScopeBox" style="display:none;margin-top:8px;padding:9px 11px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;line-height:1.6">
-          <div style="font-weight:600;margin-bottom:6px">Gemma 가 맡을 단계</div>
-          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
-            <input type="checkbox" id="localScopeDevice" style="margin:0"> 화면 조작 <span style="opacity:.65">· 다음에 누를 곳 판단</span></label>
-          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
-            <input type="checkbox" id="localScopeCmd" style="margin:0"> 명령 실행 · 결과 확인 <span style="opacity:.65">· 다음 명령, 로그 보기</span></label>
-          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
-            <input type="checkbox" id="localScopeRead" style="margin:0"> 파일 읽기 · 검색 <span style="opacity:.65">· 토큰을 가장 많이 아낌</span></label>
-          <div style="margin-top:7px;opacity:.7">코드 작성 · 파일 수정 · 계획 세우기 · 오류 원인 찾기는 언제나 Gemini 가 맡아요. 설치·삭제 같은 되돌리기 어려운 명령도 Gemini 로 넘깁니다.</div>
-        </div>
-        <div id="localAIGuide" style="display:none;font-size:12px;line-height:1.6;margin-top:8px;padding:9px 11px;border:1px dashed var(--border);border-radius:8px;">
-          <span id="localAIRec"></span><br>
-          <span style="opacity:.8">공식 모델을 백그라운드로 받아요. 앱을 닫아도 계속되고, 끝나면 자동으로 켜져요.</span>
-          <div style="height:6px;border-radius:4px;background:var(--panel-2);margin-top:8px;overflow:hidden"><div id="localAIBar" style="height:100%;width:0;background:#3b82f6;transition:width .4s"></div></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            <button id="localAIOpenHF" type="button" style="padding:6px 12px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">다운로드</button>
-            <button id="localAIPick" type="button" style="padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">받은 파일 선택</button>
-          </div>
-        </div>
-        <div id="localAIBenchBox" style="display:none;margin-top:8px;padding:9px 11px;border:1px dashed var(--border);border-radius:8px;font-size:12px;line-height:1.6">
-          <b>🧪 모델 비교 테스트 (임시)</b>
-          <div style="opacity:.8">받은 모델마다 같은 문제 4개를 풀게 해서 속도와 정확도를 비교해요.</div>
-          <div id="localAIBenchList" style="margin-top:6px;white-space:pre-line"></div>
-          <div id="localAIBenchStatus" style="margin-top:4px;opacity:.85"></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-            <button id="localAIGetAll" type="button" style="padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">작은 모델 전부 받기</button>
-            <button id="localAIRunBench" type="button" style="padding:6px 10px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">받은 모델 전부 테스트</button>
-          </div>
-        </div>
-        <button id="localAIClear" type="button" style="margin-top:6px;padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">내려받은 로컬 모델 지우기</button>
-      </div>
 
       <div class="field-group">
         <label>대화 압축 요약</label>
@@ -986,6 +950,43 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         <label id="apiKeyLabel">API 키</label>
         <input type="password" id="apiKeyInput" placeholder="API 키를 입력하세요">
       </div>
+
+      </div><!-- /일반 -->
+
+      <div class="settings-pane" id="settingsPaneLab" hidden>
+        <div style="font-size:12.5px;line-height:1.6;color:var(--text-dim);padding:10px 12px;border:1px dashed var(--border);border-radius:10px;">
+          <b style="color:var(--text)">실험 기능</b><br>
+          아직 다듬는 중인 기능이에요. 기기에 따라 느리거나 제대로 동작하지 않을 수 있어요.
+        </div>
+      <div class="field-group">
+        <label>로컬 AI (Gemma) <span style="font-weight:400;opacity:.7">· 단순한 다음 단계를 이 기기에서 무료로 처리</span></label>
+        <select id="localAISelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
+          <option value="off">끔 (기본) · 클라우드 Lite 사용</option>
+          <option value="auto">자동 · 기기 램에 맞는 Gemma 선택</option>
+        </select>
+        <div id="localAIStatus" style="font-size:12px;opacity:.8;margin-top:6px;line-height:1.5"></div>
+        <div id="localAIScopeBox" style="display:none;margin-top:8px;padding:9px 11px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;line-height:1.6">
+          <div style="font-weight:600;margin-bottom:6px">Gemma 가 맡을 단계</div>
+          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
+            <input type="checkbox" id="localScopeDevice" style="margin:0"> 화면 조작 <span style="opacity:.65">· 다음에 누를 곳 판단</span></label>
+          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
+            <input type="checkbox" id="localScopeCmd" style="margin:0"> 명령 실행 · 결과 확인 <span style="opacity:.65">· 다음 명령, 로그 보기</span></label>
+          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
+            <input type="checkbox" id="localScopeRead" style="margin:0"> 파일 읽기 · 검색 <span style="opacity:.65">· 토큰을 가장 많이 아낌</span></label>
+          <div style="margin-top:7px;opacity:.7">코드 작성 · 파일 수정 · 계획 세우기 · 오류 원인 찾기는 언제나 Gemini 가 맡아요. 설치·삭제 같은 되돌리기 어려운 명령도 Gemini 로 넘깁니다.</div>
+        </div>
+        <div id="localAIGuide" style="display:none;font-size:12px;line-height:1.6;margin-top:8px;padding:9px 11px;border:1px dashed var(--border);border-radius:8px;">
+          <span id="localAIRec"></span><br>
+          <span style="opacity:.8">공식 모델을 백그라운드로 받아요. 앱을 닫아도 계속되고, 끝나면 자동으로 켜져요.</span>
+          <div style="height:6px;border-radius:4px;background:var(--panel-2);margin-top:8px;overflow:hidden"><div id="localAIBar" style="height:100%;width:0;background:#3b82f6;transition:width .4s"></div></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button id="localAIOpenHF" type="button" style="padding:6px 12px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">다운로드</button>
+            <button id="localAIPick" type="button" style="padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">받은 파일 선택</button>
+          </div>
+        </div>
+        <button id="localAIClear" type="button" style="margin-top:6px;padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">내려받은 로컬 모델 지우기</button>
+      </div>
+      </div><!-- /실험 -->
 
       <div class="btn-row">
         <button class="ghost-btn" data-close="settingsModal">닫기</button>
@@ -2406,29 +2407,12 @@ function updateLocalAIUI(){
       if(el) el.checked = map[id] === "read" ? !!sc.read : sc[map[id]] !== false;
     });
   }
-  try{ renderLocalBench(stt); }catch(_){}
   const bar = document.getElementById("localAIBar"); if(bar) bar.style.width = ((stt.state === "downloading" || stt.state === "copying") ? stt.progress : 0) + "%";
   const dbtn = document.getElementById("localAIOpenHF"); if(dbtn) dbtn.textContent = stt.state === "downloading" ? "취소" : "다운로드";
   const rb = document.getElementById("localAIClear"); if(rb) rb.textContent = stt.native ? "가져온 로컬 모델 지우기" : "내려받은 로컬 모델 지우기";
-  updateLocalPromo();
-}
-/* ---- 채팅창 배너: "Local AI로 토큰을 절약해보세요" (쓸 수 있는 기기에서만, 꺼져 있을 때만) ---- */
-const LOCAL_PROMO_KEY = "choimini.localPromo";
-function localPromoHidden(){
-  try{ const v = JSON.parse(localStorage.getItem(LOCAL_PROMO_KEY) || "null"); if(!v) return false; if(v.closed) return true; return Date.now() < (v.until || 0); }catch(_){ return false; }
-}
-function updateLocalPromo(){
-  const el = document.getElementById("localPromo"); if(!el || !LocalAI || !settings || !settings.localAI) return;
-  const stt = LocalAI.status();
-  const show = !!stt.possible && !settings.localAI.enabled && !localPromoHidden();
-  el.style.display = show ? "" : "none";
 }
 (function(){
   const g = id=>document.getElementById(id);
-  const put = o=>{ try{ localStorage.setItem(LOCAL_PROMO_KEY, JSON.stringify(o)); }catch(_){} updateLocalPromo(); };
-  if(g("localPromoLater")) g("localPromoLater").addEventListener("click", ()=>put({ until: Date.now() + 24*3600*1000 }));
-  if(g("localPromoClose")) g("localPromoClose").addEventListener("click", ()=>put({ closed: true }));
-  if(g("localPromoOn")) g("localPromoOn").addEventListener("click", async ()=>{ await applyLocalAIChoice("auto"); if(settings.localAI.enabled){ syncSettingsUI(); openModal("settingsModal"); setTimeout(()=>{ const x = g("localAIGuide") || g("localAISelect"); if(x && x.scrollIntoView) x.scrollIntoView({ block:"center" }); }, 150); } });
   if(g("localAIOpenHF")) g("localAIOpenHF").addEventListener("click", ()=>{
     const stt = LocalAI.status();
     if(stt.state === "downloading"){ LocalAI.cancelDownload(); return; }
@@ -2437,96 +2421,7 @@ function updateLocalPromo(){
   });
   if(g("localAIPick")) g("localAIPick").addEventListener("click", ()=>{ if(LocalAI) LocalAI.pickNativeModel(); });
 })();
-/* ---- 로컬 모델 비교 테스트 (임시): 받은 모델마다 같은 문제 4개 → 속도·정확도 ---- */
-const LOCAL_BENCH_KEY = "choimini.localBench";
-const LOCAL_BENCH_CASES = [
-  { goal:"설정에서 Wi-Fi 켜기", plan:"설정 앱을 열고 Wi-Fi 항목을 누른다", act:'{"tool":"device_open_app","name":"설정"}', res:'설정 앱이 열렸어요.\n[1] 텍스트 "설정" (540,120)\n[2] 버튼 "연결" (540,400)\n[3] 버튼 "Wi-Fi" (540,600)\n[4] 버튼 "소리" (540,800)', ok:/"id"\s*:\s*3\b|"text"\s*:\s*"Wi-?Fi"/i },
-  { goal:"메모 앱에서 '회의' 검색", plan:"검색창을 눌러 '회의'를 입력한다", act:'{"tool":"device_open_app","name":"메모"}', res:'메모 앱이 열렸어요.\n[1] 텍스트 "메모" (300,100)\n[2] 입력란 "검색" (540,220)\n[3] 버튼 "새 메모" (900,2100)', ok:/"id"\s*:\s*2\b|"text"\s*:\s*"검색"/ },
-  { goal:"파일 다운로드가 끝날 때까지 기다리기", plan:"'다운로드 완료' 글자가 보일 때까지 기다린다", act:'{"tool":"device_click","text":"다운로드"}', res:'눌렀어요.\n[1] 텍스트 "다운로드 중 63%" (540,900)\n[2] 버튼 "취소" (540,1100)', ok:/device_wait/ },
-  { goal:"설정에서 Wi-Fi 켜기", plan:"설정 앱을 열고 Wi-Fi 스위치를 켠다", act:'{"tool":"device_click","id":3}', res:'눌렀어요.\n[3] 스위치 "Wi-Fi" 켜짐 (900,600)\n작업 목표를 모두 마쳤어요.', none:true },
-];
-function localBenchLoad(){ try{ return JSON.parse(localStorage.getItem(LOCAL_BENCH_KEY) || "{}") || {}; }catch(_){ return {}; } }
-function localBenchSave(o){ try{ localStorage.setItem(LOCAL_BENCH_KEY, JSON.stringify(o)); }catch(_){} }
-let localBenchRunning = false, localBenchMsg = "";
-function renderLocalBench(stt){
-  const box = document.getElementById("localAIBenchBox"); if(!box) return;
-  box.style.display = (stt && stt.native) ? "" : "none"; if(!stt || !stt.native) return;
-  const res = localBenchLoad();
-  const rows = (stt.installed || []).map(x=>{ const g = LocalAI.guideByKey(x.key); const r = res[x.key]; return { key:x.key, name:g ? g.label : (x.name || x.key), mb:x.mb, r }; });
-  rows.sort((a,b)=>(a.r ? a.r.avgMs : 1e9) - (b.r ? b.r.avgMs : 1e9));
-  const list = document.getElementById("localAIBenchList");
-  list.innerHTML = "";
-  if(!rows.length){ list.textContent = "받은 모델이 없어요. [작은 모델 전부 받기]를 눌러보세요."; }
-  rows.forEach(w=>{
-    const line = document.createElement("div"); line.style.cssText = "display:flex;gap:6px;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)";
-    const t = document.createElement("span");
-    t.textContent = `${w.name} (${w.mb}MB)` + (w.key === stt.activeKey ? " ★사용중" : "") + "\n" + (w.r ? `  평균 ${(w.r.avgMs/1000).toFixed(1)}초 · 정확 ${w.r.pass}/${w.r.n} · 형식 ${w.r.fmt}/${w.r.n} · 로드 ${(w.r.loadMs/1000).toFixed(1)}초 ${w.r.backend}` : "  아직 테스트 전");
-    t.style.whiteSpace = "pre-line";
-    const del = document.createElement("button"); del.type = "button"; del.textContent = "삭제"; del.style.cssText = "padding:3px 8px;border-radius:6px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:11px;cursor:pointer";
-    del.onclick = ()=>{ if(confirm(w.name + " 파일을 지울까요?")){ LocalAI.deleteKey(w.key); setTimeout(()=>updateLocalAIUI(), 600); } };
-    line.appendChild(t); line.appendChild(del); list.appendChild(line);
-  });
-  const stEl = document.getElementById("localAIBenchStatus"); if(stEl) stEl.textContent = localBenchMsg || (stt.state === "downloading" ? `⬇️ ${stt.dlKey || ""} ${stt.progress}% 받는 중` : "");
-  const rb = document.getElementById("localAIRunBench"); if(rb) rb.disabled = localBenchRunning || !rows.length;
-}
-async function runLocalBench(){
-  if(localBenchRunning || !LocalAI) return; localBenchRunning = true;
-  try{
-    const st0 = LocalAI.refresh(); const res = localBenchLoad();
-    for(const x of (st0.installed || [])){
-      const g = LocalAI.guideByKey(x.key); const nm = g ? g.label : x.key;
-      localBenchMsg = `⏳ ${nm} 올리는 중…`; renderLocalBench(LocalAI.status());
-      const ld = await LocalAI.benchLoad(x.key);
-      if(!ld.ok){ res[x.key] = { avgMs:9e6, pass:0, fmt:0, n:LOCAL_BENCH_CASES.length, loadMs:0, backend:"실패" }; localBenchSave(res); continue; }
-      let tot = 0, pass = 0, fmt = 0;
-      for(let i = 0; i < LOCAL_BENCH_CASES.length; i++){
-        const c = LOCAL_BENCH_CASES[i]; localBenchMsg = `🧪 ${nm} 문제 ${i+1}/${LOCAL_BENCH_CASES.length}…`; renderLocalBench(LocalAI.status());
-        const user = "[요청] " + c.goal + "\n[계획] " + c.plan + "\n[직전 동작]\n```tool\n" + c.act + "\n```\n[직전 결과]\n" + c.res + "\n\n다음 동작을 ```tool 블록으로.";
-        const t0 = Date.now(); let text = "";
-        try{ const r = await LocalAI.generate([{ role:"system", content:LOCAL_FAST_SYS }, { role:"user", content:user }], { force:true, timeoutMs:90000, maxTokens:120 }); text = String(r.text || ""); }catch(_){ text = ""; }
-        tot += Date.now() - t0;
-        const valid = validLocalTools(text, "");
-        if(c.none){ if(!/```tool/.test(text)) { fmt++; pass++; } }
-        else { if(valid) fmt++; if(valid && c.ok.test(text)) pass++; }
-      }
-      res[x.key] = { avgMs: Math.round(tot / LOCAL_BENCH_CASES.length), pass, fmt, n: LOCAL_BENCH_CASES.length, loadMs: ld.ms || 0, backend: ld.backend || "", at: Date.now() };
-      localBenchSave(res);
-    }
-    localBenchMsg = "✅ 테스트 끝. 평균 시간이 짧고 정확도가 높은 모델을 고르세요.";
-  }catch(e){ localBenchMsg = "⚠️ 테스트 중 오류: " + String((e && e.message) || e).slice(0, 80); }
-  finally{
-    localBenchRunning = false;
-    try{ if(settings.localAI.enabled && settings.localAI.consent) await LocalAI.load(); }catch(_){}
-    updateLocalAIUI();
-  }
-}
-/* 작은 모델 전부 받기: 하나씩 순서대로(램이 모자란 큰 모델·E4B 는 제외) */
-let localGetQueue = [];
-function localGetNext(){
-  const stt = LocalAI.refresh(); if(!stt.native) return;
-  const have = new Set((stt.installed || []).map(x=>x.key));
-  while(localGetQueue.length && have.has(localGetQueue[0])) localGetQueue.shift();
-  if(!localGetQueue.length){ localBenchMsg = "✅ 모델을 다 받았어요. [받은 모델 전부 테스트]를 눌러보세요."; updateLocalAIUI(); return; }
-  const k = localGetQueue[0]; const er = LocalAI.downloadKey(k);
-  localBenchMsg = er ? ("⚠️ " + er) : `⬇️ ${LocalAI.guideByKey(k).label} 받는 중… (남은 ${localGetQueue.length}개)`;
-  if(er) localGetQueue = [];
-  updateLocalAIUI();
-}
-window.addEventListener("choimini-localai-copied", ()=>{ if(localGetQueue.length) setTimeout(localGetNext, 500); });
-(function(){
-  const g = id=>document.getElementById(id);
-  if(g("localAIRunBench")) g("localAIRunBench").addEventListener("click", ()=>{ if(!settings.localAI.consent){ toast("먼저 로컬 AI를 켜서 동의해 주세요"); return; } runLocalBench(); });
-  if(g("localAIGetAll")) g("localAIGetAll").addEventListener("click", ()=>{
-    const stt = LocalAI.refresh(); if(!stt.native) return;
-    if(!settings.localAI.consent){ toast("먼저 로컬 AI를 켜서 동의해 주세요"); return; }
-    const want = LocalAI.NATIVE_GUIDE.filter(x=>x.key !== "gemma4-e4b" && x.minRamGB <= stt.ramGB + 0.5).sort((a,b)=>a.approxMB - b.approxMB).map(x=>x.key);
-    const mb = LocalAI.NATIVE_GUIDE.filter(x=>want.includes(x.key) && !(stt.installed || []).some(i=>i.key === x.key)).reduce((s,x)=>s + x.approxMB, 0);
-    if(!confirm("테스트용으로 모델 " + want.length + "개를 순서대로 받아요 (아직 안 받은 것 합계 약 " + (mb/1000).toFixed(1) + "GB, 저장공간·데이터 사용). 백그라운드로 받고 알림에 진행률이 떠요. 진행할까요?")) return;
-    localGetQueue = want; localGetNext();
-  });
-})();
 if(LocalAI) LocalAI.onChange(updateLocalAIUI);
-setInterval(()=>{ try{ updateLocalPromo(); }catch(_){} }, 3000);
 async function applyLocalAIChoice(v){
   if(!LocalAI) return;
   if(v === "off"){ settings.localAI.enabled = false; saveJSON(LS.settings, settings); LocalAI.unload(); updateLocalAIUI(); toast("로컬 Gemma 를 껐어요"); return; }
@@ -2548,6 +2443,21 @@ async function applyLocalAIChoice(v){
   if(s2.native && s2.possible !== false && !s2.hasModelFile && s2.state !== "downloading"){ const er = LocalAI.downloadNative(); toast(er ? ("⚠️ " + er) : "⬇️ 모델을 백그라운드로 받아요 (알림에서 진행률 확인)"); updateLocalAIUI(); return; }
   LocalAI.load().then(()=>updateLocalAIUI());
 }
+/* 설정 모달 탭: 일반 / 실험. 로컬 AI 처럼 아직 다듬는 중인 기능은 실험 칸에 둔다.
+   칸을 hidden 으로만 감추므로 id 로 찾는 기존 코드는 그대로 동작한다. */
+(function(){
+  const tabs = document.getElementById("settingsTabs");
+  if(!tabs) return;
+  const panes = { general: document.getElementById("settingsPaneGeneral"), lab: document.getElementById("settingsPaneLab") };
+  tabs.querySelectorAll("[data-stab]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const want = btn.dataset.stab;
+      tabs.querySelectorAll("[data-stab]").forEach(b=>b.classList.toggle("active", b === btn));
+      Object.keys(panes).forEach(k=>{ if(panes[k]) panes[k].hidden = (k !== want); });
+      const body = tabs.parentElement; if(body) body.scrollTop = 0;
+    });
+  });
+})();
 const localAISelectEl = document.getElementById("localAISelect");
 if(localAISelectEl) localAISelectEl.addEventListener("change", ()=>applyLocalAIChoice(localAISelectEl.value));
 const localAIClearEl = document.getElementById("localAIClear");

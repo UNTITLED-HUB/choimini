@@ -24,31 +24,20 @@
 
   /* ---- native 엔진용 안내 (Hugging Face 의 LiteRT 커뮤니티 Gemma .task 파일. 라이선스 동의 + 로그인 필요) ---- */
   const HF = "https://huggingface.co/litert-community/";
-  /* 테스트용으로 로그인 없이 받을 수 있는 공식 litert-community 모델을 전부 넣어 둠(Gemma 3/FunctionGemma 는 로그인·동의가 필요해 제외).
-     tag: 정확도·속도 비교용 메모. think: Qwen 류가 <think> 를 내놓을 수 있어 제거/비활성 처리 */
+  /* native 엔진(LiteRT-LM)용 모델 — 로그인 없이 받을 수 있는 공식 litert-community Gemma.
+     2026-10-26: 여러 소형 모델(LFM2.5·SmolLM2·Granite·Qwen 계열)을 비교해 봤지만 기기에서 너무 느려서 전부 뺐다.
+     로컬 AI 자체가 실험 기능이고, 지원하는 건 Gemma 뿐이다. (Gemma 3 / FunctionGemma 는 로그인·동의가 필요해 제외) */
   const NATIVE_GUIDE = [
-    { key: "gemma4-e2b",  label: "Gemma 4 E2B",        approxMB: 2650, minRamGB: 5, tag: "기본 · 가장 똑똑함", repo: "gemma-4-E2B-it-litert-lm", file: "gemma-4-E2B-it.litertlm" },
-    { key: "gemma4-e4b",  label: "Gemma 4 E4B",        approxMB: 3740, minRamGB: 9, tag: "더 똑똑 · 느림", repo: "gemma-4-E4B-it-litert-lm", file: "gemma-4-E4B-it.litertlm" },
-    { key: "lfm25-230m",  label: "LFM2.5 230M",        approxMB: 177,  minRamGB: 2, tag: "초경량", repo: "LFM2.5-230M", file: "LFM2.5-230M_int4.litertlm" },
-    { key: "smollm2-360m",label: "SmolLM2 360M",       approxMB: 374,  minRamGB: 2, tag: "초경량", repo: "SmolLM2-360M-Instruct", file: "SmolLM2_360M_instruct.litertlm" },
-    { key: "granite-350m",label: "Granite 4.0 350M",   approxMB: 468,  minRamGB: 2, tag: "경량 · 도구호출 강점", repo: "granite-4.0-350m-litert-lm", file: "granite-4.0-350m_q8_ekv1280.litertlm" },
-    { key: "qwen3-06b",   label: "Qwen3 0.6B",         approxMB: 344,  minRamGB: 3, tag: "경량 · 다국어", think: true, repo: "Qwen3-0.6B", file: "Qwen3-0.6B_dynamic_wi4b32_afp32.litertlm" },
-    { key: "qwen35-08b",  label: "Qwen3.5 0.8B",       approxMB: 965,  minRamGB: 3, tag: "경량 · 다국어", think: true, repo: "Qwen3.5-0.8B", file: "Qwen3.5-0.8B_int8.litertlm" },
-    { key: "lfm25-12b",   label: "LFM2.5 1.2B",        approxMB: 736,  minRamGB: 3, tag: "빠름(구조 효율)", repo: "LFM2.5-1.2B-Instruct", file: "LFM2.5-1.2B-Instruct_int4.litertlm" },
-    { key: "qwen3-17b",   label: "Qwen3 1.7B",         approxMB: 977,  minRamGB: 4, tag: "중간 · 다국어", think: true, repo: "Qwen3-1.7B", file: "Qwen3-1.7B_dynamic_wi4b32_afp32.litertlm" },
-    { key: "qwen25-15b",  label: "Qwen2.5 1.5B",       approxMB: 1600, minRamGB: 4, tag: "중간 · 안정적", repo: "Qwen2.5-1.5B-Instruct", file: "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm" },
-    { key: "qwen35-2b",   label: "Qwen3.5 2B",         approxMB: 2120, minRamGB: 5, tag: "중상 · 다국어", think: true, repo: "Qwen3.5-2B", file: "Qwen3.5-2B_int8.litertlm" },
+    { key: "gemma4-e2b", label: "Gemma 4 E2B", approxMB: 2650, minRamGB: 5, tag: "기본", repo: "gemma-4-E2B-it-litert-lm", file: "gemma-4-E2B-it.litertlm" },
+    { key: "gemma4-e4b", label: "Gemma 4 E4B", approxMB: 3740, minRamGB: 9, tag: "더 똑똑 · 더 느림", repo: "gemma-4-E4B-it-litert-lm", file: "gemma-4-E4B-it.litertlm" },
   ];
   NATIVE_GUIDE.forEach(function (g) { g.url = HF + g.repo; g.dl = HF + g.repo + "/resolve/main/" + g.file; });
   const guideByKey = function (k) { return NATIVE_GUIDE.find(function (g) { return g.key === k; }) || null; };
-  /* 램 5GB 이상이면 기본 추천 Gemma 4 E2B, 그 미만이면 가장 가벼운 쪽 */
+  /* 램 5GB 이상이면 Gemma 4 E2B. 그 아래는 권장하지 않는다(쓸 만한 속도가 안 나온다) */
   function recommendNative(ramGB, choice) {
     const picked = guideByKey(choice);
     if (picked) return picked;
-    if (ramGB >= 5) return NATIVE_GUIDE[0];
-    if (ramGB >= 3) return guideByKey("qwen3-06b");
-    if (ramGB >= 2) return guideByKey("lfm25-230m");
-    return null;
+    return ramGB >= 5 ? NATIVE_GUIDE[0] : null;
   }
   /* 지금 설정에서 쓰기로 한 모델 키 ("custom" = 사용자가 파일로 고른 것) */
   function nativeKey() {
@@ -267,10 +256,10 @@
         pending[id] = { resolve: resolve, reject: reject, timer: timer };
         if (opt.signal) opt.signal.addEventListener("abort", function () { if (pending[id]) { clearTimeout(timer); delete pending[id]; const e = new Error("aborted"); e.name = "AbortError"; reject(e); } }, { once: true });
       });
-      const gk = guideByKey(st.loadedKey);
-      NB().localLlmGenerate(id, plainPrompt(messages) + (gk && gk.think && /^qwen3-/.test(gk.key) ? "\n/no_think" : ""));
+      NB().localLlmGenerate(id, plainPrompt(messages));
       let text = await p;
-      text = text.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/<think>[\s\S]*$/, "").trim();   // Qwen 류의 생각 구간 제거
+      // 혹시 모델이 <think> 구간을 내놓으면 지운다(사용자가 직접 고른 파일일 수 있다)
+      text = text.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/<think>[\s\S]*$/, "").trim();
       return { text: text, usage: null };
     }
     const engine = st.engine;
