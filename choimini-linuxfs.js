@@ -167,8 +167,9 @@
      - 잠금: 사용자가 파일·폴더에 거는 보호 표시(entry.locked). 최미나이(AI 도구 실행 중)가 잠긴 항목을
        수정·삭제·이동하려면 사용자의 동의(onLockRequest)가 필요하다. 폴더를 잠그면 안의 모든 항목이 잠긴다.
      - 휴지통(/trash): 사용자가 지운 항목을 14일 보관 후 자동 삭제.
-     - 백업(/backup): 최미나이가 명령어로 지우거나 바꾼(덮어쓴) 파일의 옛 내용을 <프로젝트명>.zip 으로 묶어 7일 보관 후 자동 삭제. */
-  const TRASH_MS = 14 * 24 * 3600 * 1000, BACKUP_MS = 7 * 24 * 3600 * 1000;
+     - 백업(/backup): 최미나이가 명령어로 지우거나 바꾼(덮어쓴) 파일의 옛 내용을 <프로젝트명>.zip 으로 묶어 15일 보관 후 자동 삭제. */
+  // v2.2.0 §9.2: 파일 수정 전 백업 보관 기간을 7일 → 15일로 늘렸다.
+  const TRASH_MS = 14 * 24 * 3600 * 1000, BACKUP_MS = 15 * 24 * 3600 * 1000;
   let aiDepth = 0, sysDepth = 0;
   const consent = new Set();
   const OP_LABEL = { edit:"수정", delete:"삭제", move:"이동", create:"생성", copy:"복사" };
@@ -299,7 +300,11 @@
         const all = new Uint8Array(sec1.length + cd.length + 22); all.set(sec1, 0); all.set(cd, sec1.length); all.set(e22, sec1.length + cd.length);
         sysDepth++; try{ writeFile(zpath, "data:application/zip;base64," + Apk.u8ToB64(all), "application/zip"); state.fs[zpath].backupOf = name; state.fs[zpath].fileCount = entries.length; persist(); }finally{ sysDepth--; }
         n += g.list.length;
-      }catch(e){ console.warn("[LinuxFS] 백업 실패:", name, e); }
+      }catch(e){
+        // §9.2: 백업 실패를 조용히 넘기지 않는다. 사용자가 알아야 복구 여부를 판단할 수 있다.
+        console.warn("[LinuxFS] 백업 실패:", name, e);
+        try{ if(global.__choiminiBackupFailed) global.__choiminiBackupFailed(name, String(e && e.message || e)); }catch(_){}
+      }
     }
     return n;
   }

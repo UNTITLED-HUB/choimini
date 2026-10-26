@@ -701,7 +701,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./choimini-auth.js?v=20261020"></script>
 <script src="./choimini-browser.js?v=20261019"></script>
-<script src="./choimini-linuxfs.js?v=20261011"></script>
+<script src="./choimini-linuxfs.js?v=20261027"></script>
 <script src="./choimini-shell.js?v=20261005"></script>
 <script src="./choimini-shell-cmds.js?v=20261011"></script>
 <script src="./choimini-apk.js?v=20261004"></script>
@@ -791,6 +791,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <button class="footer-btn" id="openAccountBtn">👤 계정 관리</button>
       <button class="footer-btn" id="openSettingsBtn">⚙️ AI / 모델 설정</button>
       <button class="footer-btn" id="openRedeemBtn">🎟️ 코드 교환</button>
+      <button class="footer-btn" id="openLiveBtn">🎙️ LIVE 음성 대화</button>
       <button class="footer-btn" id="openAdRewardBtn">🎁 토큰 받기</button>
       <button class="footer-btn" id="openStorageBtn">🗂️ 저장공간 관리</button>
     </div>
@@ -951,6 +952,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         <input type="password" id="apiKeyInput" placeholder="API 키를 입력하세요">
       </div>
 
+        <div style="font-size:11.5px;color:var(--text-dim);text-align:center;padding-top:2px" id="appVersionLine"></div>
       </div><!-- /일반 -->
 
       <div class="settings-pane" id="settingsPaneLab" hidden>
@@ -972,8 +974,14 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
             <input type="checkbox" id="localScopeCmd" style="margin:0"> 명령 실행 · 결과 확인 <span style="opacity:.65">· 다음 명령, 로그 보기</span></label>
           <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
-            <input type="checkbox" id="localScopeRead" style="margin:0"> 파일 읽기 · 검색 <span style="opacity:.65">· 토큰을 가장 많이 아낌</span></label>
-          <div style="margin-top:7px;opacity:.7">코드 작성 · 파일 수정 · 계획 세우기 · 오류 원인 찾기는 언제나 Gemini 가 맡아요. 설치·삭제 같은 되돌리기 어려운 명령도 Gemini 로 넘깁니다.</div>
+            <input type="checkbox" id="localScopeRead" style="margin:0"> 파일 읽기 · 검색 <span style="opacity:.65">· 읽고 찾는 단계</span></label>
+          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
+            <input type="checkbox" id="localScopeChat" style="margin:0"> 일반 채팅 <span style="opacity:.65">· 짧은 답변을 기기에서</span></label>
+          <label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;font-weight:400">
+            <input type="checkbox" id="localScopeCode" style="margin:0"> 코딩 · 코드 수정 <span style="opacity:.65">· 작은 모델이라 품질이 떨어질 수 있어요</span></label>
+          <div style="margin-top:7px;opacity:.7">켠 항목만 Gemma 가 맡아요. 계획 세우기와 오류 원인 찾기는 언제나 Gemini 입니다.
+            설치·삭제처럼 되돌리기 어려운 명령은 Gemma 가 내놓아도 실행하지 않고 Gemini 에게 다시 묻습니다.
+            권한 확인·승인 절차는 어느 AI 가 판단하든 그대로 적용돼요.</div>
         </div>
         <div id="localAIGuide" style="display:none;font-size:12px;line-height:1.6;margin-top:8px;padding:9px 11px;border:1px dashed var(--border);border-radius:8px;">
           <span id="localAIRec"></span><br>
@@ -1211,6 +1219,40 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 </div>
 
 <!-- AD REWARD MODAL (광고 시청 후 무료 토큰 코드 발급) -->
+<!-- LIVE: 실시간 음성 대화 -->
+<div class="modal-overlay" id="liveModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><h3>🎙️ LIVE 음성 대화</h3><button class="modal-close" data-close="liveModal">✕</button></div>
+    <div class="modal-body">
+      <div id="liveStatus" style="font-size:13.5px;font-weight:600;text-align:center;padding:6px 0">준비됨</div>
+      <div id="liveWave" style="height:4px;border-radius:3px;background:var(--panel-2);overflow:hidden">
+        <div id="liveWaveBar" style="height:100%;width:0;background:var(--accent);transition:width .2s"></div>
+      </div>
+      <div id="liveLog" style="max-height:230px;overflow:auto;font-size:13px;line-height:1.6;display:flex;flex-direction:column;gap:6px"></div>
+      <div style="font-size:11.5px;color:var(--text-dim);line-height:1.5">
+        말이 끝나면 자동으로 알아듣고 답해요. 답변은 음성으로 읽어 줍니다.<br>
+        사용한 만큼 토큰이 차감돼요(짧은 답변 기준 1회 1~3토큰).
+      </div>
+      <div class="btn-row">
+        <button class="ghost-btn" id="liveStopBtn" style="flex:1">종료</button>
+        <button class="primary-btn" id="liveToggleBtn" style="flex:1">듣기 시작</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Google reCAPTCHA v2 — 코드 교환처럼 자동화 악용이 가능한 작업에만 띄운다 -->
+<div class="modal-overlay" id="recaptchaModal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header"><h3>사람인지 확인</h3><button class="modal-close" data-close="recaptchaModal">✕</button></div>
+    <div class="modal-body">
+      <p style="margin:0;font-size:13px;color:var(--text-dim);line-height:1.6">자동 프로그램의 코드 교환을 막기 위한 확인이에요.</p>
+      <div id="recaptchaMount" style="display:flex;justify-content:center;min-height:78px"></div>
+      <div id="recaptchaHint" style="font-size:12px;color:var(--text-dim);text-align:center"></div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="adRewardModal">
   <div class="modal" style="max-width:460px;">
     <div class="modal-header"><h3>🎁 무료 토큰 받기</h3><button class="modal-close" data-close="adRewardModal">✕</button></div>
@@ -1268,6 +1310,7 @@ const LS = {
   redeemed: "choimini.redeemed",
   deviceId: "choimini.deviceId"
 };
+const APP_VERSION = "2.2.0";
 const TOKEN_MULT = 10; // internal = display * 10
 const DEFAULT_INTERNAL_TOKENS = 1500; // 하루 기본 지급 150 토큰
 
@@ -1562,6 +1605,7 @@ let chats = {};
 let activeChatId = null;
 let settings = null;
 let tokensInternal = DEFAULT_INTERNAL_TOKENS;
+let lastSyncKstDate = "";   // 마지막으로 서버 잔액을 받아온 KST 날짜 (일일 초기화 감지용)
 let pendingFiles = [];
 
 /* ---------------- storage helpers ---------------- */
@@ -1592,7 +1636,9 @@ function defaultSettings(){
     fastFollow: "auto",    // 빠른 후속 판단: auto(WORK·화면/브라우저 조작) | always | off
     // 로컬 Gemma(기기 안 실행) 빠른 판단: 최초 동의 후에만 사용.
     // scope = Gemma 가 맡을 단계(화면 조작·명령 실행은 기본 ON, 파일 확인은 OFF). 파일 수정·코드 작성·계획은 언제나 Gemini.
-    localAI: { enabled:false, consent:false, model:"auto", scope:{ device:true, cmd:true, read:false } },
+    localAI: { enabled:false, consent:false, model:"auto", scope:{ device:true, cmd:true, read:false, chat:false, code:false } },
+    // Groq: 명령 실행·화면 조작 같은 "실행 판단"을 맡는다(계획·추론은 Gemini). 서버에 GROQ_API_KEY 가 있어야 동작.
+    groq: { enabled:true, model:"llama-3.3-70b-versatile" },
     terminalMode: "local" // 데스크톱 앱 터미널: "local"(실제 로컬 터미널) | "virtual"(가상 Linux_Local)
   };
 }
@@ -1674,12 +1720,16 @@ function init(){
   const _sc = settings.localAI.scope || {};
   settings.localAI = { enabled: !!settings.localAI.enabled && !!settings.localAI.consent, consent: !!settings.localAI.consent,
     model: typeof settings.localAI.model === "string" ? settings.localAI.model : "auto",
-    scope: { device: _sc.device !== false, cmd: _sc.cmd !== false, read: !!_sc.read } };
+    scope: { device: _sc.device !== false, cmd: _sc.cmd !== false, read: !!_sc.read, chat: !!_sc.chat, code: !!_sc.code } };
+  if(!settings.groq || typeof settings.groq !== "object") settings.groq = {};
+  settings.groq = { enabled: settings.groq.enabled !== false,
+    model: typeof settings.groq.model === "string" && settings.groq.model ? settings.groq.model : "llama-3.3-70b-versatile" };
   setTimeout(()=>{ try{ startLocalAI(); }catch(_){} }, 0);
   chats = loadJSON(LS.chats, {});
   Object.values(chats).forEach(c=>{ if(c && c.pendingReply){ delete c.pendingReply; const l=(c.messages||[]).slice(-1)[0]; if(l && l.role==='user') c.messages.push({ id: uid(), role:'system', content:'📱 백그라운드에서 답변이 끊겼어요. 아래 버튼으로 이어 받기', ts: Date.now(), canRetry:true }); } });
   activeChatId = localStorage.getItem(LS.activeChat) || null;
   tokensInternal = sanitizeTokens(loadJSON(LS.tokens, DEFAULT_INTERNAL_TOKENS));
+  lastSyncKstDate = kstDateString();
   renderTokens();
   syncTokensFromAccount();
 
@@ -2130,6 +2180,22 @@ function renderMessageRow(m, isLast, idx){
       { label: "🔄 다시 생성", fn: ()=>{ if(activeGenerating()){ toast("답변 생성 중이에요"); return; } if(!confirm("답변을 지우고 다시 생성할까요? (토큰 사용)")) return; regenerateFromUser(m.id); } },
     ]));
   }
+  if(m.role === "ai" && !m._streaming){
+    // AI 답변도 꾹 누르면 메뉴 — 복사와 음성 재생/중지
+    bubble.title = TTS.available() ? "꾹 누르거나 우클릭: 복사 · 음성으로 듣기" : "꾹 누르거나 우클릭: 복사";
+    bindLongPress(bubble, (x, y)=>{
+      let plain = "";
+      try{ plain = parseAiDisplay(m.content || "").text || ""; }catch(_){ plain = m.content || ""; }
+      const items = [
+        { label: "📋 복사", fn: ()=>{ navigator.clipboard?.writeText(plain).then(()=>toast("복사됨")).catch(()=>toast("복사 실패")); } },
+      ];
+      if(TTS.available()){
+        const on = TTS.speakingId() === m.id;
+        items.push({ label: on ? "⏹️ 음성 중지" : "🔊 음성으로 듣기", fn: ()=>TTS.toggle(m.id, plain) });
+      }
+      showCtxMenu(x, y, items);
+    });
+  }
   if(m.role === "ai" && m.codeLocked){
     row.querySelector("[data-verify]").addEventListener("click", ()=>{
       startCaptcha(()=>{
@@ -2401,10 +2467,12 @@ function updateLocalAIUI(){
   if(scopeBox){
     scopeBox.style.display = en ? "" : "none";
     const sc = (settings.localAI.scope) || {};
-    const map = { localScopeDevice:"device", localScopeCmd:"cmd", localScopeRead:"read" };
+    const map = { localScopeDevice:"device", localScopeCmd:"cmd", localScopeRead:"read", localScopeChat:"chat", localScopeCode:"code" };
+    const onByDefault = { device:true, cmd:true, read:false, chat:false, code:false };
     Object.keys(map).forEach(id=>{
-      const el = document.getElementById(id);
-      if(el) el.checked = map[id] === "read" ? !!sc.read : sc[map[id]] !== false;
+      const el = document.getElementById(id); if(!el) return;
+      const k = map[id];
+      el.checked = onByDefault[k] ? sc[k] !== false : !!sc[k];
     });
   }
   const bar = document.getElementById("localAIBar"); if(bar) bar.style.width = ((stt.state === "downloading" || stt.state === "copying") ? stt.progress : 0) + "%";
@@ -2436,13 +2504,14 @@ async function applyLocalAIChoice(v){
     if(!confirm || !ok){ updateLocalAIUI(); return; }
     settings.localAI.consent = true;
   }
-  localGuardReset();
+  localGuardReset(); groqGuardReset();
   settings.localAI.enabled = true; settings.localAI.model = v;
   saveJSON(LS.settings, settings); updateLocalAIUI();
   const s2 = LocalAI.status();
   if(s2.native && s2.possible !== false && !s2.hasModelFile && s2.state !== "downloading"){ const er = LocalAI.downloadNative(); toast(er ? ("⚠️ " + er) : "⬇️ 모델을 백그라운드로 받아요 (알림에서 진행률 확인)"); updateLocalAIUI(); return; }
   LocalAI.load().then(()=>updateLocalAIUI());
 }
+(function(){ const el = document.getElementById("appVersionLine"); if(el) el.textContent = "Choimini v" + APP_VERSION; })();
 /* 설정 모달 탭: 일반 / 실험. 로컬 AI 처럼 아직 다듬는 중인 기능은 실험 칸에 둔다.
    칸을 hidden 으로만 감추므로 id 로 찾는 기존 코드는 그대로 동작한다. */
 (function(){
@@ -2463,15 +2532,16 @@ if(localAISelectEl) localAISelectEl.addEventListener("change", ()=>applyLocalAIC
 const localAIClearEl = document.getElementById("localAIClear");
 if(localAIClearEl) localAIClearEl.addEventListener("click", async ()=>{ if(!LocalAI) return; if(!confirm("내려받은 로컬 모델 파일을 지울까요? (다시 쓰려면 새로 내려받아야 해요)")) return; settings.localAI.enabled = false; saveJSON(LS.settings, settings); await LocalAI.clearCache(); updateLocalAIUI(); toast("로컬 모델 파일을 지웠어요"); });
 /* Gemma 가 맡을 단계 체크박스. 전부 끄면 로컬을 쓸 일이 없으므로 그 점을 알려 준다. */
-[["localScopeDevice","device","화면 조작"],["localScopeCmd","cmd","명령 실행"],["localScopeRead","read","파일 확인"]].forEach(([id, key, label])=>{
+[["localScopeDevice","device","화면 조작"],["localScopeCmd","cmd","명령 실행"],["localScopeRead","read","파일 확인"],
+ ["localScopeChat","chat","일반 채팅"],["localScopeCode","code","코딩"]].forEach(([id, key, label])=>{
   const el = document.getElementById(id);
   if(!el) return;
   el.addEventListener("change", ()=>{
-    if(!settings.localAI.scope) settings.localAI.scope = { device:true, cmd:true, read:false };
+    if(!settings.localAI.scope) settings.localAI.scope = { device:true, cmd:true, read:false, chat:false, code:false };
     settings.localAI.scope[key] = el.checked;
     saveJSON(LS.settings, settings);
     const sc = settings.localAI.scope;
-    if(!sc.device && !sc.cmd && !sc.read) toast("맡을 단계가 없어요 · 전부 Gemini 가 처리해요");
+    if(!sc.device && !sc.cmd && !sc.read && !sc.chat && !sc.code) toast("맡을 단계가 없어요 · 전부 Gemini 가 처리해요");
     else toast((el.checked ? "✅ " : "⬜ ") + label + " → " + (el.checked ? "Gemma" : "Gemini"));
   });
 });
@@ -2784,9 +2854,42 @@ async function syncTokensFromAccount(){
     const balance = await ChoiminiAuth.getBalance();
     tokensInternal = sanitizeTokens(balance * TOKEN_MULT);
     saveJSON(LS.tokens, tokensInternal);
+    lastSyncKstDate = kstDateString();
     renderTokens();
   }catch(e){ /* 조용히 무시, 로컬 캐시 값 그대로 사용 */ }
 }
+
+/* ---------- 일일 토큰 초기화 (KST 자정) ----------
+   서버(ensure_user_daily_reset)가 KST 날짜가 바뀌면 daily 를 150 으로 되돌린다.
+   문제는 사이트가 그 결과를 "페이지를 새로 열 때 한 번만" 받아 왔다는 것이다.
+   앱이나 탭을 켜 둔 채 자정을 넘기면 서버는 이미 충전했는데 화면은 어제 값 그대로여서
+   "하루가 지나도 토큰이 초기화되지 않는다"로 보였다.
+   그래서 (1) 날짜가 바뀌는지 1분마다 보고 (2) 화면이 다시 보일 때(백그라운드 → 포그라운드)
+   날짜가 달라졌으면 서버 잔액을 다시 받아온다. 계산은 전부 서버가 하므로
+   클라이언트가 임의로 토큰을 더하지 않아 중복 지급이 생기지 않는다. */
+function kstDateString(d){
+  // KST(UTC+9) 기준 YYYY-MM-DD. 기기 시간대가 뭐든 같은 값이 나온다.
+  const t = (d ? d.getTime() : Date.now()) + 9 * 3600 * 1000;
+  return new Date(t).toISOString().slice(0, 10);
+}
+function checkDailyRollover(reason){
+  const today = kstDateString();
+  if(today === lastSyncKstDate) return false;
+  lastSyncKstDate = today;                 // 먼저 올려 두어 동시에 여러 번 돌지 않게
+  syncTokensFromAccount().then(()=>{
+    try{ toast("⏰ 새 날이라 일일 토큰이 충전됐어요"); }catch(_){}
+  });
+  try{ console.log("[일일 초기화] 날짜 변경 감지 →", today, "(" + reason + ")"); }catch(_){}
+  return true;
+}
+setInterval(()=>{ try{ checkDailyRollover("주기 확인"); }catch(_){} }, 60000);
+document.addEventListener("visibilitychange", ()=>{
+  // 백그라운드에 있는 동안은 타이머가 느려지거나 멈추므로, 돌아올 때 한 번 더 본다
+  if(document.visibilityState === "visible"){
+    try{ if(!checkDailyRollover("화면 복귀")) syncTokensFromAccount(); }catch(_){}
+  }
+});
+window.addEventListener("focus", ()=>{ try{ checkDailyRollover("창 포커스"); }catch(_){} });
 
 function looksLikeRedeemCode(raw){
   const trimmed = (raw || "").trim();
@@ -2852,8 +2955,11 @@ async function redeemCode(rawCode){
   if(info && info.soldout){ toast("😢 선착순 마감된 코드임"); return; }
   if(info && info.alreadyRedeemed){ toast("⚠️ 이미 사용한 코드임"); return; }
   if(!info || !info.valid){ toast("❌ 존재하지 않는 코드임"); return; }
-  startCaptcha(async ()=>{
+  // 코드 교환은 reCAPTCHA v2 로 사람 확인 → 서버가 비밀 키로 다시 검증한다.
+  // 위젯을 못 불러오면(차단·오프라인) 기존 jCAPTCHA 로 넘어가 교환이 막히지 않게 한다.
+  const doCommit = async (recaptchaToken)=>{
     let extra = {};
+    if(recaptchaToken) extra.recaptchaToken = recaptchaToken;
     if(info.admin){
       const v = prompt("설정할 토큰 값을 입력해줘", String(Math.round(tokensInternal / TOKEN_MULT)));
       const n = Math.floor(Number(v));
@@ -2889,7 +2995,10 @@ async function redeemCode(rawCode){
     }
     toast(d.admin ? "🔑 토큰 " + d.setTo + "개로 설정됨" : "🎟️ +" + (d.amount / TOKEN_MULT) + " 토큰");
     closeModal("redeemModal");
-  }, ()=>{ toast("인증 취소됨 · 코드 미사용"); });
+  };
+  const onCancel = ()=>{ toast("인증 취소됨 · 코드 미사용"); };
+  const usedRecaptcha = await startRecaptcha(tok=>doCommit(tok), onCancel);
+  if(!usedRecaptcha) startCaptcha(()=>doCommit(null), onCancel);   // 위젯을 못 쓰면 기존 캡차로
 }
 
 /* ---------------- 광고 보상 (토큰 받기: 귀트릭스 5개 + GET GEUNG) ----------------
@@ -3020,6 +3129,81 @@ async function adRedeemCode(rawCode){
   }catch(e){
     toast("⚠️ 오류: " + (e.message||e));
   }
+}
+
+/* ---------------- Google reCAPTCHA v2 ----------------
+   코드 교환처럼 자동화로 악용될 수 있는 작업에만 띄운다. 사이트 키는 공개값이라 소스에 있어도 되고,
+   진짜 검증은 서버(redeem-code Edge Function)가 비밀 키로 한다 — 클라이언트 결과만 믿지 않는다.
+   위젯 스크립트는 처음 필요할 때만 불러온다(평소 로딩을 느리게 하지 않으려고).
+   네트워크 차단 등으로 못 불러오면 기존 jCAPTCHA 로 넘어간다(코드 교환이 아예 막히지 않도록). */
+const RECAPTCHA_SITE_KEY = "6LeacSwtAAAAAF1EbG2lZlzJJqFIOMjiw_g8QEQJ";
+let _recaptchaWidgetId = null, _recaptchaLoading = null;
+function loadRecaptchaScript(){
+  if(window.grecaptcha && window.grecaptcha.render) return Promise.resolve(true);
+  if(_recaptchaLoading) return _recaptchaLoading;
+  _recaptchaLoading = new Promise(resolve=>{
+    const sc = document.createElement("script");
+    sc.src = "https://www.google.com/recaptcha/api.js?render=explicit&hl=ko";
+    sc.async = true; sc.defer = true;
+    let done = false;
+    const finish = ok=>{ if(done) return; done = true; resolve(ok); };
+    sc.onload = ()=>{
+      // grecaptcha.ready 가 생길 때까지 잠깐 기다린다
+      let n = 0;
+      const tick = ()=>{
+        if(window.grecaptcha && window.grecaptcha.render) return finish(true);
+        if(++n > 50) return finish(false);
+        setTimeout(tick, 100);
+      };
+      tick();
+    };
+    sc.onerror = ()=>finish(false);
+    document.head.appendChild(sc);
+    setTimeout(()=>finish(!!(window.grecaptcha && window.grecaptcha.render)), 8000);   // 최대 8초
+  });
+  return _recaptchaLoading;
+}
+/* 성공하면 onSuccess(토큰), 취소하면 onCancel(). 위젯을 못 쓰면 false 를 돌려준다. */
+async function startRecaptcha(onSuccess, onCancel){
+  const ok = await loadRecaptchaScript();
+  if(!ok) return false;
+  const mount = document.getElementById("recaptchaMount");
+  const hint = document.getElementById("recaptchaHint");
+  if(!mount) return false;
+  hint.textContent = "";
+  let settled = false;
+  const close = ()=>{ closeModal("recaptchaModal"); };
+  const finish = tok=>{
+    if(settled) return; settled = true;
+    close();
+    onSuccess(tok);
+  };
+  try{
+    if(_recaptchaWidgetId === null){
+      _recaptchaWidgetId = window.grecaptcha.render(mount, {
+        sitekey: RECAPTCHA_SITE_KEY,
+        theme: "dark",
+        callback: tok=>finish(tok),
+        "expired-callback": ()=>{ if(hint) hint.textContent = "확인이 만료됐어요. 다시 체크해 주세요."; },
+        "error-callback": ()=>{ if(hint) hint.textContent = "확인에 실패했어요. 잠시 뒤 다시 시도해 주세요."; },
+      });
+    }else{
+      window.grecaptcha.reset(_recaptchaWidgetId);
+    }
+  }catch(e){ console.warn("[reCAPTCHA]", e); return false; }
+  // 모달을 닫으면 취소로 본다
+  const modal = document.getElementById("recaptchaModal");
+  const onClose = ()=>{
+    if(settled) return;
+    if(modal.classList.contains("open")) return;
+    settled = true;
+    modal.removeEventListener("transitionend", onClose);
+    if(typeof onCancel === "function") onCancel();
+  };
+  const mo = new MutationObserver(()=>{ if(!modal.classList.contains("open")) { mo.disconnect(); onClose(); } });
+  mo.observe(modal, { attributes:true, attributeFilter:["class"] });
+  openModal("recaptchaModal");
+  return true;
 }
 
 /* ---------------- jCAPTCHA (원본 jsDelivr 스크립트 사용) ----------------
@@ -3240,9 +3424,9 @@ async function fetchJsonWithRetryOnce(url, opts, retryOpts){
 }
 
 /* SSE 스트리밍 요청: 응답이 오는 대로 onEvent(json)을 부른다. 시작 전 일시 오류(429/5xx/네트워크)는 fetchJsonWithRetry 와 같이 재시도. */
-function streamSSE(url, init, onEvent, onReset){ return withBgResume(init || {}, i=>streamSSEOnce(url, i, onEvent), onReset); }
-async function streamSSEOnce(url, init, onEvent){
-  const maxRetries = (isCodeMode() || isWorkMode()) ? 5 : 3, baseDelay = 600;
+function streamSSE(url, init, onEvent, onReset, noRetry){ return withBgResume(init || {}, i=>streamSSEOnce(url, i, onEvent, noRetry), onReset); }
+async function streamSSEOnce(url, init, onEvent, noRetry){
+  const maxRetries = noRetry ? 1 : ((isCodeMode() || isWorkMode()) ? 5 : 3), baseDelay = 600;
   let res, lastErr;
   for(let attempt=0; attempt<maxRetries; attempt++){
     try{ res = await fetch(url, init); }
@@ -3381,7 +3565,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
 
   // apiKey가 없으면(=유저가 직접 키를 안 넣은 경우) 기본 키는 더 이상 이 파일 안에 없고,
   // Supabase Edge Function 뒤에 서버 전용 비밀값으로 보관돼 있음. 그쪽으로 대신 요청을 보냄.
-  const useProxy = !apiKey;
+  const useProxy = !apiKey || !!(opts && opts.groq);   // Groq 키는 서버에만 있으므로 항상 프록시
   const url = useProxy
     ? DEFAULT_KEY_PROXY_URL
     : `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
@@ -3390,7 +3574,9 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
     : { "Content-Type":"application/json", "x-goog-api-key": apiKey };
   // 프록시는 systemInstruction 을 서버 시크릿(BOT_SYSTEM_PROMPT)으로 교체한다.
   // 모드를 같이 보내면 서버가 모드별 캐릭터 강도(NO BRAIN 70 / WORK 30 / CODE 10)를 적용한다.
-  const payload = useProxy ? { provider:"gemini", model, body, mode: currentModeName() } : body;
+  // opts.groq 이면 같은 프록시의 Groq 경로로 보낸다(요청/응답 형식 변환은 서버가 한다).
+  const wantGroq = !!(opts && opts.groq);
+  const payload = useProxy ? { provider: wantGroq ? "groq" : "gemini", model, body, mode: currentModeName() } : body;
 
   if(onDelta){
     let acc = "", usageMd = {}, fin = "", th = "";
@@ -3403,7 +3589,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
       if(c?.finishReason) fin = c.finishReason;
       if(j?.usageMetadata) usageMd = j.usageMetadata;
       onDelta(acc, { thought: th });
-    }, ()=>{ acc = ""; usageMd = {}; fin = ""; th = ""; });
+    }, ()=>{ acc = ""; usageMd = {}; fin = ""; th = ""; }, wantGroq);
     if(!acc){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty stream " + fin }); e.empty = true; throw e; }
     const raw = (usageMd.candidatesTokenCount||0) + (usageMd.thoughtsTokenCount||0) * THOUGHT_COST_W;
     return { text: acc, usageAmount: raw > 0 ? raw / 15 : null, streamed:true, thoughts: th, thoughtTokens: usageMd.thoughtsTokenCount||0, outTokens: usageMd.candidatesTokenCount||0, inTokens: usageMd.promptTokenCount||0 };
@@ -3658,7 +3844,7 @@ const LOCAL_FAST_SYS_READ = "너는 파일을 찾아보는 보조 AI다. [계획
   + "읽은 내용을 해석하거나 고치는 판단, 작업 완료 선언은 네 몫이 아니다 — 도구 블록 없이 '판단 불가' 라고만 쓴다.\n"
   + "출력 예시:\n```tool\n{\"tool\":\"read_file\",\"path\":\"src/a.js\"}\n```\n```tool\n{\"tool\":\"grep\",\"pattern\":\"TODO\"}\n```";
 const LOCAL_FAST_SYS_BY_KIND = { device: LOCAL_FAST_SYS, cmd: LOCAL_FAST_SYS_CMD, read: LOCAL_FAST_SYS_READ };
-const LOCAL_KIND_LABEL = { device: "화면 조작", cmd: "명령 실행", read: "파일 확인" };
+const LOCAL_KIND_LABEL = { device: "화면 조작", cmd: "명령 실행", read: "파일 확인", chat: "일반 채팅", code: "코딩" };
 /* 로컬 Gemma 보호장치: 너무 느리거나 형식을 자꾸 틀리면 이번 실행 동안 클라우드 Lite 로 대신한다 */
 const localGuard = { slow:0, bad:0, off:false, note:false };
 function localGuardTrip(why){ localGuard.off = true; if(!localGuard.note){ localGuard.note = true; try{ toast("⚡ 이 기기에서는 로컬 AI가 " + why + " 클라우드 Lite 로 대신해요"); }catch(_){} } }
@@ -3678,7 +3864,8 @@ const LOCAL_KIND_TOOLS = {
 const LOCAL_NEVER = /^(write_file|edit_file|make_apk|to_sandbox|from_sandbox|to_local|from_local|term_close|term_rename)$/;
 function localScope(){
   const sc = (settings && settings.localAI && settings.localAI.scope) || {};
-  return { device: sc.device !== false, cmd: sc.cmd !== false, read: !!sc.read };
+  // device·cmd 는 기본 켜짐, 나머지는 기본 꺼짐
+  return { device: sc.device !== false, cmd: sc.cmd !== false, read: !!sc.read, chat: !!sc.chat, code: !!sc.code };
 }
 /* 직전 AI 답변이 어떤 종류의 단계였는지 — 그 종류의 "다음 동작"을 로컬이 이어받을 수 있다 */
 function localStepKind(content){
@@ -3753,6 +3940,212 @@ async function tryLocalFast(chat, signal, onDelta, kind){
   return { text, provider: settings.provider, usedLocal: false, localFast: true, streamed: false,
     stats: { step: "fast-local", localKind: kind, model: (st.model ? st.model.label : "Gemma") + " (로컬 · " + (LOCAL_KIND_LABEL[kind] || "판단") + ")", thinkMs: tEnd - t0, totalMs: tEnd - t0, thoughtTokens: 0, outTokens: (r.usage && r.usage.completion_tokens) || 0, inTokens: (r.usage && r.usage.prompt_tokens) || 0, thoughts: "" } };
 }
+/* ---------------- LIVE: 실시간 음성 대화 ----------------
+   브라우저 음성인식(SpeechRecognition)으로 듣고 → Gemini Lite 로 짧게 답하고 → TTS 로 읽어 준다.
+   별도 유료 음성 API 를 쓰지 않는다. 토큰은 "실제로 쓴 만큼" 기존 차감 경로(chargeTokens)로 빠진다.
+   종료하면 인식·재생을 모두 멈추고 마이크를 놓는다. */
+/* §9.2: 가상 FS 백업이 실패하면 사용자에게 알린다(조용히 지나가면 복구가 불가능해진다) */
+window.__choiminiBackupFailed = function(name, msg){
+  try{ toast("⚠️ 백업 실패: " + name + " — 원본을 먼저 복사해 두세요"); }catch(_){}
+  console.warn("[백업 실패]", name, msg);
+};
+const LIVE = (function(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  let rec = null, on = false, listening = false, busy = false, turns = 0;
+  function available(){ return !!SR; }
+  function el(id){ return document.getElementById(id); }
+  function setStatus(t, pct){
+    const st = el("liveStatus"); if(st) st.textContent = t;
+    const bar = el("liveWaveBar"); if(bar) bar.style.width = (pct == null ? 0 : pct) + "%";
+  }
+  function log(who, text){
+    const box = el("liveLog"); if(!box) return;
+    const d = document.createElement("div");
+    d.style.cssText = "padding:7px 10px;border-radius:10px;white-space:pre-wrap;" +
+      (who === "me" ? "background:var(--bubble-user);align-self:flex-end;max-width:85%"
+                    : "background:var(--panel-2);align-self:flex-start;max-width:90%");
+    d.textContent = text;
+    box.appendChild(d); box.scrollTop = box.scrollHeight;
+  }
+  function stopListening(){
+    listening = false;
+    try{ if(rec) rec.stop(); }catch(_){}
+    const b = el("liveToggleBtn"); if(b) b.textContent = "듣기 시작";
+  }
+  function startListening(){
+    if(!on || busy || listening) return;
+    if(!rec) return;
+    listening = true;
+    const b = el("liveToggleBtn"); if(b) b.textContent = "듣는 중… (누르면 멈춤)";
+    setStatus("🎙️ 듣고 있어요", 35);
+    try{ rec.start(); }catch(_){ listening = false; }
+  }
+  async function answer(text){
+    busy = true; stopListening();
+    log("me", text);
+    setStatus("생각하는 중…", 70);
+    const provider = settings.provider;
+    const apiKey = resolveApiKey(provider);
+    if(!(apiKey || hasDefaultProxy(provider))){ setStatus("AI 를 쓸 수 없어요", 0); busy = false; return; }
+    const model = settings.models[provider] && settings.models[provider]["lite"];
+    const sys = "너는 음성으로 대화하는 비서다. 소리 내어 읽기 좋게 2~3문장으로 짧게 답한다. "
+      + "목록·코드·기호는 쓰지 말고 말하듯이 답해라.";
+    const hist = [{ role:"user", content: text }];
+    try{
+      const out = await callGemini(model, apiKey, sys, hist, "lite", 220, null, null, { step:"followup", fast:true });
+      const reply = String((out && out.text) || "").trim() || "잘 못 들었어요.";
+      log("ai", reply);
+      turns++;
+      // 실제 사용량 기준 차감 (일반 답변과 같은 계산식을 쓴다)
+      try{
+        const internal = Math.max(1, Math.ceil(((out && out.usageAmount) || 1) * COST_SCALE * modeCostMult()));
+        await chargeTokens(internal, "LIVE 대화");
+      }catch(_){}
+      setStatus("🔊 읽는 중", 100);
+      if(TTS.available()) TTS.speak("live-" + turns, reply);
+      // 다 읽을 때쯤 다시 듣기 (대략 글자 수 기준)
+      const waitMs = Math.min(12000, 1200 + reply.length * 90);
+      setTimeout(()=>{ busy = false; if(on) startListening(); }, waitMs);
+    }catch(e){
+      console.warn("[LIVE]", e);
+      setStatus("오류가 나서 멈췄어요", 0);
+      busy = false;
+    }
+  }
+  function open(){
+    if(!available()){ toast("이 브라우저는 음성 인식을 지원하지 않아요"); return; }
+    on = true; turns = 0;
+    const box = el("liveLog"); if(box) box.innerHTML = "";
+    rec = new SR();
+    rec.lang = "ko-KR"; rec.interimResults = false; rec.continuous = false; rec.maxAlternatives = 1;
+    rec.onresult = ev=>{
+      let t = "";
+      for(let i = ev.resultIndex; i < ev.results.length; i++) if(ev.results[i].isFinal) t += ev.results[i][0].transcript;
+      t = t.trim();
+      if(t) answer(t);
+    };
+    rec.onerror = ev=>{
+      listening = false;
+      if(ev && ev.error === "not-allowed"){ setStatus("마이크 권한이 필요해요", 0); on = false; return; }
+      if(ev && ev.error === "no-speech"){ setStatus("말소리가 없었어요 · 다시 눌러 주세요", 0); }
+      const b = el("liveToggleBtn"); if(b) b.textContent = "듣기 시작";
+    };
+    rec.onend = ()=>{ listening = false; const b = el("liveToggleBtn"); if(b) b.textContent = "듣기 시작";
+                      if(on && !busy) setStatus("준비됨 · [듣기 시작]", 0); };
+    setStatus("준비됨 · [듣기 시작]", 0);
+    openModal("liveModal");
+  }
+  function close(){
+    on = false; busy = false;
+    stopListening();
+    try{ if(rec){ rec.onresult = rec.onerror = rec.onend = null; rec.abort && rec.abort(); } }catch(_){}
+    rec = null;
+    try{ TTS.stop(); }catch(_){}
+    closeModal("liveModal");
+  }
+  return { available, open, close, toggle(){ if(listening) stopListening(); else startListening(); }, isOn(){ return on; } };
+})();
+(function(){
+  const g = id=>document.getElementById(id);
+  if(g("openLiveBtn")) g("openLiveBtn").addEventListener("click", ()=>{
+    if(window.innerWidth <= 760) closeSidebar();
+    LIVE.open();
+  });
+  if(g("liveToggleBtn")) g("liveToggleBtn").addEventListener("click", ()=>LIVE.toggle());
+  if(g("liveStopBtn")) g("liveStopBtn").addEventListener("click", ()=>LIVE.close());
+})();
+
+/* ---- Gemma(실험)가 일반 답변까지 맡는 경우 ----
+   §4: 도구 판단뿐 아니라 "일반 채팅", "코딩" 도 사용자가 켜면 기기 안에서 처리한다.
+   작은 모델이라 품질이 떨어질 수 있어 기본은 꺼져 있고, 비거나 너무 짧으면 클라우드로 넘긴다.
+   권한·보안 검사는 어느 AI 가 답하든 기존 경로를 그대로 탄다(여기서는 글만 만든다). */
+function localAnswerKind(){
+  if(localGuard.off || !window.ChoiminiLocalAI || !window.ChoiminiLocalAI.ready()) return null;
+  const sc = localScope();
+  if(isCodeMode() || isWorkMode()) return sc.code ? "code" : null;
+  return sc.chat ? "chat" : null;
+}
+async function tryLocalAnswer(kind, sys, history, signal, onDelta){
+  const t0 = Date.now();
+  if(onDelta) onDelta("", { t0 });
+  const recent = history.slice(-6).map(m=>({ role: m.role === "ai" ? "assistant" : "user", content: String(m.content || "").slice(0, 1200) }));
+  const guide = kind === "code"
+    ? "너는 코딩을 돕는 보조 AI다. 짧고 정확하게 답하고, 코드가 필요하면 ```언어 블록으로만 쓴다. 모르면 모른다고 한다."
+    : "너는 친근하게 대화하는 보조 AI다. 2~4문장으로 짧고 자연스럽게 답한다. 모르면 모른다고 한다.";
+  const messages = [{ role:"system", content: guide }].concat(recent);
+  let r;
+  try{
+    r = await window.ChoiminiLocalAI.generate(messages, { signal, maxTokens: kind === "code" ? 420 : 220, timeoutMs: 20000 });
+  }catch(e){
+    if(e && e.name === "AbortError") throw e;
+    if(++localGuard.slow >= 2) localGuardTrip("느려서");
+    return null;
+  }
+  const text = String((r && r.text) || "").trim();
+  if(text.length < 2){ if(++localGuard.bad >= 3) localGuardTrip("빈 응답이 와서"); return null; }
+  localGuard.bad = 0;
+  const st = window.ChoiminiLocalAI.status(); const tEnd = Date.now();
+  if(onDelta) onDelta(text, { t0 });
+  return { text, provider: settings.provider, usedLocal: false, localFast: true, streamed: false,
+    stats: { step: "fast-local", localKind: kind, model: (st.model ? st.model.label : "Gemma") + " (로컬 · " + (LOCAL_KIND_LABEL[kind] || "답변") + ")",
+             thinkMs: tEnd - t0, totalMs: tEnd - t0, thoughtTokens: 0,
+             outTokens: (r.usage && r.usage.completion_tokens) || 0, inTokens: (r.usage && r.usage.prompt_tokens) || 0, thoughts: "" } };
+}
+
+/* ---- Groq: 명령 실행·화면 조작의 후속 "실행 판단" 담당 ----
+   계획·완료 판단·오류 원인 분석은 Gemini 몫이라 여기서 받지 않는다(step 이 followup 일 때만).
+   키는 서버 시크릿에만 있고, 없으면 프록시가 503 을 주므로 자동으로 Gemini 로 내려간다. */
+function groqAvailable(){
+  return !!(settings.groq && settings.groq.enabled) && hasDefaultProxy("gemini") && settings.provider === "gemini";
+}
+function groqEligible(chat, step, fast, escalate){
+  if(!groqAvailable()) return false;
+  if(!fast || escalate) return false;          // 빠른 후속 단계에서만
+  if(step !== "followup") return false;        // 첫 단계(계획)·오류 분석은 Gemini
+  if(!isAgentMode()) return false;             // WORK/CODE 의 도구 작업에서만
+  if(groqGuard.off) return false;
+  // 직전 AI 답변이 명령/화면 조작 도구를 썼을 때만 (파일 수정·코드 작성은 Gemini)
+  const msgs = (chat && chat.messages) || [];
+  for(let i = msgs.length - 1; i >= 0; i--){
+    if(msgs[i].role === "ai"){
+      const kind = localStepKind(msgs[i].content);
+      return kind === "device" || kind === "cmd";
+    }
+  }
+  return false;
+}
+/* Groq 가 자꾸 실패하면 이번 실행 동안은 쓰지 않는다 (로컬 Gemma 의 localGuard 와 같은 방식) */
+const groqGuard = { bad: 0, off: false, note: false };
+function groqGuardTrip(why){
+  groqGuard.off = true;
+  if(!groqGuard.note){ groqGuard.note = true; try{ toast("⚡ Groq 를 쓸 수 없어서 " + why + " Gemini 로 대신해요"); }catch(_){} }
+}
+function groqGuardReset(){ groqGuard.bad = 0; groqGuard.off = false; groqGuard.note = false; }
+async function tryGroqStep(chat, sys, history, signal, onDelta){
+  const model = (settings.groq && settings.groq.model) || "llama-3.3-70b-versatile";
+  const t0 = Date.now(); let tText = 0;
+  const od = onDelta ? (t, x)=>{ if(t && !tText) tText = Date.now(); onDelta(t, Object.assign({ t0 }, x || {})); } : undefined;
+  if(onDelta) onDelta("", { t0 });
+  let out;
+  try{
+    // apiKey 를 null 로 넘겨 프록시를 타게 하고, opts.groq 으로 Groq 경로를 고른다
+    out = await callGemini(model, null, sys, history, "lite", undefined, signal, od, { step: "followup", fast: true, groq: true });
+  }catch(e){
+    if(e && e.name === "AbortError") throw e;
+    groqGuardTrip("연결이 안 돼서");   // 키 미등록 등은 재시도해도 계속 실패한다 → 바로 Gemini 로
+    throw e;
+  }
+  if(!out || !String(out.text || "").trim()){
+    if(++groqGuard.bad >= 2) groqGuardTrip("빈 응답이 와서");
+    return null;   // 빈 응답은 일시적일 수 있어 2번까지 봐준다
+  }
+  groqGuard.bad = 0;
+  const tEnd = Date.now();
+  return { text: out.text, provider: settings.provider, usedLocal: false, usageAmount: out.usageAmount, streamed: !!out.streamed,
+    stats: { step: "fast-groq", model: model + " (Groq)", thinkMs: (tText || tEnd) - t0, totalMs: tEnd - t0,
+             thoughtTokens: 0, outTokens: out.outTokens || 0, inTokens: out.inTokens || 0, thoughts: "" } };
+}
+
 async function generateReply(chat, signal, onDelta){
   // Code 모드에서 <NO BRAIN>(짧은 필러 답변)이면 코딩을 못 하므로, Code 모드는 항상 일반 응답 경로로 보낸다.
   if(settings.noBrain){
@@ -3760,6 +4153,14 @@ async function generateReply(chat, signal, onDelta){
     const provider = settings.provider;
     const apiKey = resolveApiKey(provider);
     // API 키(또는 기본 프록시)가 있고 이번 비용만큼 토큰이 남아있으면 실제 API를 짧게 호출함.
+    // §4 실험: "일반 채팅" 을 켜 두면 Gemma 가 기기 안에서 먼저 답한다(토큰 0). 비거나 느리면 아래 클라우드로.
+    if(localAnswerKind() === "chat" && !browserAvailable()){
+      try{
+        const hist = chat.messages.filter(m=>m.role === "user" || m.role === "ai").map(m=>({ role:m.role, content:m.content }));
+        const lr = await tryLocalAnswer("chat", null, hist, signal, onDelta);
+        if(lr) return Object.assign(lr, { noBrain: true, noBrainCost: 0 });
+      }catch(e){ if(e && e.name === "AbortError") throw e; }
+    }
     if((apiKey || hasDefaultProxy(provider)) && tokensInternal >= cost){
       const model = settings.models[provider]["lite"]; // NO BRAIN 모드는 항상 lite급 모델 사용
       const history = await withBrowserContext(chat.messages.filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files})));
@@ -3819,12 +4220,26 @@ async function generateReply(chat, signal, onDelta){
   const first = escalate ? (preset === "high" ? "max" : "high") : (fast ? "lite" : preset);
   if(escalate) toast("🔼 오류가 이어져서 더 강한 모델로 다시 시도해요");
   const order = [first].concat(["medium","lite","high","max"].filter(p=>p!==first));
-  // 로컬 Gemma 가 맡을 수 있는 단계면(설정에서 켜 둔 종류만) 기기 안에서 먼저 판단해 본다.
-  // 실패하거나 형식이 틀리면 그대로 클라우드 Lite 로 내려간다.
+  /* ---- 어떤 AI 가 이 단계를 맡을지 ----
+     Gemini : 계획 세우기, 복잡한 추론, 오류 원인 분석, 전체 조율  (첫 단계·승급 단계는 항상 여기)
+     Groq   : 명령 실행·화면 조작의 "다음 동작" 판단 (빠르고 싸다. 실제 실행은 기존 권한 계층이 한다)
+     Gemma  : 실험 기능 — 사용자가 설정에서 켠 종류만. 기기 안에서 돌고 토큰을 쓰지 않는다.
+     순서는 Gemma(공짜) → Groq(빠름) → Gemini Lite(기본) 이고, 앞이 실패하면 그대로 다음으로 내려간다. */
   const localKind = (fast && !escalate) ? localFastEligible(chat) : false;
   if(localKind){
     try{ const lr = await tryLocalFast(chat, signal, onDelta, localKind); if(lr) return lr; }
-    catch(e){ if(e && e.name === "AbortError") throw e; console.warn("[로컬 Gemma 실패 → 클라우드 Lite]", e && (e.message || e)); }
+    catch(e){ if(e && e.name === "AbortError") throw e; console.warn("[로컬 Gemma 실패 → 다음 차례]", e && (e.message || e)); }
+  }
+  // §4 실험: "코딩" 을 켜 뒀고 도구 단계가 아니면(설명·마무리 같은 글) Gemma 가 맡는다
+  if(!localKind && fast && !escalate && step === "followup" && localAnswerKind() === "code"){
+    try{ const lr = await tryLocalAnswer("code", sys, history, signal, onDelta); if(lr) return lr; }
+    catch(e){ if(e && e.name === "AbortError") throw e; }
+  }
+  if(groqEligible(chat, step, fast, escalate)){
+    try{
+      const gr = await tryGroqStep(chat, sys, history, signal, onDelta);
+      if(gr) return gr;
+    }catch(e){ if(e && e.name === "AbortError") throw e; console.warn("[Groq 실패 → Gemini]", e && (e.message || e)); }
   }
   const tried = new Set(); let lastErr = null;
   for(const pr of order){
@@ -4771,7 +5186,8 @@ function statsHtml(m){
   const det = [];
   if(st.model) det.push(st.model);
   if(st.step) det.push({ first:"계획 단계", followup:"다음 단계(짧게 생각)", "followup-error":"오류 확인 단계", fast:"⚡ 빠른 후속 판단(Lite)",
-    "fast-local":"⚡ 로컬 Gemma · " + ({ device:"화면 조작", cmd:"명령 실행", read:"파일 확인" }[st.localKind] || "빠른 판단") + " · 무료" }[st.step] || st.step);
+    "fast-groq":"⚡ Groq 실행 판단",
+    "fast-local":"⚡ 로컬 Gemma · " + ({ device:"화면 조작", cmd:"명령 실행", read:"파일 확인", chat:"일반 채팅", code:"코딩" }[st.localKind] || "빠른 판단") + " · 무료" }[st.step] || st.step);
   det.push(`총 ${fmtSec(st.totalMs)}`);
   const tk = [];
   if(st.thoughtTokens) tk.push(`사고 ${fmtTok(st.thoughtTokens)}`);
@@ -5287,12 +5703,70 @@ async function regenerateFromUser(userId){
   await runGenerationTurn(chat, settings.preset);
 }
 
-/* ---------------- 긴 텍스트 붙여넣기 → pasted_N.txt ---------------- */
+/* ---------------- TTS: 답변을 음성으로 읽어 주기 ----------------
+   HTML 표준 음성 합성(Web Speech API)만 쓴다. 유료 TTS API 는 쓰지 않는다.
+   기기/브라우저가 지원하지 않으면 메뉴에 나타나지 않는다. */
+const TTS = (function(){
+  const synth = (typeof window !== "undefined" && window.speechSynthesis) ? window.speechSynthesis : null;
+  let currentId = null;
+  function available(){ return !!synth && typeof window.SpeechSynthesisUtterance === "function"; }
+  function stop(){ try{ if(synth) synth.cancel(); }catch(_){} currentId = null; }
+  function speakingId(){ return currentId; }
+  function pickVoice(prefix){
+    try{ return (synth.getVoices() || []).find(v=>v.lang && v.lang.toLowerCase().indexOf(prefix) === 0) || null; }
+    catch(_){ return null; }
+  }
+  /* 코드블록·마크다운 기호는 소리로 들으면 방해만 되므로 걷어낸다 */
+  function readable(text){
+    // 순서가 중요하다. 줄 앞의 "*" 를 먼저 지우면 "**굵게**" 의 앞쪽만 잘려서 뒤쪽 "**" 가 남는다.
+    // 그래서 굵게/기울임 같은 "짝" 기호를 먼저 풀고, 그다음에 줄머리 기호(#, >, -)를 떼어 낸다.
+    return String(text || "")
+      .replace(/```[\s\S]*?```/g, " (코드 생략) ")
+      .replace(/`([^`]*)`/g, "$1")
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "$1")
+      .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+      .replace(/^\s{0,3}>\s?/gm, "")
+      .replace(/^\s{0,3}[-*+]\s+/gm, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  function speak(id, text){
+    if(!available()){ toast("이 기기에서는 음성 재생을 지원하지 않아요"); return false; }
+    stop();
+    const clean = readable(text);
+    if(!clean){ toast("읽을 내용이 없어요"); return false; }
+    const ko = /[가-힣]/.test(clean);
+    const u = new window.SpeechSynthesisUtterance(clean.slice(0, 4000));   // 너무 길면 앞부분만
+    u.lang = ko ? "ko-KR" : "en-US";
+    const v = pickVoice(ko ? "ko" : "en"); if(v) u.voice = v;
+    u.rate = 1.05;
+    const done = ()=>{ if(currentId === id) currentId = null; };
+    u.onend = done; u.onerror = done;
+    currentId = id;
+    try{ synth.speak(u); }catch(e){ currentId = null; console.warn("[TTS]", e); return false; }
+    return true;
+  }
+  function toggle(id, text){
+    if(currentId === id){ stop(); toast("음성 중지"); return false; }
+    const ok = speak(id, text);
+    if(ok) toast("🔊 읽는 중");
+    return ok;
+  }
+  return { available, speak, stop, toggle, speakingId, readable };
+})();
+
+/* ---------------- 긴 텍스트 붙여넣기 → Pasted_text_N ----------------
+   100자를 넘는 글을 "한 번에 붙여넣기"로 넣으면 입력창을 채우는 대신 별도 항목으로 만든다.
+   직접 타이핑은 해당 없음(paste 이벤트에서만 동작). 항목을 눌러 원문을 보고 고칠 수 있고,
+   전송할 때는 항목의 실제 글이 그대로 AI 에게 전달된다. */
+const PASTE_MIN_CHARS = 100;   // 이 길이를 "초과"할 때만 항목으로 만든다
 function addPastedText(t){
   const chat = currentChat(); if(!chat) return;
   chat.pasteSeq = (chat.pasteSeq || 0) + 1;
   const size = new Blob([t]).size;
-  const entry = { name:`pasted_${chat.pasteSeq}.txt`, type:"text/plain", isImg:false, dataUrl:null, text:t, size, fee: attachFee(size), pasted:true };
+  const entry = { name:`Pasted_text_${chat.pasteSeq}`, type:"text/plain", isImg:false, dataUrl:null, text:t, size, fee: attachFee(size), pasted:true };
   pendingFiles.push(entry);
   if((isWorkMode() || isCodeMode()) && window.LinuxFS){ try{ LinuxFS.saveUploaded(entry); }catch(e){ console.warn(e); } }
   saveChats();
@@ -5302,7 +5776,7 @@ document.getElementById("msgInput").addEventListener("paste", e=>{
   const cd = e.clipboardData; if(!cd) return;
   if(cd.files && cd.files.length){ e.preventDefault(); handleFiles(cd.files); return; }
   const t = cd.getData("text/plain");
-  if(t && t.length >= 70){ e.preventDefault(); addPastedText(t); toast("긴 글을 파일로 첨부했어요 (클릭해서 수정 가능)"); }
+  if(t && t.length > PASTE_MIN_CHARS){ e.preventDefault(); addPastedText(t); toast("긴 글을 항목으로 만들었어요 (눌러서 보기·수정)"); }
 });
 
 /* ---------------- SandBox Linux 파일 관리자 ---------------- */
