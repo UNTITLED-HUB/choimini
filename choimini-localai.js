@@ -66,6 +66,13 @@
         if (ns.downloading) st.state = "downloading"; else if (st.state === "idle" && !ns.hasModel) st.state = "needs-model";
         return st;
       }
+      /* 앱이지만 쓸 수 없는 경우(가벼운 빌드라 실행기가 없거나, arm64 가 아닌 기기).
+         WebGPU 쪽으로 넘어가 봐야 WebView 에선 어차피 안 되니 이유를 그대로 보여 준다. */
+      if (ns && ns.why) {
+        st.backend = "native"; st.native = ns; st.ramGB = Math.round((ns.ramMB || 0) / 1024 * 10) / 10;
+        st.state = "unsupported"; st.error = String(ns.why);
+        return st;
+      }
     }
     let ok = false, f16 = false;
     try {
