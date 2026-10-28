@@ -305,6 +305,13 @@ details > .field-group{margin-top:8px;}
 [hidden]{display:none!important;}
 
 /* code blocks */
+/* AI 가 그린 픽셀 그림 */
+.pixelart-block{background:#070810;border:1px solid var(--border);border-radius:10px;margin:10px 0;overflow:hidden;}
+.pixelart-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;background:#05060b;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-dim);}
+.pixelart-save{border:none;background:none;color:var(--text-dim);font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer;}
+.pixelart-save:hover{background:var(--panel-2);color:var(--text);}
+.pixelart-canvas-wrap{display:flex;justify-content:center;padding:14px;overflow:auto;}
+.pixelart-canvas{image-rendering:pixelated;image-rendering:crisp-edges;max-width:100%;border-radius:4px;}
 .code-block{position:relative;background:#070810;border:1px solid var(--border);border-radius:10px;margin:10px 0;overflow:hidden;}
 .code-block .code-head{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#05060b;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-dim);}
 .code-block .code-copy{border:none;background:none;color:var(--text-dim);font-size:11px;padding:3px 8px;border-radius:6px;}
@@ -941,6 +948,24 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         </select>
       </div>
 
+
+      <div class="field-group">
+        <label>음성 · 받아쓰기와 읽어 주기</label>
+        <select id="speechLangSelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
+          <option value="auto">인식 언어: 자동 (브라우저 언어)</option>
+          <option value="ko-KR">인식 언어: 한국어</option>
+          <option value="en-US">인식 언어: English</option>
+          <option value="ja-JP">인식 언어: 日本語</option>
+          <option value="zh-CN">인식 언어: 中文</option>
+        </select>
+        <select id="ttsVoiceSelect" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
+          <option value="auto">목소리: 자동 (이 기기에서 제일 좋은 것)</option>
+        </select>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+          <button id="ttsPreviewBtn" type="button" style="padding:6px 12px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">목소리 들어보기</button>
+        </div>
+        <div id="ttsVoiceNote" style="font-size:12px;color:var(--text-dim);margin-top:6px;line-height:1.6"></div>
+      </div>
 
       <div class="field-group" id="deviceUseRow" style="display:none">
         <label>폰 화면 조작 (device_use)</label>
@@ -1646,8 +1671,34 @@ function buildSystemPrompt(){
   if(agent) p += agentTailPrompt();
   if(window.ChoiminiBrowser && ChoiminiBrowser.available && ChoiminiBrowser.available()) p += "\n" + ChoiminiBrowser.PROMPT_KO;
   if(nbStayActive()) p += "\n\n" + NB_STAY_NOTE;
+  p += "\n\n" + DRAW_PROMPT;
   return p;
 }
+
+/* 그림 그리기 안내. 이미지 생성 모델을 따로 붙이지 않고, 픽셀 격자를 글로 그리면 화면이 그림으로 바꿔 준다.
+   (사용자 요청: 모델을 따로 설정해야 하면 바꾸지 말고 CSV/HTML 처럼 픽셀로 표현할 것) */
+const DRAW_PROMPT =
+  "[그림 그리기]\n"
++ "그림·아이콘·도트·로고를 그려 달라고 하면 ```pixelart 코드블록으로 그린다. 화면이 이걸 실제 그림으로 바꿔 준다.\n"
++ "형식은 둘 중 하나다.\n"
++ "① 팔레트(권장, 글자 수가 훨씬 적다): 첫 줄에 `palette: a=#0b1020, b=#3b82f6` 처럼 적고,\n"
++ "   그 뒤 줄부터 팔레트 글자 한 개가 한 칸인 격자를 쓴다. `.` 은 투명이다.\n"
++ "② CSV: 한 칸마다 색을 쉼표로 구분해 적는다. `.` 은 투명이다.\n"
++ "크기는 16×16 ~ 48×48 이 적당하고 최대 64×64 를 넘기지 마라. 모든 줄의 칸 수는 같아야 한다.\n"
++ "맨 위에 `# title: 제목` 을 한 줄 넣어도 된다.\n"
++ "색은 #RRGGBB 로 적는다. 블록 앞뒤로 무엇을 그렸는지 한 줄만 덧붙이고, 격자 자체는 설명하지 마라.\n"
++ "예시:\n"
++ "```pixelart\n"
++ "# title: 하트\n"
++ "palette: .=., r=#ef4444\n"
++ ".rr.rr.\n"
++ "rrrrrrr\n"
++ "rrrrrrr\n"
++ ".rrrrr.\n"
++ "..rrr..\n"
++ "...r...\n"
++ "```\n"
++ "사진처럼 사실적인 이미지는 이 방식으로 만들 수 없다. 그런 요청을 받으면 도트 그림으로 그려 주겠다고 먼저 말하고 그린다.";
 
 /* ---------------- state ---------------- */
 let chats = {};
@@ -1688,6 +1739,8 @@ function defaultSettings(){
     localAI: { enabled:false, consent:false, model:"auto", scope:{ device:true, cmd:true, read:false, chat:false, code:false } },
     // Groq: 명령 실행·화면 조작 같은 "실행 판단"을 맡는다(계획·추론은 Gemini). 서버에 GROQ_API_KEY 가 있어야 동작.
     groq: { enabled:true, model:GROQ_DEFAULT_MODEL },
+    speechLang: "auto",   // 음성 인식 언어. auto = 브라우저 언어(한국어면 ko-KR)
+    ttsVoice: "auto",     // 읽어 주는 목소리. auto = 기기에서 제일 품질 좋은 것을 고름
     terminalMode: "local" // 데스크톱 앱 터미널: "local"(실제 로컬 터미널) | "virtual"(가상 Linux_Local)
   };
 }
@@ -1775,6 +1828,8 @@ function init(){
   settings.groq = { enabled: settings.groq.enabled !== false,
     model: (typeof settings.groq.model === "string" && settings.groq.model && GROQ_RETIRED.indexOf(settings.groq.model) < 0)
       ? settings.groq.model : GROQ_DEFAULT_MODEL };
+  if(!["auto","ko-KR","en-US","ja-JP","zh-CN"].includes(settings.speechLang)) settings.speechLang = "auto";
+  if(typeof settings.ttsVoice !== "string" || !settings.ttsVoice) settings.ttsVoice = "auto";
   setTimeout(()=>{ try{ startLocalAI(); }catch(_){} }, 0);
   chats = loadJSON(LS.chats, {});
   Object.values(chats).forEach(c=>{ if(c && c.pendingReply){ delete c.pendingReply; const l=(c.messages||[]).slice(-1)[0]; if(l && l.role==='user') c.messages.push({ id: uid(), role:'system', content:'📱 백그라운드에서 답변이 끊겼어요. 아래 버튼으로 이어 받기', ts: Date.now(), canRetry:true }); } });
@@ -2282,7 +2337,120 @@ function renderMessageRow(m, isLast, idx){
       navigator.clipboard?.writeText(code).then(()=>toast("코드 복사됨")).catch(()=>toast("복사 실패"));
     });
   });
+  // AI 가 그린 픽셀 그림 그리기 + 저장
+  row.querySelectorAll("canvas.pixelart-canvas").forEach(cv=>{
+    try{ paintPixelArt(cv); }catch(e){ console.warn("[그림]", e); }
+  });
+  row.querySelectorAll(".pixelart-save").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const blk = btn.closest(".pixelart-block");
+      const cv = blk && blk.querySelector("canvas.pixelart-canvas");
+      if(!cv) return;
+      try{
+        // 저장은 보이는 크기보다 크게 — 작은 격자를 그대로 저장하면 너무 작다
+        const big = document.createElement("canvas");
+        const s = Math.max(1, Math.min(24, Math.floor(512 / Math.max(cv.width, cv.height))));
+        big.width = cv.width * s; big.height = cv.height * s;
+        const bx = big.getContext("2d");
+        bx.imageSmoothingEnabled = false;
+        bx.drawImage(cv, 0, 0, big.width, big.height);
+        const a = document.createElement("a");
+        a.href = big.toDataURL("image/png");
+        a.download = "choimini-" + Date.now() + ".png";
+        a.click();
+        toast("PNG 로 저장했어요");
+      }catch(e){ console.warn(e); toast("저장하지 못했어요"); }
+    });
+  });
   return row;
+}
+
+/* ---------------- AI 그림: ```pixelart 블록 ----------------
+   이미지 생성 모델을 따로 붙이지 않고, AI 가 "픽셀 격자"를 글로 그리면 그걸 그림으로 띄운다.
+   두 가지 형식을 받는다.
+     ① 팔레트 방식(토큰이 훨씬 적게 든다 — 큰 그림은 이쪽)
+        palette: a=#0b1020, b=#3b82f6, .=transparent
+        aabbaa
+        abbbba
+     ② CSV 방식(색을 칸마다 직접 적는다)
+        #0b1020,#3b82f6,.
+        .,#3b82f6,#0b1020
+   어느 쪽이든 "." 은 투명이다. */
+function parsePixelArt(src){
+  const lines = String(src || "").split("\n").map(l=>l.replace(/\s+$/, "")).filter(l=>l.trim() !== "");
+  if(!lines.length) return null;
+  let title = "";
+  if(/^#\s*title\s*:/i.test(lines[0])){ title = lines.shift().replace(/^#\s*title\s*:/i, "").trim(); }
+
+  const palette = {};
+  let paletteMode = false;
+  if(lines.length && /^palette\s*:/i.test(lines[0])){
+    paletteMode = true;
+    lines.shift().replace(/^palette\s*:/i, "").split(",").forEach(pair=>{
+      const m = /^\s*(\S)\s*=\s*(\S+)\s*$/.exec(pair);
+      if(m) palette[m[1]] = m[2];
+    });
+  }
+  const grid = [];
+  for(const line of lines){
+    const row = paletteMode ? line.trim().split("") : line.split(",").map(c=>c.trim());
+    if(row.length) grid.push(row);
+  }
+  if(!grid.length) return null;
+  const w = Math.max(...grid.map(r=>r.length));
+  const h = grid.length;
+  if(w < 1 || w > 256 || h < 1 || h > 256) return null;     // 터무니없는 크기는 거른다
+
+  const ok = /^(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)|[a-zA-Z]{3,20})$/;
+  const cells = [];
+  let painted = 0;
+  for(let y = 0; y < h; y++){
+    const row = [];
+    for(let x = 0; x < w; x++){
+      let c = grid[y][x];
+      if(c === undefined || c === "" || c === "." || c === "transparent") { row.push(null); continue; }
+      if(paletteMode) c = palette[c] !== undefined ? palette[c] : null;
+      if(!c || c === "." || c === "transparent" || !ok.test(c)) { row.push(null); continue; }
+      row.push(c); painted++;
+    }
+    cells.push(row);
+  }
+  // 그림이라고 보기 어려우면(칸이 거의 없거나 색이 하나도 없으면) 그냥 코드블록으로 두는 게 낫다.
+  // 그래야 "```pixelart 안에 설명을 적어 버린" 경우에 빈 캔버스가 뜨지 않는다.
+  if(w < 2 || h < 2 || painted < 3) return null;
+  return { w, h, cells, title };
+}
+/* 그려 둔 데이터를 canvas 로 올린다. 크게 보여도 또렷하도록 픽셀 그대로 확대한다. */
+function paintPixelArt(canvas){
+  let art = null;
+  try{ art = JSON.parse(decodeURIComponent(canvas.dataset.art || "")); }catch(_){ return; }
+  if(!art || !art.cells) return;
+  canvas.width = art.w; canvas.height = art.h;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, art.w, art.h);
+  for(let y = 0; y < art.h; y++){
+    for(let x = 0; x < art.w; x++){
+      const c = art.cells[y][x];
+      if(!c) continue;
+      ctx.fillStyle = c;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+  // 화면에 보이는 크기: 한 칸을 적당히 키우되 너무 커지지 않게
+  const scale = Math.max(1, Math.min(14, Math.floor(320 / Math.max(art.w, art.h))));
+  canvas.style.width = (art.w * scale) + "px";
+  canvas.style.height = (art.h * scale) + "px";
+}
+function pixelArtHtml(src){
+  const art = parsePixelArt(src);
+  if(!art) return null;
+  const data = encodeURIComponent(JSON.stringify(art));
+  return '<div class="pixelart-block">'
+    + '<div class="pixelart-head"><span>🖼️ 그림 · ' + art.w + "×" + art.h
+    + (art.title ? " · " + escapeHtml(art.title) : "") + '</span>'
+    + '<button class="pixelart-save" type="button">⬇ PNG 저장</button></div>'
+    + '<div class="pixelart-canvas-wrap"><canvas class="pixelart-canvas" data-art="' + data + '"></canvas></div>'
+    + "</div>";
 }
 
 /* ---------------- code block rendering (markdown ```lang fences) ---------------- */
@@ -2304,6 +2472,11 @@ function renderContentWithCode(content){
     const lang = parts[i+1];
     const code = parts[i+2];
     if(code !== undefined){
+      // AI 가 그린 픽셀 그림이면 코드 대신 그림으로 띄운다
+      if(/^(pixelart|pixel|pixels)$/i.test(lang || "")){
+        const art = pixelArtHtml(code);
+        if(art){ html += art; continue; }
+      }
       const encoded = encodeURIComponent(code.replace(/\n$/,""));
       html += `<div class="code-block"><div class="code-head"><span>${escapeHtml(lang||"code")}</span><button class="code-copy" data-code="${encoded}">📋 복사</button></div><pre><code>${escapeHtml(code.replace(/\n$/,""))}</code></pre></div>`;
     }
@@ -2568,8 +2741,64 @@ async function applyLocalAIChoice(v){
 setTimeout(()=>{
   try{
     CSelect.initAll(document);
-    CSelect.wrapAll(["thinkingLevelSelect","fastFollowSelect","cmdWaitSelect","localAISelect","permSel","lfsSort","pkgMgr"]);
+    CSelect.wrapAll(["thinkingLevelSelect","fastFollowSelect","cmdWaitSelect","localAISelect","permSel","lfsSort","pkgMgr",
+                     "speechLangSelect","ttsVoiceSelect"]);
   }catch(e){ console.warn("[CSelect]", e); }
+}, 0);
+
+/* ---- 음성 설정: 인식 언어 + 읽어 주는 목소리 ----
+   목소리 목록은 브라우저가 비동기로 채워서, 처음엔 비어 있을 수 있다 → 채워지면 다시 그린다. */
+setTimeout(()=>{
+  const langSel = document.getElementById("speechLangSelect");
+  const voiceSel = document.getElementById("ttsVoiceSelect");
+  const note = document.getElementById("ttsVoiceNote");
+  const prev = document.getElementById("ttsPreviewBtn");
+  if(!langSel || !voiceSel) return;
+
+  function fillVoices(){
+    if(!settings) { setTimeout(fillVoices, 250); return; }
+    let opts = [];
+    try{ opts = TTS.options(); }catch(_){ opts = []; }
+    const cur = settings.ttsVoice || "auto";
+    voiceSel.innerHTML = '<option value="auto">목소리: 자동 (이 기기에서 제일 좋은 것)</option>'
+      + opts.map(o=>'<option value="' + escapeHtml(o.id) + '">' + escapeHtml(o.label) + "</option>").join("");
+    voiceSel.value = opts.some(o=>o.id === cur) ? cur : "auto";
+    if(voiceSel.value !== cur){ settings.ttsVoice = "auto"; }
+    try{ CSelect.refresh("ttsVoiceSelect"); }catch(_){}
+    if(note){
+      if(!TTS.available()){ note.textContent = "이 기기에서는 읽어 주기를 지원하지 않아요."; return; }
+      const good = opts.filter(o=>o.good).length;
+      note.textContent = opts.length
+        ? ("쓸 수 있는 목소리 " + opts.length + "개" + (good ? " · 고품질 " + good + "개" : " · 고품질 목소리가 없어요(기기 설정에서 음성 데이터를 받으면 늘어나요)"))
+        : "목소리를 불러오는 중… (브라우저가 목록을 늦게 주기도 해요)";
+    }
+  }
+  function syncLang(){
+    if(!settings){ setTimeout(syncLang, 250); return; }
+    langSel.value = settings.speechLang || "auto";
+    try{ CSelect.refresh("speechLangSelect"); }catch(_){}
+  }
+
+  langSel.addEventListener("change", ()=>{
+    if(!settings) return;
+    settings.speechLang = langSel.value || "auto";
+    saveJSON(LS.settings, settings);
+    toast("음성 인식 언어: " + (langSel.options[langSel.selectedIndex] || {}).text);
+  });
+  voiceSel.addEventListener("change", ()=>{
+    if(!settings) return;
+    settings.ttsVoice = voiceSel.value || "auto";
+    saveJSON(LS.settings, settings);
+    try{ TTS.preview(); }catch(_){}
+  });
+  if(prev) prev.addEventListener("click", ()=>{ try{ TTS.preview(); }catch(_){} });
+
+  syncLang(); fillVoices();
+  try{
+    if(window.speechSynthesis) window.speechSynthesis.addEventListener("voiceschanged", ()=>setTimeout(fillVoices, 50));
+  }catch(_){}
+  const ob = document.getElementById("openSettingsBtn");
+  if(ob) ob.addEventListener("click", ()=>setTimeout(()=>{ syncLang(); fillVoices(); }, 60));
 }, 0);
 
 /* ---- Groq 설정 + 연결 테스트 ----
@@ -4148,6 +4377,31 @@ const VoiceIn = (function(){
   function isNative(){ return nativeOk(); }
 
   let rec = null, cb = null, running = false;
+  let wantContinuous = false;    // 받아쓰기는 길게 말하므로 한 마디로 끊지 않는다
+  let finalSoFar = "";           // continuous 일 때 지금까지 확정된 글 (브라우저가 조각으로 준다)
+
+  /* 인식 언어. 설정에 없으면 브라우저 언어를 따라가고, 그것도 없으면 한국어. */
+  function lang(){
+    try{
+      const s = (settings && settings.speechLang) || "";
+      if(s && s !== "auto") return s;
+    }catch(_){}
+    const n = (navigator.language || "ko-KR");
+    return /^ko/i.test(n) ? "ko-KR" : n;
+  }
+
+  /* 여러 후보 중 제일 그럴듯한 것을 고른다.
+     confidence 를 주는 브라우저면 그 값으로, 안 주면 (보통 더 많이 받아적은) 긴 쪽으로. */
+  function bestAlternative(result){
+    let best = result[0], bestScore = -1;
+    for(let i = 0; i < result.length; i++){
+      const alt = result[i]; if(!alt || !alt.transcript) continue;
+      const conf = typeof alt.confidence === "number" && alt.confidence > 0 ? alt.confidence : -1;
+      const score = conf >= 0 ? conf : (alt.transcript.length / 1000);
+      if(score > bestScore){ bestScore = score; best = alt; }
+    }
+    return (best && best.transcript) || "";
+  }
 
   /* 네이티브가 결과를 돌려주는 자리 */
   window.__choiminiSpeechEvent = function(json){
@@ -4159,38 +4413,70 @@ const VoiceIn = (function(){
     else if(e.type === "end"){ running = false; cb.onEnd && cb.onEnd(); }
   };
 
-  function start(handlers){
+  function start(handlers, opts){
     if(running) return false;
     cb = handlers || {};
+    opts = opts || {};
+    wantContinuous = !!opts.continuous;
+    finalSoFar = "";
     running = true;
     if(nativeOk()){
-      try{ AB().speechStart("ko-KR"); return true; }
+      try{ AB().speechStart(lang()); return true; }
       catch(e){ running = false; console.warn("[VoiceIn] native", e); return false; }
     }
     if(!SR){ running = false; return false; }
     rec = new SR();
-    rec.lang = "ko-KR"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+    rec.lang = lang();
+    rec.interimResults = true;
+    // 받아쓰기는 이어서 말할 수 있게 continuous. (한 마디로 끊기면 긴 문장이 토막나고 정확도도 떨어진다)
+    rec.continuous = wantContinuous;
+    // 후보를 여러 개 받아 가장 그럴듯한 것을 고른다 (기본값 1이면 첫 후보로 고정된다)
+    rec.maxAlternatives = 5;
     rec.onresult = ev=>{
-      let fin = "", part = "";
+      let addedFinal = "", part = "";
       for(let i = ev.resultIndex; i < ev.results.length; i++){
-        const t = ev.results[i][0].transcript;
-        if(ev.results[i].isFinal) fin += t; else part += t;
+        const r = ev.results[i];
+        if(r.isFinal) addedFinal += bestAlternative(r);
+        else part += (r[0] && r[0].transcript) || "";
       }
-      if(part && cb.onPartial) cb.onPartial(part);
-      if(fin.trim() && cb.onFinal) cb.onFinal(fin.trim());
+      if(addedFinal){
+        finalSoFar = (finalSoFar ? finalSoFar.replace(/\s*$/, "") + " " : "") + addedFinal.trim();
+      }
+      // continuous 에서는 "지금까지 확정된 글 + 말하는 중인 조각" 을 통째로 돌려준다.
+      // (조각만 주면 호출하는 쪽에서 이어 붙이다가 중복되거나 빠진다)
+      if(wantContinuous){
+        const whole = (finalSoFar + (part ? " " + part : "")).trim();
+        if(whole && cb.onPartial) cb.onPartial(whole);
+        if(addedFinal && cb.onFinal) cb.onFinal(finalSoFar);
+      }else{
+        if(part && cb.onPartial) cb.onPartial(part);
+        if(addedFinal.trim() && cb.onFinal) cb.onFinal(addedFinal.trim());
+      }
     };
-    rec.onerror = ev=>{ running = false; cb.onError && cb.onError((ev && ev.error) || "error"); };
-    rec.onend = ()=>{ running = false; cb.onEnd && cb.onEnd(); };
+    rec.onerror = ev=>{
+      const code = (ev && ev.error) || "error";
+      // continuous 중 잠깐 말이 없었다는 건 오류가 아니다 — 계속 듣는다
+      if(wantContinuous && code === "no-speech") return;
+      running = false; cb.onError && cb.onError(code);
+    };
+    rec.onend = ()=>{
+      // continuous 인데 브라우저가 알아서 끊은 경우(크롬은 몇 초 조용하면 끝낸다) 다시 이어 켠다
+      if(wantContinuous && running){
+        try{ rec.start(); return; }catch(_){}
+      }
+      running = false; cb.onEnd && cb.onEnd();
+    };
     try{ rec.start(); return true; }
     catch(e){ running = false; console.warn("[VoiceIn] web", e); return false; }
   }
   function stop(){
     if(!running) return;
     if(nativeOk()){ try{ AB().speechStop(); }catch(_){} running = false; return; }
+    running = false;            // onend 에서 다시 켜지 않도록 먼저 내린다
     try{ if(rec) rec.stop(); }catch(_){}
   }
   function abort(){
-    running = false;
+    running = false; wantContinuous = false;
     if(nativeOk()){ try{ AB().speechStop(); }catch(_){} return; }
     try{ if(rec){ rec.onresult = rec.onerror = rec.onend = null; rec.abort && rec.abort(); } }catch(_){}
     rec = null;
@@ -4200,7 +4486,7 @@ const VoiceIn = (function(){
               "no-speech":"말소리가 없었어요", "audio-capture":"마이크를 찾을 수 없어요",
               "network":"네트워크 문제로 인식하지 못했어요" })[code] || "음성 인식에 실패했어요";
   }
-  return { available, isNative, start, stop, abort, errorText, isRunning(){ return running; } };
+  return { available, isNative, start, stop, abort, errorText, lang, isRunning(){ return running; } };
 })();
 /* 앱 셸(안드로이드/데스크톱)과 테스트에서 상태를 확인할 수 있게 밖으로 꺼내 둔다 */
 window.VoiceIn = VoiceIn;
@@ -4221,12 +4507,17 @@ const Dictation = (function(){
     on = true; setUI(true);
     toast("🎙️ 말씀하세요");
     const put = t=>{ inp.value = base + t; autoGrow(inp); updateComposerButtons(); };
+    // 받아쓰기는 continuous — 브라우저가 "지금까지 확정된 글 전체"를 주므로 그대로 덮어쓴다.
+    // (네이티브는 한 마디씩 주므로 onFinal 에서 base 를 이어 붙인다)
     const ok = VoiceIn.start({
       onPartial: put,
-      onFinal: t=>{ put(t); base = (base + t).replace(/\s*$/, "") + " "; },
+      onFinal: t=>{
+        put(t);
+        if(VoiceIn.isNative()) base = (base + t).replace(/\s*$/, "") + " ";
+      },
       onError: code=>{ on = false; setUI(false); toast("⚠️ " + VoiceIn.errorText(code)); },
       onEnd: ()=>{ on = false; setUI(false); },
-    });
+    }, { continuous: true });
     if(!ok){ on = false; setUI(false); toast("음성 입력을 시작하지 못했어요"); }
   }
   return { toggle, stop, isOn(){ return on; } };
@@ -4248,6 +4539,30 @@ const LIVE = (function(){
   function setStatus(t, pct){
     const st = el("liveStatus"); if(st) st.textContent = t;
     const bar = el("liveWaveBar"); if(bar) bar.style.width = (pct == null ? 0 : pct) + "%";
+  }
+  /* LIVE 로 주고받은 말을 지금 보고 있는 채팅에 그대로 남긴다.
+     모달을 닫아도 대화가 사라지지 않고, 평소 대화와 똑같이 기록·검색·제목 짓기가 된다. */
+  function toChat(role, content){
+    try{
+      if(!content || !String(content).trim()) return;
+      let chat = currentChat();
+      if(!chat){ activeChatId = createChat(); chat = currentChat(); }
+      if(!chat) return;
+      chat.messages.push({ id: uid(), role, content: String(content).trim(), ts: Date.now(), live: true });
+      if(role === "user" && !chat.title) chat.needsTitle = true;
+      saveChats();
+      renderChatList(); renderMessages();
+    }catch(e){ console.warn("[LIVE 기록]", e); }
+  }
+  /* LIVE 답변에 쓸 최근 대화 (모달 안이 아니라 채팅 전체를 본다 → 하던 얘기를 이어갈 수 있다) */
+  function recentForContext(){
+    try{
+      const chat = currentChat(); if(!chat) return [];
+      return (chat.messages || [])
+        .filter(m=>(m.role === "user" || m.role === "ai") && m.content)
+        .slice(-6)
+        .map(m=>({ role: m.role === "ai" ? "assistant" : "user", content: String(m.content).slice(0, 600) }));
+    }catch(_){ return []; }
   }
   function log(who, text){
     const box = el("liveLog"); if(!box) return;
@@ -4287,6 +4602,7 @@ const LIVE = (function(){
   async function answer(text){
     busy = true; stopListening();
     log("me", text);
+    toChat("user", text);
     setStatus("생각하는 중…", 70);
     const provider = settings.provider;
     const apiKey = resolveApiKey(provider);
@@ -4294,11 +4610,14 @@ const LIVE = (function(){
     const model = settings.models[provider] && settings.models[provider]["lite"];
     const sys = "너는 음성으로 대화하는 비서다. 소리 내어 읽기 좋게 2~3문장으로 짧게 답한다. "
       + "목록·코드·기호는 쓰지 말고 말하듯이 답해라.";
-    const hist = [{ role:"user", content: text }];
+    // 방금 채팅에 남긴 내 말까지 포함된 최근 대화를 문맥으로 준다 (앞서 하던 얘기를 이어갈 수 있다)
+    const hist = recentForContext();
+    if(!hist.length || hist[hist.length-1].content !== text) hist.push({ role:"user", content: text });
     try{
       const out = await callGemini(model, apiKey, sys, hist, "lite", 220, null, null, { step:"followup", fast:true });
       const reply = String((out && out.text) || "").trim() || "잘 못 들었어요.";
       log("ai", reply);
+      toChat("ai", reply);
       turns++;
       // 실제 사용량 기준 차감 (일반 답변과 같은 계산식을 쓴다)
       try{
@@ -4329,6 +4648,8 @@ const LIVE = (function(){
     VoiceIn.abort();
     try{ TTS.stop(); }catch(_){}
     closeModal("liveModal");
+    // LIVE 로만 대화했어도 채팅 제목이 붙도록
+    try{ maybeAutoTitle(currentChat()); }catch(_){}
   }
   return { available, open, close, toggle(){ if(listening) stopListening(); else startListening(); }, isOn(){ return on; } };
 })();
@@ -6163,9 +6484,46 @@ const TTS = (function(){
   function available(){ return !!synth && typeof window.SpeechSynthesisUtterance === "function"; }
   function stop(){ try{ if(synth) synth.cancel(); }catch(_){} currentId = null; }
   function speakingId(){ return currentId; }
+  /* 목소리 목록은 비동기로 채워진다. 처음엔 비어 있을 수 있어서 바뀔 때마다 다시 받아 둔다. */
+  let voiceCache = [];
+  function refreshVoices(){
+    try{ voiceCache = synth.getVoices() || []; }catch(_){ voiceCache = []; }
+    return voiceCache;
+  }
+  if(synth){
+    refreshVoices();
+    try{ synth.addEventListener("voiceschanged", refreshVoices); }catch(_){ synth.onvoiceschanged = refreshVoices; }
+  }
+  function voices(prefix){
+    return refreshVoices().filter(v=>v.lang && v.lang.toLowerCase().replace("_", "-").indexOf(prefix) === 0);
+  }
+  /* 같은 언어라도 목소리 품질 차이가 크다.
+     기기에 내장된 작은 목소리(localService)는 기계음에 가깝고,
+     Google/Microsoft 의 온라인(신경망) 목소리가 훨씬 자연스럽다 → 점수를 매겨 제일 좋은 걸 고른다. */
+  function voiceScore(v){
+    const n = (v.name || "").toLowerCase();
+    let s = 0;
+    if(v.localService === false) s += 40;                       // 온라인(클라우드) 목소리
+    if(/neural|natural|online|wavenet|studio|premium|enhanced/.test(n)) s += 30;
+    if(/google/.test(n)) s += 20;
+    if(/microsoft/.test(n)) s += 14;
+    if(/compact|eloquence|espeak/.test(n)) s -= 40;             // 옛날 저품질 엔진
+    if(/novelty|whisper|bells|organ|cellos|bad news|good news/.test(n)) s -= 60;  // 장난용 목소리
+    return s;
+  }
+  function listVoices(ko){
+    return voices(ko ? "ko" : "en").slice().sort((a, b)=>voiceScore(b) - voiceScore(a));
+  }
   function pickVoice(prefix){
-    try{ return (synth.getVoices() || []).find(v=>v.lang && v.lang.toLowerCase().indexOf(prefix) === 0) || null; }
-    catch(_){ return null; }
+    const want = (function(){ try{ return (settings && settings.ttsVoice) || ""; }catch(_){ return ""; } })();
+    const all = refreshVoices();
+    if(want && want !== "auto"){
+      const chosen = all.find(v=>v.voiceURI === want || v.name === want);
+      // 고른 목소리가 지금 읽을 언어와 맞을 때만 쓴다 (한국어 글을 영어 목소리로 읽지 않도록)
+      if(chosen && chosen.lang && chosen.lang.toLowerCase().replace("_", "-").indexOf(prefix) === 0) return chosen;
+    }
+    const sorted = voices(prefix).slice().sort((a, b)=>voiceScore(b) - voiceScore(a));
+    return sorted[0] || null;
   }
   /* 코드블록·마크다운 기호는 소리로 들으면 방해만 되므로 걷어낸다 */
   function readable(text){
@@ -6191,8 +6549,11 @@ const TTS = (function(){
     const ko = /[가-힣]/.test(clean);
     const u = new window.SpeechSynthesisUtterance(clean.slice(0, 4000));   // 너무 길면 앞부분만
     u.lang = ko ? "ko-KR" : "en-US";
-    const v = pickVoice(ko ? "ko" : "en"); if(v) u.voice = v;
-    u.rate = 1.05;
+    const v = pickVoice(ko ? "ko" : "en");
+    if(v){ u.voice = v; u.lang = v.lang; }
+    // 좋은(온라인) 목소리는 조금 천천히 읽어야 자연스럽고, 기계음은 조금 빠른 편이 덜 어색하다
+    u.rate = (v && voiceScore(v) >= 40) ? 1.0 : 1.08;
+    u.pitch = 1.0;
     const done = ()=>{ if(currentId === id) currentId = null; };
     u.onend = done; u.onerror = done;
     currentId = id;
@@ -6205,8 +6566,23 @@ const TTS = (function(){
     if(ok) toast("🔊 읽는 중");
     return ok;
   }
-  return { available, speak, stop, toggle, speakingId, readable };
+  /* 설정 화면에서 쓸 목록 (좋은 순서대로) */
+  function options(){
+    const ko = listVoices(true), en = listVoices(false);
+    return ko.concat(en).map(v=>({
+      id: v.voiceURI || v.name,
+      label: v.name + " (" + v.lang + ")" + (voiceScore(v) >= 40 ? " · 고품질" : ""),
+      lang: v.lang, good: voiceScore(v) >= 40,
+    }));
+  }
+  function preview(){
+    const ko = /ko/i.test(VoiceIn && VoiceIn.lang ? VoiceIn.lang() : "ko-KR");
+    speak("tts-preview", ko ? "안녕, 최미나이야. 이 목소리로 읽어 줄게." : "Hi, this is Choimini. I will read with this voice.");
+  }
+  return { available, speak, stop, toggle, speakingId, readable, options, preview, refreshVoices };
 })();
+/* 앱 셸(안드로이드/데스크톱)과 테스트에서 쓸 수 있게 밖으로 꺼내 둔다 */
+window.TTS = TTS;
 
 /* ---------------- 긴 텍스트 붙여넣기 → Pasted_text_N ----------------
    100자를 넘는 글을 "한 번에 붙여넣기"로 넣으면 입력창을 채우는 대신 별도 항목으로 만든다.
