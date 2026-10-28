@@ -1,0 +1,69 @@
+/* Choimini Desktop: a quiet desktop workspace. Web/Android keep their layout. */
+html.choimini-desktop{
+  --bg:#1b1b1b;--panel:#252525;--panel-2:#303030;--border:#3b3b3b;
+  --text:#efefec;--text-dim:#a6a6a1;--accent:#cad6ef;--accent-2:#dce5f7;--accent-dim:#303744;--accent-text:#1b1b1b;
+  --sidebar-bg:#161616;--sidebar-border:#292929;--sidebar-text:#deded9;--sidebar-dim:#8f8f89;--sidebar-active:#2a2a29;
+  --bubble-user:#2b2b29;--bubble-user-text:#efefec;--bubble-ai:transparent;--bubble-ai-text:#efefec;
+  --glow:none;--shadow-sm:none;--shadow-md:0 12px 40px rgba(0,0,0,.15);
+}
+.choimini-desktop body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Pretendard,sans-serif;background:var(--bg);letter-spacing:-.012em}
+.desktop-titlebar{height:44px;display:flex;align-items:center;padding:0 16px;color:#93938e;font-size:12px;user-select:none;-webkit-app-region:drag;app-region:drag;background:#1b1b1b}
+.desktop-titlebar span{pointer-events:none}
+.desktop-titlebar.mac{padding-left:84px}
+html.desktop-chrome .app{height:calc(var(--app-h,100dvh) - 44px)}
+.choimini-desktop .sidebar{width:248px;background:var(--sidebar-bg);padding:14px 12px 16px;gap:8px;border-right:1px solid var(--sidebar-border)}
+.choimini-desktop body.sb-collapsed .sidebar{width:0;padding-left:0;padding-right:0;border:0}
+.choimini-desktop .brand{padding:6px 8px 16px;gap:9px;font-size:15px;letter-spacing:-.025em}
+.choimini-desktop .brand .dot{width:25px;height:25px;background:#333431;border:1px solid #55564f;box-shadow:none;color:#edeee6;font-size:12px}
+.choimini-desktop .newchat-btn{background:transparent;color:var(--text);border:1px solid #42423d;border-radius:10px;padding:10px 12px;box-shadow:none;font-weight:500;transform:none}
+.choimini-desktop .newchat-btn:hover{background:#272724;box-shadow:none;transform:none}
+.choimini-desktop .chatlist{margin-top:12px;gap:3px}
+.choimini-desktop .chatlist-label{font-size:11px;letter-spacing:0;text-transform:none;padding-left:10px}
+.choimini-desktop .chat-item{font-size:13px;padding:10px;border-radius:8px}
+.choimini-desktop .chat-item.active{background:#292926;box-shadow:none;font-weight:500}
+.choimini-desktop .sidebar-footer{border-top-color:#2d2d29;gap:2px;padding-top:12px}
+.choimini-desktop .token-pill{background:transparent;border:0;padding:7px 10px;font-size:11px;box-shadow:none;color:var(--sidebar-dim)}
+.choimini-desktop .token-pill b{color:#b5b9bc;font-size:12px}
+.choimini-desktop .footer-btn{padding:9px 10px;font-size:12px;color:#b8b8b2;gap:10px}
+.desktop-menu-icon{width:16px;height:16px;flex:none;opacity:.8}
+.choimini-desktop .main{background:var(--bg)}
+.choimini-desktop .topbar{background:var(--bg);backdrop-filter:none;border:0;padding:12px 28px;min-height:58px;gap:12px}
+.choimini-desktop .topbar-title{font-size:13px;font-weight:500;color:#b1b1ab;max-width:320px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.choimini-desktop .model-pill{font-size:12px;font-weight:500;color:#c3c3bc}
+.choimini-desktop .token-badge{font-size:11px;color:#96968f}
+.choimini-desktop .messages{padding:32px 0 24px}
+.choimini-desktop .msg-wrap{max-width:800px;padding:0 36px;gap:30px}
+.choimini-desktop .row.ai>.avatar{display:none}
+.choimini-desktop .row.ai .bubble{line-height:1.85;font-size:15px;padding:0}
+.choimini-desktop .row.user .bubble{background:var(--bubble-user);border:0;border-radius:16px;padding:12px 18px;box-shadow:none;max-width:82%}
+.choimini-desktop .empty-state{max-width:600px;margin:clamp(48px,12vh,140px) auto 0;padding:0 28px}
+.choimini-desktop .empty-state .dot-big{width:40px;height:40px;background:#32342f;border:1px solid #5d6054;color:#e5e8dc;box-shadow:none;font-size:16px;margin-bottom:24px}
+#desktopWelcome{font-weight:500;font-size:clamp(24px,2.8vw,34px);letter-spacing:-.045em;margin:0 0 12px;color:#ecece6}
+.choimini-desktop .empty-sub{font-size:13px;color:#989891}
+.choimini-desktop .composer{background:var(--bg);padding:12px 28px 20px}
+.choimini-desktop .composer-inner{max-width:800px}
+.choimini-desktop .input-box{background:#292927;border:1px solid #43433d;border-radius:20px;box-shadow:none;backdrop-filter:none;padding:14px 12px 12px 18px}
+.choimini-desktop .input-box:focus-within{border-color:#73766d;box-shadow:0 0 0 1px #73766d}
+.choimini-desktop #msgInput{font-size:14px;line-height:1.6;min-height:28px;max-height:220px}
+.choimini-desktop #msgInput::placeholder{color:#94958d}
+.choimini-desktop .send-btn{background:#d6dfca;color:#1e2518;box-shadow:none;border-radius:12px;transform:none}
+.choimini-desktop .send-btn:hover:not(:disabled){background:#e4ebdb;box-shadow:none;transform:none}
+.choimini-desktop .send-btn svg{stroke:currentColor}
+.choimini-desktop .mode-row{justify-content:flex-start;margin-bottom:10px;gap:10px}
+.choimini-desktop .mode-row::before{display:none}
+.choimini-desktop .mode-switch{background:transparent;border:1px solid #3c3c36;border-radius:9px;padding:2px}
+.choimini-desktop .mode-btn{border-radius:6px;font-size:10.5px;letter-spacing:.02em;padding:5px 10px}
+.choimini-desktop .mode-btn.active{background:#383b33;color:#e2e9d9;box-shadow:none}
+.choimini-desktop .exec-row,.choimini-desktop .effort-row{font-size:11px;gap:8px;margin-bottom:10px}
+.choimini-desktop .exec-lbl{color:#93958b}
+.choimini-desktop .composer-hint{font-size:10px;color:#83857a;margin-top:12px}
+.choimini-desktop .main-tabs{background:transparent;border-color:#3c3c36;border-radius:8px}
+.choimini-desktop .main-tabs button{border-radius:5px;color:#a6a89e}
+.choimini-desktop .main-tabs button.active{background:#33362f;color:#e0e6d7}
+.choimini-desktop .modal{border-radius:16px;background:#222320;border-color:#414239;box-shadow:0 24px 80px #0005}
+.choimini-desktop .primary-btn,.choimini-desktop .ask-card button.y{background:#c6d0bd;color:#1f251b;border-color:#c6d0bd}
+.choimini-desktop .ask-card,.choimini-desktop .devact{background:#262823;border-color:#515847;box-shadow:none}
+.choimini-desktop .ai-stats summary{border:0;background:transparent;padding:0;color:#979b8c}
+.choimini-desktop .chm-out,.choimini-desktop .chm-in{background:#151713;border:1px solid #363b30}
+@media(max-width:900px){.choimini-desktop .topbar{padding:10px 18px}.choimini-desktop .msg-wrap{padding:0 24px}.choimini-desktop .composer{padding:10px 20px 16px}.choimini-desktop .topbar-title{max-width:190px}}
+@media(max-height:700px){.choimini-desktop .empty-state{margin-top:32px}.choimini-desktop .empty-state .dot-big{margin-bottom:16px}.choimini-desktop .sidebar{gap:3px}.choimini-desktop .footer-btn{padding-top:7px;padding-bottom:7px}}
