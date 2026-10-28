@@ -141,21 +141,21 @@
         '<div class="clg-box">' +
         '  <div class="clg-logo">최</div>' +
         '  <h1>최미나이 · Choimini</h1>' +
-        '  <p>계속하려면 Google 계정으로 로그인하세요.</p>' +
+        '  <p>Google 또는 이메일로 로그인하세요.</p>' +
         '  <button id="clgGoogleBtn" class="clg-google">' +
         '    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>' +
         '    <span>Google로 로그인</span>' +
         '  </button>' +
-        '  <div class="clg-or"><span>또는 이메일 로그인 링크</span></div>' +
+        '  <div class="clg-or"><span>이메일로 로그인</span></div>' +
         '  <div id="clgEmailStep1" class="clg-row">' +
-        '    <input id="clgEmail" type="email" autocomplete="email" placeholder="이메일 주소 (학교 계정 가능)" />' +
+        '    <input id="clgEmail" type="email" autocomplete="email" placeholder="이메일 주소" />' +
         '  </div>' +
         '  <div class="clg-row">' +
-        '    <button id="clgSendBtn" class="clg-mini" style="flex:1;padding:11px 8px">Supabase 메일로 받기</button>' +
-        '    <button id="clgCustomBtn" class="clg-mini" style="flex:1;padding:11px 8px;background:#6366f1">커스텀 메일로 받기</button>' +
+        '    <button id="clgSendBtn" class="clg-mini" style="flex:1;padding:11px 8px">인증 메일 받기</button>' +
+        '    <button id="clgCustomBtn" class="clg-mini" style="flex:1;padding:11px 8px;background:#6366f1">다른 방식으로 받기</button>' +
         '  </div>' +
         '  <div id="clgCodeRow" class="clg-row" style="display:none">' +
-        '    <input id="clgCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="메일의 인증번호 입력" />' +
+        '    <input id="clgCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="메일에 적힌 인증번호" />' +
         '    <button id="clgCodeBtn" class="clg-mini" style="padding:11px 14px">확인</button>' +
         '  </div>' +
         '  <div id="clgError" class="clg-error"></div>' +
@@ -193,9 +193,10 @@
     });
     let d = {}; try { d = await res.json(); } catch (e) {}
     if (res.ok && d.ok) return;
-    if (d.error === "not_configured") throw new Error("커스텀 메일이 아직 설정되지 않았어요");
+    if (d.error === "not_configured") throw new Error("대체 메일 발송이 아직 준비되지 않았어요");
     if (d.error === "cooldown") throw new Error("rate limit: 1분 뒤에 다시 시도해줘");
-    throw new Error(d.error || ("HTTP " + res.status));
+    if (d.error === "send_failed" || d.error === "link_failed") throw new Error("메일 발송 서비스에 연결하지 못했어요. 잠시 후 다시 시도해 주세요");
+    throw new Error("메일을 보내지 못했어요 (" + res.status + ")");
   }
   /* 메일을 보낸 뒤 그 메일 서비스(웹메일)를 바로 연다. 아는 서비스만, Android 는 제외(앱 연결이 제대로 안 될 수 있음) */
   const MAIL_WEB = [
