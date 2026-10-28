@@ -194,7 +194,7 @@ details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
 .input-box{display:flex;align-items:flex-end;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:26px;padding:10px 10px 10px 16px;box-shadow:0 2px 10px rgba(0,0,0,.04);}
 .icon-btn{width:34px;height:34px;border-radius:10px;border:none;background:none;color:var(--text-dim);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
 .icon-btn:hover{background:var(--panel-2);color:var(--text);}
-#msgInput{flex:1;border:none;background:none;resize:none;outline:none;max-height:160px;min-height:24px;padding:6px 0;font-size:15px;color:var(--text);}
+#msgInput{flex:1;border:none;background:none;resize:none;outline:none;max-height:160px;overflow-y:hidden;min-height:24px;padding:6px 0;font-size:15px;color:var(--text);}
 #msgInput::placeholder{color:var(--text-dim);}
 .send-btn{width:34px;height:34px;border-radius:50%;border:none;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
 .send-btn:disabled{opacity:.35;}
@@ -214,6 +214,11 @@ details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
 @keyframes gdspin{to{transform:rotate(360deg)}}
 .exec-row{display:none;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
 .exec-row.show{display:flex;}
+.effort-row{display:none;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+.effort-row.show{display:flex;}
+.mode-btn.active[data-effort]{background:var(--panel);color:var(--text);box-shadow:inset 0 0 0 1px var(--border);}
+.mode-btn.active[data-effort="think"]{background:#6c8cff;color:#fff;box-shadow:none;}
+.mode-btn.active[data-effort="deep"]{background:#b48cff;color:#1b0f33;box-shadow:none;}
 .exec-lbl{font-size:11px;color:var(--text-dim);}
 .exec-row select{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:16px;padding:4px 8px;font-size:11.5px;font-weight:700;}
 .mode-btn.active[data-exec="local"]{background:#6c8cff;color:#fff;}
@@ -623,6 +628,50 @@ button:focus:not(:focus-visible),select:focus:not(:focus-visible){outline:none;}
   .empty-state{margin-top:24px;padding-bottom:10px;}
   .empty-state .dot-big{margin-bottom:10px;}
 }
+
+/* ===== v2.3 레이아웃 안정화 (안드로이드 앱·모바일 공통) =====
+   · 승인 카드: 입력창 위 "흐름 안"에 둔다. 예전엔 화면 위에 떠서 작업 위치·AI 권한·모드 선택을 덮었고,
+     키보드가 올라오면 카드 위쪽이 화면 밖으로 나가 버튼을 누를 수 없었다.
+   · 화면 높이는 실제로 보이는 높이(--app-h, visualViewport)를 따른다 → 키보드가 떠도 입력창·하단 메뉴가 가려지지 않는다.
+   · AI 권한 선택이 한 줄을 통째로 차지하며 줄바꿈되던 것, 상단 바가 두 줄로 밀리던 것을 고친다. */
+body,.app{height:var(--app-h,100dvh);}
+html,body{overscroll-behavior:none;}
+.composer{flex:none;position:relative;z-index:6;}
+.messages{min-height:0;}
+#askStack{position:static;left:auto;right:auto;bottom:auto;z-index:auto;pointer-events:auto;display:flex;flex-direction:column;gap:6px;
+  max-height:min(40dvh,320px);max-height:min(calc(var(--app-h,100dvh) * .4),320px);overflow-y:auto;overscroll-behavior:contain;margin:0 0 8px;}
+#askStack:empty{display:none;}
+#askStack .ask-card{flex:none;animation:none;}
+#askStack .ask-card .ab{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;}
+.ask-count{font-size:11.5px;color:var(--text-dim);padding:0 4px;}
+.exec-row .cselect{width:auto;flex:none;}
+.exec-row .cselect-btn{width:auto;padding:4px 10px;border-radius:16px;font-size:11.5px;font-weight:700;gap:6px;white-space:nowrap;}
+.exec-row .cselect-menu{left:auto;right:0;min-width:150px;}
+.topbar{flex-wrap:nowrap;}
+.topbar-left{min-width:0;flex:0 1 auto;}
+.topbar-left .main-tabs{flex:none;white-space:nowrap;}
+.topbar{gap:8px;}
+.topbar-right{flex:0 1 auto;min-width:0;}
+.topbar-right .model-pill{min-width:0;}
+.topbar-right .token-badge{flex:none;}
+@media(max-width:560px){
+  .model-pill{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .model-pill #providerLabel{overflow:hidden;text-overflow:ellipsis;}
+  .main-tabs button{padding:4px 9px;}
+  .exec-row,.effort-row,.mode-row{gap:6px;margin-bottom:5px;}
+  .exec-row .exec-lbl:first-child{display:none;}
+  #askStack .ask-card pre{max-height:60px;}
+}
+/* 키보드가 올라와 화면이 낮아졌을 때: 보조 줄을 줄여 대화가 보이게 */
+@media(max-height:560px){
+  .composer-hint{display:none;}
+  /* 키보드를 쓰는 동안엔 작업 위치·추론 강도 줄을 접는다(키보드를 내리면 다시 보인다). 모드 선택은 그대로 */
+  .exec-row.show,.effort-row.show{display:none;}
+  .mode-row{margin-bottom:4px;}
+  #askStack{max-height:min(calc(var(--app-h,100dvh) * .3),200px);}
+  #askStack .ask-card{padding:8px 10px;}
+  #askStack .ask-card pre{max-height:40px;}
+}
 </style>
 
 <style id="cfgate-gate-style">
@@ -858,7 +907,6 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <div class="msg-wrap" id="msgWrap"></div>
     </div>
 
-    <div id="askStack"></div>
     <div class="pkg-chip" id="pkgChip"><span class="spin"></span><span id="pkgChipText"></span></div>
     <div id="chminalPane">
       <div class="chm-bar">
@@ -872,6 +920,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
     </div>
     <div class="composer">
       <div class="composer-inner">
+        <div id="askStack" aria-live="polite"></div>
         <div class="file-preview-row" id="filePreviewRow"></div>
         <div class="app-promo" id="appPromo" role="dialog" aria-label="앱 안내">
           <button class="x" id="appPromoClose" aria-label="닫기">✕</button>
@@ -890,6 +939,14 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
             <option value="auto">자동 승인</option>
             <option value="full">전체 승인</option>
           </select>
+        </div>
+        <div class="effort-row" id="effortRow">
+          <span class="exec-lbl">추론 강도</span>
+          <div class="mode-switch" id="effortSwitch" role="radiogroup" aria-label="추론 강도">
+            <button class="mode-btn" type="button" data-effort="fast" title="바로 답해요 · 가장 빠르고 토큰이 적게 들어요">FAST</button>
+            <button class="mode-btn" type="button" data-effort="think" title="한 번 더 생각하고 답해요">THINK</button>
+            <button class="mode-btn" type="button" data-effort="deep" title="더 강한 모델로 깊게 생각해요 · 느리고 토큰이 더 들어요">DEEP</button>
+          </div>
         </div>
         <div class="mode-row">
           <div class="mode-switch" id="modeSwitch">
@@ -1057,7 +1114,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         <div id="groqTestResult" style="font-size:12px;line-height:1.6;margin-top:7px;color:var(--text-dim);white-space:pre-line"></div>
         <div style="font-size:11.5px;color:var(--text-dim);line-height:1.6;margin-top:6px">
           키는 서버 시크릿 <b>GROQ_API_KEY</b> 에만 있어요. 여러 개면 쉼표로: <code class="md-code">gsk_A,gsk_B</code><br>
-          Groq 는 <b>WORK·CODE 에서 명령/화면 조작을 한 다음 단계</b>에만 끼어들어요. 일반 채팅에는 쓰이지 않아요.
+          Groq 는 <b>NO BRAIN 의 기본 AI</b>이고, WORK·CODE 에서는 <b>명령/화면 조작을 한 다음 단계</b>를 맡아요. 끄면 전부 Gemini 로 답해요.
         </div>
       </div>
       </div><!-- /실험 -->
@@ -1376,7 +1433,7 @@ const LS = {
   redeemed: "choimini.redeemed",
   deviceId: "choimini.deviceId"
 };
-const APP_VERSION = "2.2.0";
+const APP_VERSION = "2.3.0";
 const TOKEN_MULT = 10; // internal = display * 10
 const DEFAULT_INTERNAL_TOKENS = 1500; // 하루 기본 지급 150 토큰
 
@@ -1428,7 +1485,9 @@ const DEFAULT_MODELS = {
   openai:    { lite:"gpt-4.1-nano", medium:"gpt-4.1-mini", high:"gpt-4.1", max:"o3" },
   anthropic: { lite:"claude-3-5-haiku-20241022", medium:"claude-sonnet-4-20250514", high:"claude-sonnet-4-20250514", max:"claude-opus-4-1-20250805" }
 };
-const PROVIDER_LABEL = { gemini:"Google Gemini", openai:"OpenAI", anthropic:"Anthropic" };
+const PROVIDER_LABEL = { gemini:"Google Gemini", openai:"OpenAI", anthropic:"Anthropic", groq:"Groq" };
+/* 추론 강도 (WORK·CODE 전용). NO BRAIN 은 항상 가장 빠르게. */
+const EFFORT_LABEL = { fast:"FAST", think:"THINK", deep:"DEEP" };
 /* Groq 모델. Groq 는 모델을 자주 내리므로(종료되면 404/400) 기본값을 한 곳에서 관리하고,
    이미 저장된 설정이 내려간 모델이면 조용히 기본값으로 되돌린다.
    gpt-oss 계열은 짧은 출력 한도에서 추론 토큰만 쓰고 본문을 못 내놓는 경우가 있어 기본값으로 쓰지 않는다. */
@@ -1733,6 +1792,7 @@ function defaultSettings(){
     memoryLevel: 3,   // 설정 UI 는 없앴다(v2.2.0). 기본 "중간" 고정.
     compressEvery: 12, // 설정 UI 없음(v2.2.0). AI 를 12번 부를 때마다 자동으로 오래된 대화를 요약한다.
     thinkingLevel: "auto", // 사고 과정 강도: auto | off | low | medium | high
+    effort: "fast",        // 추론 강도(WORK·CODE): fast | think | deep — 입력창 위에서 고른다
     fastFollow: "auto",    // 빠른 후속 판단: auto(WORK·화면/브라우저 조작) | always | off
     // 로컬 Gemma(기기 안 실행) 빠른 판단: 최초 동의 후에만 사용.
     // scope = Gemma 가 맡을 단계(화면 조작·명령 실행은 기본 ON, 파일 확인은 OFF). 파일 수정·코드 작성·계획은 언제나 Gemini.
@@ -1818,6 +1878,7 @@ function init(){
   settings.compressEvery = 12;   // 사용자가 고르지 않는다 — 항상 12회마다 자동 압축
   if(!Number.isInteger(settings.memoryLevel) || settings.memoryLevel < 1 || settings.memoryLevel > 5) settings.memoryLevel = 3;
   if(!["auto","off","low","medium","high"].includes(settings.thinkingLevel)) settings.thinkingLevel = "auto";
+  if(!["fast","think","deep"].includes(settings.effort)) settings.effort = "fast";
   if(!["auto","always","off"].includes(settings.fastFollow)) settings.fastFollow = "auto";
   if(!settings.localAI || typeof settings.localAI !== "object") settings.localAI = {};
   const _sc = settings.localAI.scope || {};
@@ -1947,7 +2008,7 @@ function renderChatList(){
 function renderTopbar(){
   const c = currentChat();
   document.getElementById("chatTitle").textContent = c ? c.title : "새 채팅";
-  document.getElementById("providerLabel").textContent = PROVIDER_LABEL[settings.provider];
+  renderProviderPill();
 }
 
 function renderMessages(){
@@ -1973,9 +2034,18 @@ function renderMessages(){
   scrollToBottom();
 }
 
+/* 일부 모델(Qwen 등)은 본문에 <think>…</think> 로 추론 원문을 섞어 보낸다 → 화면·기록에서 뺀다 (스트리밍 중 안 닫힌 것도) */
+function stripThinkTags(t){
+  t = String(t||"");
+  if(!/<think|<\/think>/i.test(t)) return t;
+  t = t.replace(/<think>[\s\S]*?<\/think>\s*/gi, "");
+  if(/<\/think>/i.test(t)) t = t.replace(/^[\s\S]*?<\/think>\s*/i, "");   // 여는 태그 없이 닫는 태그만 온 경우
+  t = t.replace(/<think>[\s\S]*$/i, "");                                   // 아직 안 닫힌 것(스트리밍 중)
+  return t;
+}
 /* ---- AI 응답 표시용 파싱: ```tool 블록과 [[계획/사고/테스트: …]] 태그는 본문에서 빼고 "진행 표시"로 보여준다 ---- */
 function parseAiDisplay(text){
-  let t = String(text||"");
+  let t = stripThinkTags(text);
   const hasTools = hasToolBlocks(t) || hasBrowserBlocks(t);
   t = t.replace(/```(tool|runcmd|upload|question-load|browser)[ \t]*\r?\n[\s\S]*?(```|$)/g, "");
   let status = null;
@@ -1991,7 +2061,7 @@ function renderActivityHtml(m){
   if(st){
     const tx = escapeHtml(st.text || "");
     if(st.kind === "계획") h += `<div class="act-plan">${tx || "계획중..."}</div>`;
-    else if(st.kind === "사고") h += `<div class="act-think">* <b>사고 과정 :</b> ${tx}</div>`;
+    else if(st.kind === "사고") h += "";   // 사고 과정은 표시하지 않는다
     else h += `<div class="act-test">* <b>${tx || "테스트중..."}</b></div>`;
   }
   const a = m.activity;
@@ -2822,6 +2892,7 @@ setTimeout(()=>{
   sel.addEventListener("cselect-change", e=>{
     if(!gq()) return;
     settings.groq.enabled = e.detail.value !== "off";
+    try{ renderProviderPill(); }catch(_){}
     saveJSON(LS.settings, settings);
     toast(settings.groq.enabled ? "Groq 사용" : "Groq 사용 안 함 · 전부 Gemini");
   });
@@ -3878,8 +3949,16 @@ function useFastFollow(chat, step){
   for(let i = msgs.length - 1; i >= 0; i--){ if(msgs[i].role === "ai"){ const c = String(msgs[i].content || ""); return /"tool"\s*:\s*"device_|```browser/i.test(c); } }
   return false;
 }
+function curEffort(){ return isAgentMode() ? (["fast","think","deep"].includes(settings.effort) ? settings.effort : "fast") : "fast"; }
 function geminiThinkingBudget(model, level, preset, step){
   const pro = /pro/i.test(model);
+  // 추론 강도(FAST/THINK/DEEP): 설정의 '사고 과정 강도'가 자동일 때 WORK·CODE 에 적용한다
+  if((!level || level === "auto") && isAgentMode() && curEffort() !== "think"){
+    const deep = curEffort() === "deep", min = pro ? 128 : 0;
+    if(!step || step === "first") return deep ? -1 : 1024;
+    if(step === "followup") return deep ? 2048 : (isCodeMode() ? Math.max(min, 512) : min);   // CODE 는 다음 단계도 조금은 생각해야 요청을 놓치지 않는다
+    return deep ? -1 : 512;   // 오류 확인 단계
+  }
   if((!level || level === "auto") && isAgentMode() && step && step !== "first"){
     // 자동: 계획(첫 단계)은 충분히, 결과를 보고 다음 동작만 정하는 단계는 짧게, 오류 수정 단계는 중간
     if(step === "followup") return preset === "max" ? 2048 : 512;
@@ -3915,7 +3994,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   if(nbNote && (!settings.thinkingLevel || settings.thinkingLevel === "auto")) tb = /pro/i.test(model) ? 128 : 0; // NO BRAIN 유지: 고민하지 말고 바로
   if(tb !== undefined) generationConfig.thinkingConfig = { thinkingBudget: tb };
   // 사고 요약(무엇을 생각했는지)도 받아서 답변 위에 보여준다. 사고를 끈 경우(0)는 요청하지 않는다
-  if(tb !== 0 && onDelta) generationConfig.thinkingConfig = Object.assign(generationConfig.thinkingConfig || {}, { includeThoughts: true });
+  // 사고 과정(원문·요약)은 화면에 보여주지 않으므로 받지도 않는다 (includeThoughts 를 보내지 않음)
   const body = {
     systemInstruction: { parts:[{text:systemPrompt}] },
     contents,
@@ -3935,7 +4014,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   // 모드를 같이 보내면 서버가 모드별 캐릭터 강도(NO BRAIN 70 / WORK 30 / CODE 10)를 적용한다.
   // opts.groq 이면 같은 프록시의 Groq 경로로 보낸다(요청/응답 형식 변환은 서버가 한다).
   const wantGroq = !!(opts && opts.groq);
-  const payload = useProxy ? { provider: wantGroq ? "groq" : "gemini", model, body, mode: currentModeName() } : body;
+  const payload = useProxy ? { provider: wantGroq ? "groq" : "gemini", model, body, mode: currentModeName(), effort: curEffort() } : body;
 
   if(onDelta){
     let acc = "", usageMd = {}, fin = "", th = "";
@@ -4730,6 +4809,23 @@ function groqGuardTrip(why){
   if(!groqGuard.note){ groqGuard.note = true; try{ toast("⚡ Groq 를 쓸 수 없어서 " + why + " Gemini 로 대신해요"); }catch(_){} }
 }
 function groqGuardReset(){ groqGuard.bad = 0; groqGuard.off = false; groqGuard.note = false; }
+/* NO BRAIN 에서 Groq 를 쓸 수 있나: 기본 제공업체가 Gemini(기본 키/프록시)이고, 사용자가 자기 Gemini 키를 넣지 않았고, Groq 를 끄지 않았을 때 */
+function nbGroqAvailable(){
+  return !!(settings.groq && settings.groq.enabled) && settings.provider === "gemini" && hasDefaultProxy("gemini") && !resolveApiKey("gemini") && !groqGuard.off;
+}
+/* 상단 제공업체 표시: 지금 답하고 있는(또는 다음에 답할) 실제 제공업체 */
+var liveProvider = null;   // var: 페이지 초기화 중(선언 전)에 불려도 오류가 나지 않게
+function plannedProvider(){ try{ return (settings.mode || "nobrain") === "nobrain" && nbGroqAvailable() ? "groq" : settings.provider; }catch(_){ return settings.provider; } }
+function setLiveProvider(p){ liveProvider = p || null; try{ renderProviderPill(); }catch(_){} }
+function renderProviderPill(){
+  const el = document.getElementById("providerLabel"); if(!el) return;
+  const p = liveProvider || plannedProvider();
+  const narrow = window.matchMedia && matchMedia("(max-width:560px)").matches;   // 좁은 화면은 짧은 이름
+  const SHORT = { gemini:"Gemini", openai:"OpenAI", anthropic:"Claude", groq:"Groq" };
+  el.textContent = (narrow ? SHORT[p] : PROVIDER_LABEL[p]) || PROVIDER_LABEL[settings.provider];
+  el.parentElement && (el.parentElement.title = "지금 답하는 AI: " + (PROVIDER_LABEL[p] || p));
+  el.dataset.provider = p;
+}
 async function tryGroqStep(chat, sys, history, signal, onDelta){
   const model = (settings.groq && settings.groq.model) || GROQ_DEFAULT_MODEL;
   const t0 = Date.now(); let tText = 0;
@@ -4750,7 +4846,7 @@ async function tryGroqStep(chat, sys, history, signal, onDelta){
   }
   groqGuard.bad = 0;
   const tEnd = Date.now();
-  return { text: out.text, provider: settings.provider, usedLocal: false, usageAmount: out.usageAmount, streamed: !!out.streamed,
+  return { text: stripThinkTags(out.text), provider: "groq", usedLocal: false, usageAmount: out.usageAmount, streamed: !!out.streamed,
     stats: { step: "fast-groq", model: model + " (Groq)", thinkMs: (tText || tEnd) - t0, totalMs: tEnd - t0,
              thoughtTokens: 0, outTokens: out.outTokens || 0, inTokens: out.inTokens || 0, thoughts: "" } };
 }
@@ -4777,6 +4873,21 @@ async function generateReply(chat, signal, onDelta){
       const browserTask = browserAvailable();
       const shortPrompt = buildSystemPrompt() + (browserTask ? "\n\n[NO BRAIN · 브라우저 제어] 짧게 말하되, 사용자가 화면/페이지/사이트에 대해 묻거나 브라우저 조작을 시키면 반드시 ```browser 블록으로 먼저 확인·조작해라. 블록을 쓸 때는 길이 제한이 없다." : NO_BRAIN_SYSTEM_SUFFIX);
       const nbTokens = undefined; // 하드 출력 제한 없음 (글자 수는 프롬프트 참고사항으로만 안내)
+      // NO BRAIN 기본 제공업체 = Groq (서버 프록시에 GROQ_API_KEY 가 있을 때). 실패하면 아래 Gemini 로 내려간다.
+      if(nbGroqAvailable() && !browserTask){
+        const gm = (settings.groq && settings.groq.model) || GROQ_DEFAULT_MODEL; const g0 = Date.now();
+        setLiveProvider("groq");
+        try{
+          const go = await callGemini(gm, null, shortPrompt, history, "lite", nbTokens, signal, undefined, { groq: true });
+          const gt = stripThinkTags(go && go.text).trim();
+          if(gt) return { text: gt, provider: "groq", usedLocal: false, noBrain: true, noBrainCost: cost, stats: { model: gm + " (Groq)", thinkMs: Date.now() - g0, totalMs: Date.now() - g0 } };
+        }catch(e){
+          if(e && e.name === "AbortError") throw e;
+          console.warn("[NO BRAIN · Groq 실패 → Gemini]", e && (e.message || e));
+          groqGuardTrip("연결이 안 돼서");
+        }
+      }
+      setLiveProvider(provider);
       try{
         let text; const nb0 = Date.now();
         if(provider === "gemini") ({ text } = await callGemini(model, apiKey, shortPrompt, history, "lite", nbTokens, signal));
@@ -4796,7 +4907,8 @@ async function generateReply(chat, signal, onDelta){
   }
 
   const provider = settings.provider;
-  const preset = settings.preset;
+  // DEEP: 최소 '높음' 모델로 / FAST·THINK: 설정한 프리셋 그대로
+  const preset = (curEffort() === "deep" && (settings.preset === "lite" || settings.preset === "medium")) ? "high" : settings.preset;
   const apiKey = resolveApiKey(provider);
   const model = settings.models[provider][preset];
   const hasAnyKey = !!apiKey || hasDefaultProxy(provider);
@@ -4846,10 +4958,12 @@ async function generateReply(chat, signal, onDelta){
   }
   if(groqEligible(chat, step, fast, escalate)){
     try{
+      setLiveProvider("groq");
       const gr = await tryGroqStep(chat, sys, history, signal, onDelta);
       if(gr) return gr;
     }catch(e){ if(e && e.name === "AbortError") throw e; console.warn("[Groq 실패 → Gemini]", e && (e.message || e)); }
   }
+  setLiveProvider(provider);
   const tried = new Set(); let lastErr = null;
   for(const pr of order){
     const m = settings.models[provider][pr];
@@ -4869,7 +4983,7 @@ async function generateReply(chat, signal, onDelta){
         else throw new Error("알 수 없는 제공자");
         if(tried.size > 1) toast(`ℹ️ ${m} 모델로 전환해서 응답했어요`);
         const tEnd = Date.now();
-        const stats = { step: fast && pr === "lite" ? "fast" : step, model: m, thinkMs: (tText || tEnd) - t0, totalMs: tEnd - t0, thoughtTokens: out.thoughtTokens || 0, outTokens: out.outTokens || 0, inTokens: out.inTokens || 0, thoughts: String(out.thoughts || "").slice(0, 4000), retries: attempt + tried.size - 1 };
+        const stats = { step: fast && pr === "lite" ? "fast" : step, model: m, thinkMs: (tText || tEnd) - t0, totalMs: tEnd - t0, thoughtTokens: out.thoughtTokens || 0, outTokens: out.outTokens || 0, inTokens: out.inTokens || 0, thoughts: "", retries: attempt + tried.size - 1 };
         return { text: out.text, provider, usedLocal: false, usageAmount: out.usageAmount, streamed: !!out.streamed, stats };
       }catch(e){
         if(e && e.name === "AbortError") throw e;
@@ -5176,6 +5290,7 @@ async function runGenerationTurn(chat, preset, depth){
   typingRow.remove();
   delete chat.pendingReply;
   setChatGenerating(chat, false);
+  setLiveProvider(null);
   maybeAutoTitle(chat);   // 첫 답변이 끝났으니 "질문+답변"을 요약해 제목을 짓는다
   try{ if(window.AndroidBridge && AndroidBridge.notifyDone){ const lm=(chat.messages||[]).slice(-1)[0]; AndroidBridge.notifyDone('최미나이', lm && lm.role==='ai' ? String(lm.content||'').replace(/\s+/g,' ').slice(0,80) : '답변이 준비됐어요'); } }catch(_){}
   if(chat.id === activeChatId) renderMessages(); // 잠금 해제 후 다시 그려서 수정(✏️)/다시요청 버튼이 정상적으로 보이게 함
@@ -5194,6 +5309,7 @@ async function appendAiReply(chat, preset, depth, signal, live){
     showTokenOutModal();
     return;
   }
+  if(result && typeof result.text === "string") result.text = stripThinkTags(result.text);
   const { text: replyText, provider: usedProvider, usedLocal, skipDeduct, noBrain, noBrainCost, usageAmount, stats, localFast } = result;
   let normalCost = 0;
   const chargeTarget = { charges: [] }; // 답변 만들기 차감 기록 → 아래 AI 메시지에 붙인다
@@ -5382,6 +5498,20 @@ function normalizeToolCall(c){
    - Chrome 확장:       ```browser 블록 → ChoiminiBrowser (권한/정지/제출 확인은 확장이 강제)
    일반 웹/Android 에서는 아무 것도 하지 않는다. */
 /* 이번 사용자 요청 이후(에이전트 한 턴)의 메시지들 */
+/* 이번 작업의 실제 사용자 요청(자동 메시지 제외) */
+function lastRealRequest(chat){
+  const ms = (chat && chat.messages) || [];
+  for(let i = ms.length - 1; i >= 0; i--){ const m = ms[i]; if(m.role === "user" && !m.auto) return String(m.content || "").trim(); }
+  return "";
+}
+/* 도구로 둘러보기만 하고 "무엇을 할까요?" 하고 되묻는 경우 — 요청이 이미 구체적이면 한 번 되돌려 바로 하게 한다 */
+function askedInsteadOfDoing(chat, aiMsg){
+  const req = lastRealRequest(chat); if(!req || req.length < 6) return false;
+  const vis = parseAiDisplay(aiMsg.content).text;
+  if(!/(어떤|무엇을|뭘|원하시는|알려\s*주시면|말씀해\s*주세요|알려\s*주세요)[\s\S]{0,80}(\?|주세요|할까요|드릴게요|진행하겠습니다)/.test(vis)) return false;
+  // 요청 자체가 질문(설명해줘가 아닌 순수 질문)이면 되묻기가 맞을 수 있다 — 만들어/그려/작성/해줘 류만
+  return /(만들|그려|작성|써\s*줘|해\s*줘|해봐|고쳐|수정|추가|바꿔|정리|구현|생성)/.test(req);
+}
 function turnMessages(chat){
   const out = [];
   for(let i = chat.messages.length - 1; i >= 0; i--){
@@ -5400,6 +5530,9 @@ function computeNudge(chat, aiMsg){
   const alive = made.filter(p=>window.LinuxFS && LinuxFS.isFile(p));
   if(alive.length && !uploaded.length){
     return "[시스템 안내] 파일을 만들었지만 아직 upload 스킬로 업로드하지 않았어요. 사용자가 미리보기/다운로드할 수 있도록 아래처럼 업로드한 뒤 마무리 안내를 해 주세요.\n```upload\n" + alive.join("\n") + "\n```";
+  }
+  if(askedInsteadOfDoing(chat, aiMsg)){
+    return "[시스템 안내] 사용자의 요청은 이미 구체적이에요:\n\"" + lastRealRequest(chat).slice(0, 800) + "\"\n되묻지 말고 지금 바로 그 작업을 하세요. 작업 폴더가 비어 있으면 새 파일을 만들어서 시작하면 됩니다.";
   }
   if(!alive.length){
     const vis = parseAiDisplay(aiMsg.content).text;
@@ -5739,6 +5872,10 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
 
   // 화면 조작 캡처: 가장 최근 1장만 다음 단계에 이미지로 함께 보낸다(AI 가 글자로 구분 못하는 아이콘·색·배치를 직접 보게).
   // 저장공간을 아끼려고 이전 자동 메시지의 캡처는 지운다.
+  // 원래 요청을 매 단계 다시 붙인다. 빠른 후속 단계(가벼운 모델)는 도구 결과만 보고 원래 요청을 잊고
+  // "작업 폴더가 비어 있네요, 무엇을 할까요?" 처럼 되묻는 일이 있었다.
+  const origReq = lastRealRequest(chat);
+  if(origReq && !/^\[시스템 안내\]/.test(feedback)) feedback += "\n\n[사용자의 원래 요청 — 이걸 끝까지 해내라. 이미 요청에 담긴 내용은 되묻지 말고 바로 진행해라]\n" + origReq.slice(0, 1500);
   const fbMsg = { id: uid(), role:"user", content: feedback, ts: Date.now(), auto: true };
   if(lastShot){
     (chat.messages||[]).forEach(x=>{ if(x.auto && x.files && x.files.some(f=>f._devShot)){ x.files = x.files.filter(f=>!f._devShot); if(!x.files.length) delete x.files; } });
@@ -5833,7 +5970,7 @@ function statsHtml(m){
   if(tk.length) det.push(`모델 토큰 ${tk.join("/")}`);
   if(st.outTokens && write > 500) det.push(`${Math.round(st.outTokens / (write/1000))}토큰/초`);
   if(st.retries) det.push(`재시도 ${st.retries}회`);
-  return `<details class="ai-stats"><summary>${escapeHtml(head.join(" · "))}</summary><div class="ai-stats-body"><div>${escapeHtml(det.join(" · "))}</div>${st.thoughts ? `<div class="ai-thoughts">${thoughtsHtml(st.thoughts)}</div>` : ""}</div></details>`;
+  return `<details class="ai-stats"><summary>${escapeHtml(head.join(" · "))}</summary><div class="ai-stats-body"><div>${escapeHtml(det.join(" · "))}</div></div></details>`;
 }
 /* ---------------- 커스텀 드롭다운 ----------------
    기기 기본 선택창(네이티브 select) 대신 앱 디자인으로 고른다.
@@ -5966,7 +6103,7 @@ function makeLiveRow(label, chatId){
   const unsub = Stage.sub(t=>{ if(t) base = t; });
   function tick(){
     if(removed) return;
-    const now = Date.now(), tt = thoughtTitle(thought);
+    const now = Date.now(), tt = "";   // 사고 내용은 보여주지 않는다 — 진행 상태와 시간만
     headEl.textContent = tText
       ? `🧠 ${fmtSec(tText - t0)} 생각 · ${base === STAGE.write || !base ? "작성 중" : base} ${fmtSec(now - tText)}`
       : `${base} · ${fmtSec(now - t0)}${tt ? " — " + tt : ""}`;
@@ -6007,7 +6144,7 @@ function makeLiveRow(label, chatId){
     raf = 0; if(removed) return;
     const d = parseAiDisplay(latest);
     let html = d.text ? renderContentWithCode(d.text) : "";
-    if(d.status){ const tx = escapeHtml(d.status.text||""); html += d.status.kind === "계획" ? `<div class="act-plan">${tx||"계획중..."}</div>` : d.status.kind === "사고" ? `<div class="act-think">* <b>사고 과정 :</b> ${tx}</div>` : `<div class="act-test">* <b>${tx||"테스트중..."}</b></div>`; }
+    if(d.status){ const tx = escapeHtml(d.status.text||""); html += d.status.kind === "계획" ? `<div class="act-plan">${tx||"계획중..."}</div>` : d.status.kind === "사고" ? "" : `<div class="act-test">* <b>${tx||"테스트중..."}</b></div>`; }
     html += openBlock(latest);
     if(!html) html = dots();
     body.innerHTML = html;
@@ -6041,6 +6178,7 @@ function appendTypingIndicator(label){
 function autoGrow(el){
   el.style.height = "auto";
   el.style.height = Math.min(el.scrollHeight, 160) + "px";
+  el.style.overflowY = el.scrollHeight > 162 ? "auto" : "hidden";   // 한 줄일 때 스크롤 막대가 보이지 않게(윈도·데스크톱)
 }
 
 /* ---------------- events ---------------- */
@@ -6274,8 +6412,30 @@ function updateNoBrainUI(){
   document.querySelectorAll("#modeSwitch .mode-btn").forEach(b=>{
     b.classList.toggle("active", b.dataset.mode === mode);
   });
+  updateEffortUI();
   try{ updateExecUI(); }catch(_){}
+  try{ renderProviderPill(); }catch(_){}
 }
+/* 추론 강도: WORK·CODE 에서만 보이고 바꿀 수 있다. NO BRAIN 에서는 숨긴다(항상 가장 빠르게). */
+function updateEffortUI(){
+  const row = document.getElementById("effortRow"); if(!row) return;
+  const mode = settings.mode || "nobrain", on = mode === "work" || mode === "code";
+  row.classList.toggle("show", on);
+  const ef = ["fast","think","deep"].includes(settings.effort) ? settings.effort : "fast";
+  row.querySelectorAll(".mode-btn").forEach(b=>{
+    const a = b.dataset.effort === ef; b.classList.toggle("active", a); b.setAttribute("aria-checked", a ? "true" : "false"); b.setAttribute("role", "radio");
+    b.disabled = !on;
+  });
+}
+document.querySelectorAll("#effortSwitch .mode-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    const m = settings.mode || "nobrain";
+    if(m !== "work" && m !== "code") return;          // NO BRAIN 에서는 바꿀 수 없다
+    const v = btn.dataset.effort; if(!["fast","think","deep"].includes(v) || v === settings.effort) return;
+    settings.effort = v; saveJSON(LS.settings, settings); updateEffortUI();
+    toast("추론 강도: " + EFFORT_LABEL[v]);
+  });
+});
 function applyMode(mode){
   settings.mode = mode;
   settings.noBrain = (mode === "nobrain");
@@ -6864,6 +7024,37 @@ function refreshDeviceRow(){
   setTimeout(refreshDeviceRow, 800);
 })();
 
+/* ---------------- 화면 높이 고정: 실제로 보이는 높이를 따른다 ----------------
+   안드로이드 WebView·모바일 브라우저는 키보드가 뜨거나 다른 앱(화면 조작)에서 돌아올 때
+   100dvh 가 늦게 바뀌거나, 입력창에 포커스를 주면서 페이지 전체를 위로 밀어 올린다.
+   그러면 입력창·하단 메뉴가 화면 밖으로 사라진 채 돌아오지 않았다. → 보이는 높이를 직접 재고, 밀려 올라간 페이지는 되돌린다. */
+(function(){
+  const root = document.documentElement, vv = window.visualViewport;
+  let raf = 0;
+  function fit(){
+    raf = 0;
+    const h = Math.round(vv ? vv.height : window.innerHeight);
+    if(h > 120) root.style.setProperty("--app-h", h + "px");
+    // 페이지 자체는 스크롤되면 안 된다(대화 목록만 스크롤). 밀려 올라간 상태면 제자리로.
+    if(window.scrollY || document.scrollingElement.scrollTop) window.scrollTo(0, 0);
+    if(document.body && document.body.scrollTop) document.body.scrollTop = 0;
+  }
+  const req = ()=>{ if(!raf) raf = requestAnimationFrame(fit); };
+  if(vv){ vv.addEventListener("resize", req); vv.addEventListener("scroll", req); }
+  window.addEventListener("resize", req);
+  window.addEventListener("scroll", req, { passive:true });
+  window.addEventListener("orientationchange", ()=>setTimeout(req, 250));
+  window.addEventListener("resize", ()=>{ try{ renderProviderPill(); }catch(_){} });
+  document.addEventListener("visibilitychange", ()=>{ if(!document.hidden){ req(); setTimeout(req, 300); } });
+  window.addEventListener("pageshow", req);
+  // 입력창에 포커스 → 키보드가 다 올라온 뒤 한 번 더 맞추고, 입력창이 보이게
+  document.addEventListener("focusin", e=>{
+    if(!(e.target && e.target.matches && e.target.matches("#msgInput, #chmInput"))) return;
+    setTimeout(()=>{ fit(); try{ e.target.scrollIntoView({ block:"nearest" }); }catch(_){} fit(); }, 320);
+  });
+  fit();
+})();
+
 /* ---------------- 승인 요청 카드: 안드로이드 기본 팝업 대신 채팅창 아래에 작게 표시 ---------------- */
 (function(){
   const stack = document.getElementById("askStack"); if(!stack) return;
@@ -6873,9 +7064,17 @@ function refreshDeviceRow(){
     if(detail){ const p = document.createElement("pre"); p.textContent = detail; c.appendChild(p); }
     const row = document.createElement("div"); row.className = "ab";
     const n = document.createElement("button"); n.textContent = no || "거부"; const y = document.createElement("button"); y.className = "y"; y.textContent = yes || "허용";
-    const done = ok=>{ try{ window.AndroidBridge && window.AndroidBridge.localAnswer(id, ok); }catch(_){} c.remove(); };
+    // 데스크톱 앱 승인(id 가 d 로 시작)은 DesktopBridge 로, 안드로이드는 AndroidBridge 로 답한다
+    const done = ok=>{ try{
+        if(window.DesktopBridge && typeof window.DesktopBridge.answer === "function" && /^d/.test(String(id))) window.DesktopBridge.answer(id, ok);
+        else if(window.AndroidBridge) window.AndroidBridge.localAnswer(id, ok);
+      }catch(_){} c.remove(); };
     n.addEventListener("click", ()=>done(false)); y.addEventListener("click", ()=>done(true));
     row.appendChild(n); row.appendChild(y); c.appendChild(row); stack.appendChild(c);
+    // Chminal 탭 등으로 입력창이 숨겨져 있으면 승인 카드가 안 보이므로 채팅 탭으로 돌아온다
+    if(!stack.offsetParent){ const t = document.querySelector('#mainTabs [data-tab="chat"]'); if(t) t.click(); }
+    // 새 카드가 보이게 (여러 개면 카드 영역 안에서만 스크롤 — 입력창·메뉴는 그대로)
+    try{ stack.scrollTop = stack.scrollHeight; }catch(_){}
     try{ if(navigator.vibrate) navigator.vibrate(30); }catch(_){}
   };
   window.__choiminiAskCancel = function(id){ const c = stack.querySelector('[data-id="' + id + '"]'); if(c) c.remove(); };
@@ -7500,6 +7699,8 @@ window.addEventListener("choimini-perm", function(){ updateExecUI(); });
 
 /* ---------------- boot ---------------- */
 // Google 로그인 필수: choimini-auth.js가 로그인 게이트를 띄우고,
+/* 자동 테스트용 읽기 창구 (동작에는 영향 없음) */
+window.__chmT = { get settings(){ return settings; }, curEffort, geminiThinkingBudget, applyMode, renderProviderPill, stripThinkTags };
 // 로그인 완료 후에만 앱을 초기화한다.
 if (window.ChoiminiAuth) {
   ChoiminiAuth.onReady(function(){ init(); showAppPromo(); });
