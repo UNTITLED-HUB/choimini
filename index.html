@@ -757,6 +757,50 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <style>
 .groq-scope-box{margin:12px 0 0;padding:12px;border:1px solid var(--border);border-radius:12px}.groq-scope-box legend{padding:0 5px;font-size:12px;color:var(--text-dim)}.groq-scope-box label{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;font-weight:400;cursor:pointer}.groq-scope-box input{accent-color:var(--accent)}.groq-scope-box span{margin-left:auto;font-size:11px;color:var(--text-dim)}.groq-scope-box:disabled{opacity:.5}.groq-model-summary code{color:var(--text);overflow-wrap:anywhere}
 </style>
+<style id="activity-timeline-style">
+/* Activity history follows the same quiet presentation on web, mobile and Desktop. */
+.activity-summary{display:flex;align-items:center;gap:10px;max-width:100%;padding:10px 0;margin:0 0 10px;border:0;background:transparent;color:#a4a49b;font-size:13px;font-weight:500;text-align:left;line-height:1.6;box-shadow:none}
+.activity-summary:hover{color:#e5e5dd;background:transparent;box-shadow:none}
+.activity-summary-text{min-width:0;overflow-wrap:anywhere}
+.activity-summary>svg{width:17px;height:17px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.activity-overlay[hidden]{display:none!important}
+.activity-overlay{position:fixed;inset:0;z-index:100010;background:#0008;display:flex;justify-content:flex-end;align-items:stretch;padding:18px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.activity-sheet{width:min(620px,100%);min-width:0;max-height:100%;display:flex;flex-direction:column;overflow:hidden;background:#20201e;color:#ecece7;border:1px solid #343431;border-radius:22px;box-shadow:0 24px 80px #0005;animation:activity-enter .18s ease-out;outline:none}
+.activity-sheet-header{position:relative;flex:none;display:flex;align-items:flex-start;justify-content:center;padding:20px 62px 18px;min-height:82px;gap:8px;background:#20201e}
+.activity-sheet-header h2{font-size:15px;font-weight:600;line-height:1.55;margin:0;text-align:center;overflow-wrap:anywhere}
+.activity-close{position:absolute;left:14px;top:15px;width:36px;height:36px;display:grid;place-items:center;color:#ecece7;background:transparent;border:0;border-radius:9px;padding:7px}
+.activity-close:hover{background:#30302d}
+.activity-close svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
+.activity-count{position:absolute;right:15px;top:26px;color:#92928a;font-size:10px;white-space:nowrap}
+.activity-sheet-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 26px 32px 25px;scrollbar-width:thin;scrollbar-color:#464640 transparent}
+.activity-timeline{margin:0;padding:0;list-style:none}
+.activity-entry{position:relative;display:grid;grid-template-columns:36px minmax(0,1fr);column-gap:22px;padding:0 0 30px;margin:0;font-size:14px}
+.activity-entry:not(:last-child)::before{content:"";position:absolute;left:17px;top:34px;bottom:0;width:1px;background:#3a3a35}
+.activity-node{position:relative;z-index:1;width:36px;height:36px;border:1px solid #3c3c37;border-radius:10px;background:#151513;color:#e8e8e0;display:grid;place-items:center}
+.activity-node svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.activity-entry-body{min-width:0;padding-top:3px}
+.activity-entry h3{margin:0;color:#e7e7e1;font-size:14px;font-weight:600;line-height:1.65;overflow-wrap:anywhere}
+.activity-detail{margin-top:6px;color:#b0b0a6;font-size:12px;line-height:1.65;font-family:ui-monospace,SFMono-Regular,Consolas,"Noto Sans KR",monospace;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.activity-output{margin-top:9px;color:#a6a69b;font-size:11px;min-width:0}
+.activity-output>summary{padding:2px 0;color:#a6a69b;font-size:11px;font-weight:400;cursor:pointer}
+.activity-output pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto;margin:8px 0 0;padding:12px;background:#181816;border:1px solid #353530;border-radius:8px;font:11px/1.7 ui-monospace,SFMono-Regular,Consolas,"Noto Sans KR",monospace;color:#c6c6bb}
+.activity-failure{font-size:10px;margin-left:8px;color:#e0a29a;font-weight:500}
+.activity-entry.failed .activity-node{color:#e0a29a;border-color:#72514a}
+.activity-entry.note{grid-template-columns:36px minmax(0,1fr);padding-bottom:24px}
+.activity-entry.note .activity-node,.activity-entry.running .activity-node{border:0;background:transparent}
+.activity-entry.note .activity-node svg{width:14px;height:14px;fill:#44443e;stroke:none}
+.activity-entry.note h3{font-weight:400;color:#d8d8cd}
+.activity-entry.running .activity-node svg{width:14px;height:14px;fill:#b7b7a5;stroke:none;animation:activity-pulse 1.2s ease-in-out infinite}
+.activity-image{display:block;margin:12px 0 0;max-width:100%;padding:0;background:none;border:0}
+.activity-image img{display:block;max-width:100%;max-height:200px;border:1px solid #45453d;border-radius:9px;object-fit:contain;cursor:zoom-in}
+.lr-body .act-run{background:transparent;border:0;padding:4px 0;color:var(--text-dim);box-shadow:none}
+@keyframes activity-enter{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+@keyframes activity-pulse{50%{opacity:.4}}
+@media(max-width:760px){.activity-overlay{padding:0;align-items:flex-end}.activity-sheet{width:100%;max-height:94dvh;border-radius:24px 24px 0 0;border-left:0;border-right:0;border-bottom:0}.activity-sheet-header{padding-top:20px;min-height:86px}.activity-sheet-body{padding:8px 20px calc(28px + env(safe-area-inset-bottom)) 18px}.activity-entry{column-gap:18px}.activity-summary{font-size:12px}.activity-sheet-header h2{font-size:14px}.activity-entry h3{font-size:14px}.activity-detail{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.activity-sheet,.activity-entry.running .activity-node svg{animation:none}}
+
+#devZoom{z-index:100020}
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol><symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol><symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M14 6v12" stroke-dasharray="2 2.5"/></symbol><symbol id="i-gift" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8"/><path d="M12 8c-1.5-3-5-3.5-5-1.2C7 8 9 8 12 8zM12 8c1.5-3 5-3.5 5-1.2C17 8 15 8 12 8z"/></symbol><symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol><symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/></symbol><symbol id="i-clip" viewBox="0 0 24 24"><path d="M20 11l-8.5 8.5a5 5 0 0 1-7-7L13 4a3.3 3.3 0 0 1 4.7 4.7L9.2 17.2a1.7 1.7 0 0 1-2.4-2.4L14.5 7"/></symbol><symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor"/></symbol><symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12L20 4l-5 16-3.5-6.5z"/><path d="M11.5 13.5L20 4"/></symbol><symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5v5l4.5-2.5z"/></symbol><symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol><symbol id="i-file" viewBox="0 0 24 24"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/></symbol><symbol id="i-package" viewBox="0 0 24 24"><path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4M12 11v10"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-4L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4l2-2M20 20v-5h-5"/></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16 5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14 7l3 3"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2"/></symbol><symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol><symbol id="i-code" viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 6l-3 12"/></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></symbol><symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol><symbol id="i-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></symbol><symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.2v.1"/></symbol><symbol id="i-err" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol><symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol><symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol><symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17v.1"/></symbol><symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/></symbol><symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></symbol></defs></svg>
@@ -1445,7 +1489,7 @@ const LS = {
   redeemed: "choimini.redeemed",
   deviceId: "choimini.deviceId"
 };
-const APP_VERSION = "2.5.0";
+const APP_VERSION = "2.6.0";
 const TOKEN_MULT = 10; // internal = display * 10
 const DEFAULT_INTERNAL_TOKENS = 3000; // 하루 기본 지급 300 토큰
 
@@ -2029,6 +2073,7 @@ function renderMessages(){
   wrap.innerHTML = "";
   refreshGenUI();
   if(!c || c.messages.length===0){
+    if(activitySheetState) closeActivitySheet();
     empty.style.display = "";
     return;
   }
@@ -2041,6 +2086,7 @@ function renderMessages(){
       wrap.appendChild(r);
     }
   });
+  refreshActivitySheet();
   const gs = genState[c.id]; if(gs && gs.live) gs.live.attach(); // 다른 채팅에 갔다 돌아왔을 때 생성 중 말풍선 복원
   scrollToBottom();
 }
@@ -2066,44 +2112,141 @@ function parseAiDisplay(text){
   return { text:t, status, hasTools };
 }
 function baseName(p){ return String(p||"").split("/").pop(); }
+/* Compact per-turn activity summary + accessible timeline sheet. Only recorded actions and public status labels are shown. */
+const ACTIVITY_ICONS = {
+  command:'<path d="m6 6 5 6-5 6m8 0h5"/>',
+  browser:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18"/>',
+  file:'<path d="M6 3h8l4 4v14H6zM14 3v5h5M9 12h6M9 16h6"/>',
+  read:'<path d="M3 5h7a2 2 0 0 1 2 2v14a3 3 0 0 0-3-2H3zM21 5h-7a2 2 0 0 0-2 2v14a3 3 0 0 1 3-2h6z"/>',
+  device:'<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/>',
+  upload:'<path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/>',
+  note:'<circle cx="12" cy="12" r="3"/>'
+};
+let activitySheetState = null;
+function compactToolOnly(m){const d=parseAiDisplay(m.content);return d.hasTools && !d.text && !m.question;}
+function activityTurn(chat, index){
+  const ms=chat && chat.messages || []; let start=index, end=index+1;
+  while(start>0 && !(ms[start].role==='user' && !ms[start].auto)) start--;
+  while(end<ms.length && !(ms[end].role==='user' && !ms[end].auto)) end++;
+  let last=-1; for(let i=start;i<end;i++) if(ms[i].role==='ai') last=i;
+  return {start,end,last,anchor:ms[start] && ms[start].id || 'turn-'+start};
+}
+function activityEntries(chat, turn){
+  const entries=[];
+  for(let i=turn.start;i<turn.end;i++){
+    const m=chat.messages[i]; if(m.role!=='ai') continue;
+    let entryIndex=0;
+    const add=e=>entries.push(Object.assign({key:(m.id||i)+'-'+(entryIndex++)},e));
+    const st=parseAiDisplay(m.content).status;
+    if(st && st.kind!=='사고') add({kind:'note',title:st.text || (st.kind==='테스트'?'테스트 진행':'작업 계획')});
+    const a=m.activity||{}, thumbs=window.__devThumbs && window.__devThumbs[m.id] || {};
+    (a.commands||[]).forEach((c,j)=>{
+      const cmd=String(c.cmd||''); let kind=c.dev?'device':/^🌐|^브라우저/.test(cmd)?'browser':/^(read_file|list_dir|glob|grep|fs_(read|ls|find|grep|head|tail))\b/.test(cmd)?'read':'command';
+      const title=kind==='browser'?cmd.replace(/^🌐\s*/, ''):kind==='device'?'화면 '+(c.dev==='screen'?'확인':c.dev==='type'?'입력':c.dev==='click'||c.dev==='tap'?'클릭':c.dev==='scroll'?'스크롤':'조작'):kind==='read'?(baseName(cmd.split(/\s+/).slice(1).join(' '))||'파일')+' 읽음':(cmd.split('\n')[0].replace(/^run_command\s+/,'').slice(0,72)||'명령')+(c.ok===false?' · 실행 실패':' 실행함');
+      add({kind,title,detail:cmd,out:String(c.out||''),failed:c.ok===false,image:thumbs[j]||''});
+    });
+    for(const [key,label] of [['created','파일 생성함'],['edited','파일 수정함'],['deleted','파일 삭제함']])
+      (a[key]||[]).forEach(path=>add({kind:key,title:baseName(path)+' · '+label,detail:String(path)}));
+    (a.uploaded||[]).forEach(file=>{const path=typeof file==='string'?file:file.name||file.path||'파일';add({kind:'upload',title:baseName(path)+' · 파일 전달함',detail:path});});
+    if(m.running) add({kind:'running',title:typeof m.running==='string'?m.running:'작업 진행 중',running:true});
+  }
+  return entries;
+}
+function activitySummary(entries){
+  const completed=entries.filter(e=>!e.running), counts={}; completed.forEach(e=>counts[e.kind]=(counts[e.kind]||0)+1);
+  const labels={created:n=>'파일 '+n+'개 생성함',browser:n=>'브라우저 사용함 ('+n+'개 작업)',edited:n=>'파일 '+n+'개 수정함',command:n=>'명령 '+n+'개 실행함',read:n=>'파일 '+n+'개 확인함',device:n=>'화면 조작함 ('+n+'단계)',upload:n=>'파일 '+n+'개 전달함',deleted:n=>'파일 '+n+'개 삭제함'};
+  const selected=Object.keys(labels).filter(k=>counts[k]).slice(0,2);
+  let text=selected.map(k=>labels[k](counts[k])).join(', '), represented=selected.reduce((sum,k)=>sum+counts[k],0);
+  if(!text) text=completed.length?'작업 내역 '+completed.length+'단계':'작업 진행 중';
+  else if(completed.length>represented) text+=' 외 '+(completed.length-represented)+'단계 더';
+  if(entries.some(e=>e.running) && text!=='작업 진행 중') text='작업 중 · '+text;
+  if(completed.some(e=>e.failed)) text+=' · 실패한 작업 있음';
+  return text;
+}
+function renderTurnActivitySummary(m,index){
+  const chat=currentChat(); if(!chat) return '';
+  const turn=activityTurn(chat,index); if(turn.last!==index) return '';
+  const entries=activityEntries(chat,turn); if(!entries.length) return '';
+  return `<button type="button" class="activity-summary" data-activity-open="${escapeHtml(turn.anchor)}" aria-haspopup="dialog"><span class="activity-summary-text">${escapeHtml(activitySummary(entries))}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>`;
+}
+function renderTurnActivityFiles(m,index){
+  const chat=currentChat();if(!chat)return '';
+  const turn=activityTurn(chat,index);if(turn.last!==index)return '';
+  const files=new Set();
+  for(let i=turn.start;i<turn.end;i++){
+    const x=chat.messages[i];if(x.role!=='ai'||!x.activity)continue;
+    const a=x.activity;
+    for(const name of ['created','edited','uploaded'])for(const path of a[name]||[])if(typeof path==='string')files.add(path);
+    for(const path of a.deleted||[])files.delete(path);
+  }
+  return [...files].map(fileCardHtml).join('');
+}
+function activitySheet(){
+  let overlay=document.getElementById('activityOverlay'); if(overlay) return overlay;
+  overlay=document.createElement('div');overlay.id='activityOverlay';overlay.className='activity-overlay';overlay.hidden=true;
+  overlay.innerHTML='<section class="activity-sheet" role="dialog" aria-modal="true" aria-labelledby="activityTitle" tabindex="-1"><header class="activity-sheet-header"><button type="button" class="activity-close" aria-label="작업 내역 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19"/></svg></button><h2 id="activityTitle">작업 내역</h2><span class="activity-count" aria-live="polite"></span></header><div class="activity-sheet-body" tabindex="0"><ol class="activity-timeline"></ol></div></section>';
+  document.body.appendChild(overlay);
+  overlay.querySelector('.activity-close').addEventListener('click',closeActivitySheet);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)closeActivitySheet();});
+  overlay.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();const zoom=document.getElementById('devZoom');if(zoom)zoom.remove();else closeActivitySheet();return;}
+    if(e.key!=='Tab')return;
+    const focusable=[...overlay.querySelectorAll('button,summary,[tabindex="0"]')].filter(x=>x.getClientRects().length);
+    const first=focusable[0],last=focusable[focusable.length-1];
+    if(e.shiftKey && (document.activeElement===first || !overlay.contains(document.activeElement))){e.preventDefault();last.focus();}
+    else if(!e.shiftKey && (document.activeElement===last || !overlay.contains(document.activeElement))){e.preventDefault();first.focus();}
+  });
+  return overlay;
+}
+function refreshActivitySheet(){
+  if(!activitySheetState)return;
+  const chat=chats[activitySheetState.chatId];
+  if(!chat || activeChatId!==chat.id){closeActivitySheet();return;}
+  const start=chat.messages.findIndex(m=>m.id===activitySheetState.anchor);
+  if(start<0){closeActivitySheet();return;}
+  const entries=activityEntries(chat,activityTurn(chat,start)),overlay=activitySheet(),body=overlay.querySelector('.activity-sheet-body'),list=overlay.querySelector('.activity-timeline');
+  overlay.querySelector('#activityTitle').textContent=activitySummary(entries);
+  overlay.querySelector('.activity-count').textContent=entries.filter(e=>!e.running).length+'단계';
+  const signature=JSON.stringify(entries);if(signature===activitySheetState.signature)return;
+  activitySheetState.signature=signature;
+  const focused=document.activeElement.closest && document.activeElement.closest('[data-activity-key]'),focusedKey=focused&&focused.dataset.activityKey;
+  const opened=new Set([...list.querySelectorAll('details[open]')].map(e=>e.dataset.activityKey)),top=body.scrollTop,atEnd=body.scrollHeight-body.clientHeight-top<32;
+  list.innerHTML=entries.map(e=>{
+    const kind=['created','edited','deleted'].includes(e.kind)?'file':e.kind==='running'?'note':e.kind;
+    const icon=ACTIVITY_ICONS[kind]||ACTIVITY_ICONS.note;
+    const detail=e.detail?`<div class="activity-detail">${escapeHtml(e.detail)}</div>`:'';
+    const output=e.out?`<details class="activity-output" data-activity-key="${escapeHtml(e.key)}"${opened.has(e.key)?' open':''}><summary>실행 결과 보기</summary><pre>${escapeHtml(e.out)}</pre></details>`:'';
+    const image=/^(data:image\/(png|jpe?g|webp);base64,|blob:)/i.test(e.image||'')?`<button type="button" class="activity-image" data-activity-image><img src="${escapeHtml(e.image)}" alt="작업 화면 캡처"></button>`:'';
+    return `<li class="activity-entry${e.failed?' failed':''}${e.running?' running':''}${e.kind==='note'?' note':''}"><span class="activity-node"><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg></span><div class="activity-entry-body"><h3>${escapeHtml(e.title)}${e.failed?'<span class="activity-failure">실패</span>':''}</h3>${detail}${output}${image}</div></li>`;
+  }).join('');
+  if(focusedKey){const replacement=[...list.querySelectorAll('[data-activity-key]')].find(e=>e.dataset.activityKey===focusedKey);if(replacement)replacement.querySelector('summary').focus({preventScroll:true});}
+  body.scrollTop=atEnd?body.scrollHeight:top;
+  list.querySelectorAll('[data-activity-image]').forEach(b=>b.addEventListener('click',()=>{if(window.__devZoom)window.__devZoom(b.querySelector('img').src);}));
+}
+function openActivitySheet(anchor,trigger){
+  const overlay=activitySheet(),app=document.querySelector('.app');
+  activitySheetState={chatId:activeChatId,anchor,trigger,wasInert:!!(app&&app.inert),signature:null};
+  overlay.hidden=false;refreshActivitySheet();if(!activitySheetState)return;
+  if(app)app.inert=true;
+  overlay.querySelector('.activity-sheet-body').scrollTop=0;
+  overlay.querySelector('.activity-close').focus();
+}
+function closeActivitySheet(){
+  const state=activitySheetState;activitySheetState=null;
+  const overlay=document.getElementById('activityOverlay');if(overlay)overlay.hidden=true;
+  const app=document.querySelector('.app');if(app)app.inert=!!(state&&state.wasInert);
+  const trigger=state && (state.trigger.isConnected?state.trigger:[...document.querySelectorAll('[data-activity-open]')].find(b=>b.dataset.activityOpen===state.anchor));
+  if(trigger)trigger.focus();
+}
+document.addEventListener('click',e=>{const button=e.target.closest && e.target.closest('[data-activity-open]');if(button)openActivitySheet(button.dataset.activityOpen,button);});
+
 function renderActivityHtml(m){
-  let h = "";
-  const st = parseAiDisplay(m.content).status;
-  if(st){
-    const tx = escapeHtml(st.text || "");
-    if(st.kind === "계획") h += `<div class="act-plan">${tx || "계획중..."}</div>`;
-    else if(st.kind === "사고") h += "";   // 사고 과정은 표시하지 않는다
-    else h += `<div class="act-test">* <b>${tx || "테스트중..."}</b></div>`;
-  }
-  const a = m.activity;
-  const devSteps = a && a.commands ? a.commands.map((c,i)=>({c,i})).filter(x=>x.c.dev) : [];
-  const plainCmds = a && a.commands ? a.commands.filter(c=>!c.dev) : [];
-  if(devSteps.length){
-    const DI = { screen:"📸", click:"👆", tap:"👆", swipe:"↔️", scroll:"↕️", type:"⌨️", key:"🔘", open_app:"🚀", wait:"⏳" };
-    const th = (window.__devThumbs && window.__devThumbs[m.id]) || {};
-    h += `<div class="devact"><div class="devhead">📱 화면 조작 <span>${devSteps.length}단계</span></div>` + devSteps.map(x=>
-      `<div class="devstep ${x.c.ok ? "ok" : "bad"}"><span class="di">${DI[x.c.dev] || "▫️"}</span><div class="dt">${escapeHtml(x.c.cmd)}${th[x.i] ? `<img class="devthumb" src="${th[x.i]}" alt="화면 캡처" onclick="window.__devZoom&&window.__devZoom(this.src)">` : ""}</div></div>`).join("") + `</div>`;
-  }
-  if(plainCmds.length){
-    h += `<details class="act"><summary>&gt; ${plainCmds.every(c=>/^🌐/.test(c.cmd)) ? "브라우저 작업함" : "명령 실행함"}(${plainCmds.length})</summary><pre>` +
-      plainCmds.map(c=>`<span class="${c.ok ? "cmd-ok" : "cmd-bad"}">$ ${escapeHtml(c.cmd)}</span>\n${escapeHtml(c.out||"")}`).join("\n\n") + `</pre></details>`;
-    const bth = (window.__devThumbs && window.__devThumbs[m.id]) || {};
-    a.commands.forEach((c, i)=>{ if(!c.dev && bth[i]) h += `<img class="devthumb" src="${bth[i]}" alt="스크린샷" onclick="window.__devZoom&&window.__devZoom(this.src)">`; });
-  }
-  if(a){
-    (a.created||[]).forEach(p=>{ h += `<div class="act-line created">&gt; <b>파일 생성됨</b>(${escapeHtml(baseName(p))})</div>`; });
-    (a.edited||[]).forEach(p=>{ h += `<div class="act-line edited">&gt; <b>파일 편집됨</b>(${escapeHtml(baseName(p))})</div>`; });
-    (a.deleted||[]).forEach(p=>{ h += `<div class="act-line deleted">&gt; <b>파일 삭제됨</b>(${escapeHtml(baseName(p))})</div>`; });
-  }
-  if(a && a.uploaded && a.uploaded.length){
-    h += `<div class="act-line uploaded">&gt; <b>업로드됨</b>(${a.uploaded.length})</div>` + a.uploaded.map(fileCardHtml).join("");
-  }
+  let h="";
   if(m.question){
     h += `<div class="q-card"><div class="q-text">❓ ${escapeHtml(m.question.question)}</div>` +
       (m.question.options && m.question.options.length ? `<div class="q-opts">` + m.question.options.map((o,i)=>`<button data-q="${i}">${escapeHtml(o)}</button>`).join("") + `</div>` : "") +
       `<div class="q-hint">아래 입력창에 직접 답해도 돼요.</div></div>`;
   }
-  if(m.running) h += `<div class="act-run"><span class="spin"></span>${escapeHtml(m.running === true ? "명령 실행중..." : m.running)}</div>`;
   return h;
 }
 // 이번 사용자 요청부터 지금까지 AI가 만들거나 고친 파일 (마지막 답변 아래 미리보기/다운로드 카드용)
@@ -2269,6 +2412,9 @@ function downloadFile(p){
 function lfsFmtSize(n){ return n < 1024 ? n + " B" : n < 1048576 ? (n/1024).toFixed(1) + " KB" : (n/1048576).toFixed(1) + " MB"; }
 
 function renderMessageRow(m, isLast, idx){
+  if(m.role==='ai' && compactToolOnly(m)){
+    const c=currentChat(); if(c && activityTurn(c,idx).last!==idx) return null;
+  }
   if(m.role === "user" && m.auto) return null; // 도구 실행 결과는 AI에게만 전달하고, 화면엔 "진행 표시"로 대신 보여준다
   if(m.role === "system-suggest"){
     // NO BRAIN에서 WORK/CODE가 더 적합해 보이는 요청에 대한 모드 전환 안내 (토큰을 쓰지 않고 먼저 물어봄)
@@ -2348,9 +2494,19 @@ function renderMessageRow(m, isLast, idx){
   } else {
     inner += m._streaming ? "" : renderContentWithCode(m.role === "ai" ? parseAiDisplay(m.content).text : m.content); // 타자 효과 시작 직전엔 빈 말풍선으로 먼저 그림
   }
-  if(m.role === "ai") inner = statsHtml(m) + inner + renderActivityHtml(m);
+  if(m.role === "ai") inner = statsHtml(m) + renderTurnActivitySummary(m,idx) + inner + renderActivityHtml(m) + renderTurnActivityFiles(m,idx);
 
-  inner += chargeChipsHtml(m);
+  let billed=m;
+  if(m.role==='ai'){
+    const c=currentChat(),turn=c && activityTurn(c,idx);
+    if(turn && turn.last===idx){
+      const charges=[];
+      for(let i=turn.start;i<=idx;i++) if(i===idx || (c.messages[i].role==='ai' && compactToolOnly(c.messages[i]))) charges.push(...(c.messages[i].charges||[]));
+      const totals=new Map(); charges.forEach(x=>totals.set(x.label,(totals.get(x.label)||0)+x.amount));
+      billed={charges:[...totals].map(([label,amount])=>({label,amount:Math.round(amount*10)/10}))};
+    }
+  }
+  inner += chargeChipsHtml(billed);
   if(m.meta && !(m.role === "ai" && parseAiDisplay(m.content).hasTools)){
     // 토큰 소모량은 위의 🪙 칩에 이미 나오므로, 메타 줄에서는 빼서 한 번만 보이게 한다
     const metaShown = (m.charges && m.charges.length) ? m.meta.replace(/\s*·\s*-[\d.]+\s*토큰/, "") : m.meta;
@@ -7744,7 +7900,7 @@ window.addEventListener("choimini-perm", function(){ updateExecUI(); });
 /* ---------------- boot ---------------- */
 // Google 로그인 필수: choimini-auth.js가 로그인 게이트를 띄우고,
 /* 자동 테스트용 읽기 창구 (동작에는 영향 없음) */
-window.__chmT = { get settings(){ return settings; }, curEffort, geminiThinkingBudget, applyMode, renderProviderPill, stripThinkTags, groqScope, groqEligible, nbGroqAvailable, computeNormalCost, agentRequestCostInternal, agentToolCostInternal, attachFee, sanitizeTokens, looksLikeRedeemCode, redeemCode, startRecaptcha };
+window.__chmT = { get settings(){ return settings; }, curEffort, geminiThinkingBudget, applyMode, renderProviderPill, stripThinkTags, groqScope, groqEligible, nbGroqAvailable, computeNormalCost, agentRequestCostInternal, agentToolCostInternal, attachFee, sanitizeTokens, looksLikeRedeemCode, redeemCode, startRecaptcha, renderMessages, renderActivityHtml, renderTurnActivitySummary, activityEntries, activityTurn, activitySummary, get chats(){return chats;}, get activeChatId(){return activeChatId;}, get tokensInternal(){return tokensInternal;} };
 // 로그인 완료 후에만 앱을 초기화한다.
 if (window.ChoiminiAuth) {
   ChoiminiAuth.onReady(function(){ init(); showAppPromo(); });
