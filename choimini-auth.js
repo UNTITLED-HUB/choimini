@@ -147,13 +147,16 @@
         '    <span>Google로 로그인</span>' +
         '  </button>' +
         '  <div class="clg-or"><span>이메일로 로그인</span></div>' +
-        '  <div id="clgEmailStep1" class="clg-row">' +
-        '    <input id="clgEmail" type="email" autocomplete="email" placeholder="이메일 주소" />' +
+        '  <div class="clg-row clg-actions">' +
+        '    <button id="clgSendBtn" class="clg-mini">메일 발송</button>' +
+        '    <button id="clgOpenMailBtn" class="clg-mini clg-secondary">메일 웹 열기</button>' +
         '  </div>' +
-        '  <div class="clg-row">' +
-        '    <button id="clgSendBtn" class="clg-mini" style="flex:1;padding:11px 8px">인증 메일 받기</button>' +
-        '    <button id="clgCustomBtn" class="clg-mini" style="flex:1;padding:11px 8px;background:#6366f1">다른 방식으로 받기</button>' +
+        '  <div id="clgEmailStep1" class="clg-row clg-email">' +
+        '    <input id="clgEmail" type="text" inputmode="email" autocomplete="email" placeholder="이메일" aria-label="이메일" />' +
+        '    <span aria-hidden="true">@</span>' +
+        '    <select id="clgDomain" aria-label="메일 서비스"><option value="gmail.com">Gmail</option><option value="naver.com">네이버</option><option value="daum.net">다음</option><option value="hanmail.net">한메일</option><option value="kakao.com">카카오</option><option value="outlook.com">Outlook</option><option value="icloud.com">iCloud</option><option value="custom">직접 입력</option></select>' +
         '  </div>' +
+        '  <div id="clgDomainRow" class="clg-row" style="display:none"><input id="clgCustomDomain" type="text" inputmode="url" placeholder="도메인 직접 입력" aria-label="도메인" /></div>' +
         '  <div id="clgCodeRow" class="clg-row" style="display:none">' +
         '    <input id="clgCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="메일에 적힌 인증번호" />' +
         '    <button id="clgCodeBtn" class="clg-mini" style="padding:11px 14px">확인</button>' +
@@ -162,9 +165,10 @@
         '</div>';
       document.body.appendChild(gate);
       document.getElementById("clgGoogleBtn").addEventListener("click", login);
-      document.getElementById("clgSendBtn").addEventListener("click", function () { sendEmailCode(false); });
-      document.getElementById("clgCustomBtn").addEventListener("click", function () { sendEmailCode(true); });
-      document.getElementById("clgEmail").addEventListener("keydown", function (e) { if (e.key === "Enter") sendEmailCode(false); });
+      document.getElementById("clgSendBtn").addEventListener("click", sendEmailCode);
+      document.getElementById("clgOpenMailBtn").addEventListener("click", function () { const svc = mailService(readEmail()); if (svc) openMailUrl(svc.url); else gateError("메일 서비스를 선택하거나 주소를 확인해 주세요."); });
+      document.getElementById("clgDomain").addEventListener("change", function () { document.getElementById("clgDomainRow").style.display = this.value === "custom" ? "flex" : "none"; });
+      document.getElementById("clgEmail").addEventListener("keydown", function (e) { if (e.key === "Enter") sendEmailCode(); });
       document.getElementById("clgCodeBtn").addEventListener("click", verifyEmailCode);
       document.getElementById("clgCode").addEventListener("keydown", function (e) { if (e.key === "Enter") verifyEmailCode(); });
     }
@@ -216,8 +220,14 @@
     return null;
   }
   /* 메일의 인증번호로 로그인 — 링크가 시스템 브라우저에서 열리는 Android/데스크톱 앱용 */
+  function readEmail() {
+    const value = (document.getElementById("clgEmail").value || "").trim().toLowerCase();
+    if (value.includes("@")) return value;
+    const domain = document.getElementById("clgDomain").value;
+    return value + "@" + (domain === "custom" ? document.getElementById("clgCustomDomain").value.trim().toLowerCase() : domain);
+  }
   async function verifyEmailCode() {
-    const email = pendingEmail || (document.getElementById("clgEmail").value || "").trim().toLowerCase();
+    const email = pendingEmail || readEmail();
     const token = (document.getElementById("clgCode").value || "").replace(/\s+/g, "");
     if (!email || !/^\d{6,10}$/.test(token)) { gateError("메일에 적힌 인증번호(숫자)를 입력해줘"); return; }
     const btn = document.getElementById("clgCodeBtn"); btn.disabled = true; gateError("");
@@ -239,39 +249,21 @@
     const w = window.open(url, "_blank", "noopener");
     return !!w;
   }
-  async function sendEmailCode(custom) {
-    const email = (document.getElementById("clgEmail").value || "").trim().toLowerCase();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { gateError("이메일 주소를 확인해줘"); return; }
-    const svc = isAndroid ? null : mailService(email);
-    // 팝업 차단을 피하려고, 누른 순간(사용자 동작 안)에 빈 창을 먼저 연다 → 메일이 나가면 그 창을 메일함으로 보낸다
-    let preWin = null;
-    if (svc && APP === "web") { try { preWin = window.open("", "_blank"); if (preWin) { preWin.opener = null; preWin.document.title = "메일함 여는 중…"; preWin.document.body.innerHTML = '<p style="font-family:sans-serif;color:#555;padding:24px">메일을 보내는 중이에요… 잠시 후 ' + svc.name + " 이(가) 열려요.</p>"; } } catch (e) { preWin = null; } }
-    const btn = document.getElementById(custom ? "clgCustomBtn" : "clgSendBtn"); btn.disabled = true; gateError("");
+  async function sendEmailCode() {
+    const email = readEmail();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { gateError("이메일 주소를 확인해 주세요."); return; }
+    const btn = document.getElementById("clgSendBtn"); btn.disabled = true; gateError("");
     try {
-      if (custom) { await sendCustomMail(email); }
-      else {
-        const { error } = await supabase.auth.signInWithOtp({ email: email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
-        if (error) throw error;
-      }
+      await sendCustomMail(email);
       pendingEmail = email;
-      const cr = document.getElementById("clgCodeRow"); if (cr) { cr.style.display = ""; try { document.getElementById("clgCode").focus(); } catch (_) {} }
-      gateError("메일을 보냈어요. 같은 브라우저면 링크를 누르고, 앱이면 메일의 인증번호를 아래에 입력해줘. (스팸함도 확인)");
-      if (svc) {
-        const opened = openMailUrl(svc.url, preWin);
-        const el = document.getElementById("clgError");
-        if (el) {
-          const a = document.createElement("a"); a.href = svc.url; a.target = "_blank"; a.rel = "noopener"; a.className = "clg-mail-link";
-          a.textContent = (opened ? "↗ " + svc.name + " 다시 열기" : "↗ " + svc.name + " 열기");
-          a.addEventListener("click", function (ev) { if (APP === "desktop" || APP === "desktop-code") { ev.preventDefault(); openMailUrl(svc.url); } });
-          el.appendChild(document.createElement("br")); el.appendChild(a);
-        }
-      }
+      document.getElementById("clgCodeRow").style.display = "";
+      document.getElementById("clgCode").focus();
+      gateError("메일의 링크 또는 인증번호를 확인해 주세요. 스팸함도 확인해 주세요.");
       setTimeout(function () { btn.disabled = false; }, 30000);
     } catch (e) {
-      if (preWin) { try { preWin.close(); } catch (_) {} }
       btn.disabled = false;
       const m = String((e && e.message) || e);
-      gateError(/rate|seconds|limit/i.test(m) ? "잠시 후 다시 시도해줘 (메일 발송 제한)" : "메일 전송 실패: " + m);
+      gateError(/rate|seconds|limit/i.test(m) ? "잠시 후 다시 시도해 주세요." : "메일 발송에 실패했어요. 잠시 후 다시 시도해 주세요.");
     }
   }
   /* ---------------- 로그인 / 로그아웃 ---------------- */

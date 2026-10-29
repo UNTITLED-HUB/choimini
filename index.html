@@ -167,12 +167,12 @@ details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
 @keyframes tokfloat{0%{opacity:0;transform:translateY(6px);}15%{opacity:1;}100%{opacity:0;transform:translateY(-22px);}}
 .charge-chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 0;}
 .charge-chips span{font-size:11px;color:var(--text-dim);background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:1px 8px;}
-.q-card{margin:8px 0 2px;padding:10px 12px;border-radius:10px;background:var(--panel-2);border:1px solid var(--accent);font-size:13px;}
-.q-card .q-text{font-weight:700;margin-bottom:8px;line-height:1.5;}
-.q-card .q-opts{display:flex;gap:6px;flex-wrap:wrap;}
-.q-card .q-opts button{padding:6px 12px;border-radius:16px;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;font-size:12.5px;}
-.q-card .q-opts button:hover{border-color:var(--accent);color:var(--accent);}
-.q-card .q-hint{font-size:11.5px;color:var(--text-dim);margin-top:8px;}
+.q-card{margin:12px 0 4px;padding:18px;border-radius:16px;background:var(--panel-2);border:1px solid var(--border);font-size:14px;max-width:620px;white-space:normal;overflow-wrap:anywhere;}
+.q-card .q-text{font-weight:700;margin-bottom:14px;line-height:1.5;}
+.q-card .q-opts{display:grid;gap:8px;}
+.q-card .q-opts button{width:100%;text-align:left;white-space:normal;overflow-wrap:anywhere;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;font-size:14px;line-height:1.45;}
+.q-card .q-opts button:hover,.q-card .q-opts button:focus-visible{border-color:var(--accent);color:var(--accent);}
+.q-card .q-hint{font-size:12px;color:var(--text-dim);margin-top:12px;}
 .act-line.uploaded b{color:var(--accent);}
 .chat-item .unread{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-right:6px;}
 #previewOverlay{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:14px;}
@@ -748,6 +748,11 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 #choiminiLoginGate .clg-row input { flex:1; min-width:0; background:#0f1218; color:#e8ecf3; border:1px solid #2a303b; border-radius:10px; padding:11px 12px; font-size:14px; outline:none; }
 #choiminiLoginGate .clg-row input:focus { border-color:#3b82f6; }
 #choiminiLoginGate .clg-mini { background:#3b82f6; color:#fff; border:none; border-radius:10px; padding:0 14px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+#choiminiLoginGate .clg-actions button{flex:1;min-width:0;padding:11px 6px;}
+#choiminiLoginGate .clg-secondary{background:#303a49;}
+#choiminiLoginGate .clg-email{align-items:center;}
+#choiminiLoginGate .clg-email input{width:0;}
+#choiminiLoginGate .clg-email select{min-width:0;max-width:45%;padding:11px 8px;background:#0f1218;color:#e8ecf3;border:1px solid #2a303b;border-radius:10px;font-size:14px;}
 #choiminiLoginGate .clg-mini:disabled { opacity:.5; cursor:default; }
 #choiminiLoginGate .clg-error { margin-top: 12px; font-size: 12.5px; color: #f0575c; min-height: 16px; }
 #choiminiLoginGate .clg-mail-link { display:inline-block; margin-top:8px; padding:7px 14px; border-radius:9px; background:#3b82f6; color:#fff; font-weight:600; text-decoration:none; }
@@ -1056,16 +1061,6 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <option value="high">높음 · 깊게 추론</option>
         </select>
       </div>
-      <div class="field-group">
-        <label>빠른 후속 판단</label>
-        <select id="fastFollowSelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
-          <option value="auto">자동 (기본) · WORK·화면 조작의 다음 단계는 가벼운 모델(또는 로컬 AI)</option>
-          <option value="always">항상 · CODE 포함 모든 다음 단계</option>
-          <option value="off">끔 · 모든 단계를 고른 모델로</option>
-        </select>
-      </div>
-
-
       <div class="field-group">
         <label>음성 · 받아쓰기와 읽어 주기</label>
         <select id="speechLangSelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
@@ -1948,7 +1943,7 @@ function init(){
   if(!Number.isInteger(settings.memoryLevel) || settings.memoryLevel < 1 || settings.memoryLevel > 5) settings.memoryLevel = 3;
   if(!["auto","off","low","medium","high"].includes(settings.thinkingLevel)) settings.thinkingLevel = "auto";
   if(!["fast","think","deep"].includes(settings.effort)) settings.effort = "fast";
-  if(!["auto","always","off"].includes(settings.fastFollow)) settings.fastFollow = "auto";
+  settings.fastFollow = "auto";
   if(!settings.localAI || typeof settings.localAI !== "object") settings.localAI = {};
   const _sc = settings.localAI.scope || {};
   settings.localAI = { enabled: !!settings.localAI.enabled && !!settings.localAI.consent, consent: !!settings.localAI.consent,
@@ -2256,9 +2251,9 @@ document.addEventListener('click',e=>{const button=e.target.closest && e.target.
 function renderActivityHtml(m){
   let h="";
   if(m.question){
-    h += `<div class="q-card"><div class="q-text">❓ ${escapeHtml(m.question.question)}</div>` +
+    h += `<div class="q-card"><div class="q-text">${escapeHtml(m.question.question)}</div>` +
       (m.question.options && m.question.options.length ? `<div class="q-opts">` + m.question.options.map((o,i)=>`<button data-q="${i}">${escapeHtml(o)}</button>`).join("") + `</div>` : "") +
-      `<div class="q-hint">아래 입력창에 직접 답해도 돼요.</div></div>`;
+      `<div class="q-hint">직접 입력해도 돼요.</div></div>`;
   }
   return h;
 }
@@ -2884,7 +2879,6 @@ if(memoryLevelSliderEl){
 const THINKING_LABEL = { auto:"자동", off:"끔", low:"낮음", medium:"보통", high:"높음" };
 function updateThinkingUI(){
   try{ updateLocalAIUI(); }catch(_){}
-  const ff = document.getElementById("fastFollowSelect"); if(ff) ff.value = settings.fastFollow || "auto";
   const sel = document.getElementById("thinkingLevelSelect"), lab = document.getElementById("thinkingLevelLabel");
   if(sel) sel.value = settings.thinkingLevel || "auto";
   if(lab) lab.textContent = THINKING_LABEL[settings.thinkingLevel || "auto"];
@@ -2898,8 +2892,6 @@ if(thinkingLevelSelectEl){
     toast("🧠 사고 과정 강도: " + THINKING_LABEL[settings.thinkingLevel]);
   });
 }
-const fastFollowSelectEl = document.getElementById("fastFollowSelect");
-if(fastFollowSelectEl) fastFollowSelectEl.addEventListener("change", ()=>{ settings.fastFollow = fastFollowSelectEl.value; saveJSON(LS.settings, settings); toast("⚡ 빠른 후속 판단: " + ({ auto:"자동", always:"항상", off:"끔" })[settings.fastFollow]); });
 /* ---- 로컬 Gemma (빠른 판단) 설정 ---- */
 const LocalAI = window.ChoiminiLocalAI;
 if(LocalAI) LocalAI.bind(()=>({ localAI: (settings && settings.localAI) || {} }));
@@ -2991,7 +2983,7 @@ async function applyLocalAIChoice(v){
 setTimeout(()=>{
   try{
     CSelect.initAll(document);
-    CSelect.wrapAll(["thinkingLevelSelect","fastFollowSelect","cmdWaitSelect","localAISelect","permSel","lfsSort","pkgMgr",
+    CSelect.wrapAll(["thinkingLevelSelect","cmdWaitSelect","localAISelect","permSel","lfsSort","pkgMgr",
                      "speechLangSelect","ttsVoiceSelect"]);
   }catch(e){ console.warn("[CSelect]", e); }
 }, 0);
