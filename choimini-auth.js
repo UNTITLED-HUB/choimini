@@ -254,7 +254,12 @@
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { gateError("이메일 주소를 확인해 주세요."); return; }
     const btn = document.getElementById("clgSendBtn"); btn.disabled = true; gateError("");
     try {
-      await sendCustomMail(email);
+      try { await sendCustomMail(email); }
+      catch (customError) {
+        if (/rate|limit/i.test(String(customError && customError.message))) throw customError;
+        const result = await supabase.auth.signInWithOtp({ email: email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
+        if (result.error) throw result.error;
+      }
       pendingEmail = email;
       document.getElementById("clgCodeRow").style.display = "";
       document.getElementById("clgCode").focus();
