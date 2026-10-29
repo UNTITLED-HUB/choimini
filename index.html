@@ -4041,6 +4041,7 @@ async function fetchJsonWithRetryOnce(url, opts, retryOpts){
     try{ data = await res.json(); }catch(e){ parseFailed = true; }
     if(!res.ok){
       const cls = classifyStatus(res.status);
+    if(data && data.error && data.error.retryable===false) cls.retryable=false;
       const devMsg = (data && (data.error?.message || data.message)) || `HTTP ${res.status}`;
       console.error(`[API 오류] status=${res.status}`, devMsg);
       lastErr = new ApiCallError(cls.friendly, { status: res.status, retryable: cls.retryable, dev: devMsg });
@@ -4087,6 +4088,7 @@ async function streamSSEOnce(url, init, onEvent, noRetry){
     if(res.ok) break;
     let data = null; try{ data = await res.json(); }catch(_){}
     const cls = classifyStatus(res.status);
+    if(data && data.error && data.error.retryable===false) cls.retryable=false;
     lastErr = new ApiCallError(cls.friendly, { status: res.status, retryable: cls.retryable, dev: (data && (data.error?.message || data.message)) || `HTTP ${res.status}` });
     console.error(`[API 오류] status=${res.status}`, lastErr.dev);
     if(cls.retryable && attempt < maxRetries-1){
@@ -5223,8 +5225,9 @@ async function generateReply(chat, signal, onDelta){
         if(e && e.name === "AbortError") throw e;
         lastErr = e;
         console.warn("[모델 호출 실패]", m, e && (e.dev || e.message));
-        const switchable = e && (e.retryable || e.status === 404 || e.empty);
+        const switchable = e && (e.retryable || e.status === 404 || e.status === 504 || e.empty);
         if(!switchable) throw e;
+        if(e.status===504) toast("응답이 지연되어 다른 모델로 전환하고 있어요");
         if(e.empty && attempt === 0){ await sleep(600); continue; } // 빈 응답은 같은 모델로 한 번 더
         break;                                                     // 그 외엔 다음 모델로
       }
