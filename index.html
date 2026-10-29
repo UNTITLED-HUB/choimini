@@ -758,45 +758,56 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 .groq-scope-box{margin:12px 0 0;padding:12px;border:1px solid var(--border);border-radius:12px}.groq-scope-box legend{padding:0 5px;font-size:12px;color:var(--text-dim)}.groq-scope-box label{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;font-weight:400;cursor:pointer}.groq-scope-box input{accent-color:var(--accent)}.groq-scope-box span{margin-left:auto;font-size:11px;color:var(--text-dim)}.groq-scope-box:disabled{opacity:.5}.groq-model-summary code{color:var(--text);overflow-wrap:anywhere}
 </style>
 <style id="activity-timeline-style">
-/* Activity history follows the same quiet presentation on web, mobile and Desktop. */
-.activity-summary{display:flex;align-items:center;gap:10px;max-width:100%;padding:10px 0;margin:0 0 10px;border:0;background:transparent;color:#a4a49b;font-size:13px;font-weight:500;text-align:left;line-height:1.6;box-shadow:none}
-.activity-summary:hover{color:#e5e5dd;background:transparent;box-shadow:none}
-.activity-summary-text{min-width:0;overflow-wrap:anywhere}
-.activity-summary>svg{width:17px;height:17px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+/* Use Choimini's existing surfaces, type and blue accent. */
+.activity-summary{display:flex;align-items:center;gap:12px;width:100%;max-width:100%;padding:10px 12px;margin:0 0 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text-dim);font-family:inherit;font-size:12px;font-weight:500;line-height:1.6;text-align:left;white-space:normal;box-shadow:none}
+.activity-summary:hover{border-color:var(--accent);color:var(--text);background:var(--panel-2);box-shadow:none}
+.activity-summary-text{flex:1;min-width:0;word-break:keep-all;overflow-wrap:anywhere}
+.activity-summary>svg{width:16px;height:16px;flex:none;fill:none;stroke:var(--accent);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .activity-overlay[hidden]{display:none!important}
 .activity-overlay{position:fixed;inset:0;z-index:100010;background:#0008;display:flex;justify-content:flex-end;align-items:stretch;padding:18px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
-.activity-sheet{width:min(620px,100%);min-width:0;max-height:100%;display:flex;flex-direction:column;overflow:hidden;background:#20201e;color:#ecece7;border:1px solid #343431;border-radius:22px;box-shadow:0 24px 80px #0005;animation:activity-enter .18s ease-out;outline:none}
-.activity-sheet-header{position:relative;flex:none;display:flex;align-items:flex-start;justify-content:center;padding:20px 62px 18px;min-height:82px;gap:8px;background:#20201e}
-.activity-sheet-header h2{font-size:15px;font-weight:600;line-height:1.55;margin:0;text-align:center;overflow-wrap:anywhere}
-.activity-close{position:absolute;left:14px;top:15px;width:36px;height:36px;display:grid;place-items:center;color:#ecece7;background:transparent;border:0;border-radius:9px;padding:7px}
-.activity-close:hover{background:#30302d}
-.activity-close svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
-.activity-count{position:absolute;right:15px;top:26px;color:#92928a;font-size:10px;white-space:nowrap}
-.activity-sheet-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 26px 32px 25px;scrollbar-width:thin;scrollbar-color:#464640 transparent}
+.activity-sheet{width:min(520px,100%);min-width:0;max-height:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 24px 80px #0005;animation:activity-enter .18s ease-out;outline:none;white-space:normal}
+.activity-sheet-header{position:relative;flex:none;display:flex;align-items:center;padding:18px 60px 18px 22px;min-height:70px;gap:10px;border-bottom:1px solid var(--border)}
+.activity-sheet-header h2{flex:1;min-width:0;font-size:15px;font-weight:600;line-height:1.5;margin:0;text-align:left;word-break:keep-all}
+.activity-close{position:absolute;right:14px;top:17px;width:34px;height:34px;display:grid;place-items:center;color:var(--text-dim);background:transparent;border:0;border-radius:8px;padding:7px}
+.activity-close:hover{background:var(--panel-2);color:var(--text)}
+.activity-close svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
+.activity-count{color:var(--accent);background:var(--accent-dim);padding:3px 8px;border-radius:6px;font-size:11px;white-space:nowrap}
+.activity-sheet-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:18px 22px 28px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.activity-context{margin:0 0 22px;color:var(--text-dim);font-size:12px;line-height:1.7;word-break:keep-all;overflow-wrap:anywhere}
 .activity-timeline{margin:0;padding:0;list-style:none}
-.activity-entry{position:relative;display:grid;grid-template-columns:36px minmax(0,1fr);column-gap:22px;padding:0 0 30px;margin:0;font-size:14px}
-.activity-entry:not(:last-child)::before{content:"";position:absolute;left:17px;top:34px;bottom:0;width:1px;background:#3a3a35}
-.activity-node{position:relative;z-index:1;width:36px;height:36px;border:1px solid #3c3c37;border-radius:10px;background:#151513;color:#e8e8e0;display:grid;place-items:center}
-.activity-node svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.activity-entry{position:relative;display:grid;grid-template-columns:30px minmax(0,1fr);column-gap:14px;padding:0 0 22px;margin:0;font-size:13px}
+.activity-entry:not(:last-child)::before{content:"";position:absolute;left:14px;top:30px;bottom:0;width:1px;background:var(--border)}
+.activity-node{position:relative;z-index:1;width:30px;height:30px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);color:var(--accent);display:grid;place-items:center}
+.activity-node svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .activity-entry-body{min-width:0;padding-top:3px}
-.activity-entry h3{margin:0;color:#e7e7e1;font-size:14px;font-weight:600;line-height:1.65;overflow-wrap:anywhere}
-.activity-detail{margin-top:6px;color:#b0b0a6;font-size:12px;line-height:1.65;font-family:ui-monospace,SFMono-Regular,Consolas,"Noto Sans KR",monospace;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.activity-output{margin-top:9px;color:#a6a69b;font-size:11px;min-width:0}
-.activity-output>summary{padding:2px 0;color:#a6a69b;font-size:11px;font-weight:400;cursor:pointer}
-.activity-output pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto;margin:8px 0 0;padding:12px;background:#181816;border:1px solid #353530;border-radius:8px;font:11px/1.7 ui-monospace,SFMono-Regular,Consolas,"Noto Sans KR",monospace;color:#c6c6bb}
-.activity-failure{font-size:10px;margin-left:8px;color:#e0a29a;font-weight:500}
-.activity-entry.failed .activity-node{color:#e0a29a;border-color:#72514a}
-.activity-entry.note{grid-template-columns:36px minmax(0,1fr);padding-bottom:24px}
-.activity-entry.note .activity-node,.activity-entry.running .activity-node{border:0;background:transparent}
-.activity-entry.note .activity-node svg{width:14px;height:14px;fill:#44443e;stroke:none}
-.activity-entry.note h3{font-weight:400;color:#d8d8cd}
-.activity-entry.running .activity-node svg{width:14px;height:14px;fill:#b7b7a5;stroke:none;animation:activity-pulse 1.2s ease-in-out infinite}
-.activity-image{display:block;margin:12px 0 0;max-width:100%;padding:0;background:none;border:0}
-.activity-image img{display:block;max-width:100%;max-height:200px;border:1px solid #45453d;border-radius:9px;object-fit:contain;cursor:zoom-in}
+.activity-entry h3{margin:0;color:var(--text);font-size:13px;font-weight:600;line-height:1.6;word-break:keep-all;overflow-wrap:anywhere}
+.activity-detail{margin-top:4px;color:var(--text-dim);font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.activity-output{margin-top:7px;color:var(--text-dim);font-size:11px;min-width:0}
+.activity-output>summary{padding:3px 0;color:var(--text-dim);font-size:11px;font-weight:400;cursor:pointer}
+.activity-output pre{white-space:pre;max-height:280px;overflow:auto;margin:8px 0 0;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font:11px/1.7 ui-monospace,SFMono-Regular,Consolas,"Noto Sans KR",monospace;color:var(--text);tab-size:4}
+.activity-failure{display:inline-block;font-size:10px;margin-left:8px;color:var(--danger);font-weight:500}
+.activity-entry.failed .activity-node{color:var(--danger);border-color:var(--danger)}
+.activity-entry.note .activity-node,.activity-entry.running .activity-node{border:0;background:var(--panel)}
+.activity-entry.note .activity-node svg{width:8px;height:8px;fill:var(--text-dim);stroke:none}
+.activity-entry.note h3{font-weight:400;color:var(--text-dim)}
+.activity-entry.running .activity-node svg{width:10px;height:10px;fill:var(--accent);stroke:none;animation:activity-pulse 1.2s ease-in-out infinite}
+.activity-image{display:block;margin:10px 0 0;max-width:100%;padding:0;background:none;border:0}
+.activity-image img{display:block;max-width:100%;max-height:200px;border:1px solid var(--border);border-radius:8px;object-fit:contain;cursor:zoom-in}
 .lr-body .act-run{background:transparent;border:0;padding:4px 0;color:var(--text-dim);box-shadow:none}
+/* Markdown creates its own breaks; inherited pre-wrap added accidental gaps to UI cards. */
+.bubble{min-width:0;white-space:normal;overflow-wrap:anywhere;word-break:keep-all}
+.bubble .uc,.lr-body{white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+.bubble .meta,.ai-stats,.file-card{white-space:normal}
+.code-block pre,.code-block code{white-space:pre;overflow-wrap:normal;word-break:normal;tab-size:4}
+.code-block{max-width:100%;min-width:0}
+.row.ai .bubble{flex:1;min-width:0}
+.file-card .fname{min-width:0;flex-basis:100%;word-break:normal;overflow-wrap:anywhere}
+.think-line{white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.6}
+.empty-state p,.field-group .hint,.composer-hint{word-break:keep-all;overflow-wrap:anywhere;line-height:1.6}
+.exec-lbl,.mode-btn,#permSel{white-space:nowrap}
 @keyframes activity-enter{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
 @keyframes activity-pulse{50%{opacity:.4}}
-@media(max-width:760px){.activity-overlay{padding:0;align-items:flex-end}.activity-sheet{width:100%;max-height:94dvh;border-radius:24px 24px 0 0;border-left:0;border-right:0;border-bottom:0}.activity-sheet-header{padding-top:20px;min-height:86px}.activity-sheet-body{padding:8px 20px calc(28px + env(safe-area-inset-bottom)) 18px}.activity-entry{column-gap:18px}.activity-summary{font-size:12px}.activity-sheet-header h2{font-size:14px}.activity-entry h3{font-size:14px}.activity-detail{font-size:12px}}
+@media(max-width:760px){.activity-overlay{padding:0;align-items:flex-end}.activity-sheet{width:100%;max-height:90dvh;border-radius:16px 16px 0 0;border-left:0;border-right:0;border-bottom:0}.activity-sheet-body{padding:16px 18px calc(24px + env(safe-area-inset-bottom))}.activity-sheet-header{padding-left:18px}.activity-summary{font-size:12px}.activity-entry{column-gap:12px}.activity-entry h3{font-size:13px}}
 @media(prefers-reduced-motion:reduce){.activity-sheet,.activity-entry.running .activity-node svg{animation:none}}
 
 #devZoom{z-index:100020}
@@ -852,8 +863,8 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <span class="cfgate-icon">🛡️</span>
           <span class="cfgate-domain">untitled-hub.github.io/choimini</span>
         </div>
-        <h1>보안 확인 수행 중</h1>
-        <p class="cfgate-desc">이 웹 사이트는 보안 서비스를 사용하여 악의적인 봇으로부터 보호합니다. 이 페이지는 웹 사이트에서 사용자가 봇이 아님을 확인하는 동안에만 표시됩니다.</p>
+        <h1>접속 확인 중</h1>
+        <p class="cfgate-desc">안전한 접속을 확인하고 있어요. 확인이 끝나면 Choimini가 열립니다.</p>
         <div class="cfgate-widget-box">
           <div class="cf-turnstile"
                data-sitekey="0x4AAAAAAE6QOBCCaei05aqw"
@@ -994,20 +1005,20 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <div class="mode-switch" id="effortSwitch" role="radiogroup" aria-label="추론 강도">
             <button class="mode-btn" type="button" data-effort="fast" title="바로 답해요 · 가장 빠르고 토큰이 적게 들어요">FAST</button>
             <button class="mode-btn" type="button" data-effort="think" title="한 번 더 생각하고 답해요">THINK</button>
-            <button class="mode-btn" type="button" data-effort="deep" title="더 강한 모델로 깊게 생각해요 · 느리고 토큰이 더 들어요">DEEP</button>
+            <button class="mode-btn" type="button" data-effort="deep" title="복잡한 코드를 충분히 검토해요 · 응답까지 시간이 더 걸릴 수 있어요">DEEP</button>
           </div>
         </div>
         <div class="mode-row">
           <div class="mode-switch" id="modeSwitch">
             <button class="mode-btn" type="button" data-mode="nobrain" title="간단한 질문 전용 · 가장 빠르고 토큰을 적게 써요">NO BRAIN</button>
-            <button class="mode-btn" type="button" data-mode="work" title="파일·검색·문서 같은 작업 · 도구를 직접 써요">WORK</button>
-            <button class="mode-btn" type="button" data-mode="code" title="코딩·실행 · 만들고 바로 확인까지 해요">CODE</button>
+            <button class="mode-btn" type="button" data-mode="work" title="검색·문서·파일 작업을 도구와 함께 진행해요">WORK</button>
+            <button class="mode-btn" type="button" data-mode="code" title="코드 작성부터 실행·검증까지 진행해요">CODE</button>
           </div>
         </div>
         <div class="input-box">
           <button class="icon-btn" id="attachBtn" title="파일 업로드">📎</button>
           <input type="file" id="fileInput" multiple style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;">
-          <textarea id="msgInput" rows="1" placeholder="질문하거나, 함께 할 작업을 알려주세요"></textarea>
+          <textarea id="msgInput" rows="1" placeholder="질문하거나, 함께할 작업을 알려주세요"></textarea>
           <button class="stop-btn" id="stopBtn" type="button">⏹ 답변 중지</button>
           <button class="icon-btn mic-btn" id="micBtn" type="button" title="음성으로 입력" aria-label="음성으로 입력">
             <svg viewBox="0 0 24 24" class="mic-ic" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
@@ -1036,7 +1047,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <div class="model-grid" id="modelGrid"></div>
 
       <div class="field-group">
-        <label>사고 과정 강도 · <span id="thinkingLevelLabel">자동</span></label>
+        <label>추론 강도 · <span id="thinkingLevelLabel">자동</span></label>
         <select id="thinkingLevelSelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
           <option value="auto">자동 (기본)</option>
           <option value="off">끔 · 가장 빠르고 저렴</option>
@@ -1489,7 +1500,7 @@ const LS = {
   redeemed: "choimini.redeemed",
   deviceId: "choimini.deviceId"
 };
-const APP_VERSION = "2.6.0";
+const APP_VERSION = "2.6.1";
 const TOKEN_MULT = 10; // internal = display * 10
 const DEFAULT_INTERNAL_TOKENS = 3000; // 하루 기본 지급 300 토큰
 
@@ -1537,7 +1548,7 @@ const PRESET_DESC = {
   max: "최고 성능 · 어려운 질문 · 최소 500토큰"
 };
 const DEFAULT_MODELS = {
-  gemini:    { lite:"gemini-3.1-flash-lite", medium:"gemini-3.5-flash", high:"gemini-3.7-flash", max:"gemini-3.1-pro" },
+  gemini:    { lite:"gemini-3.1-flash-lite", medium:"gemini-3.5-flash", high:"gemini-3.7-flash", max:"gemini-3.1-pro-preview" },
   openai:    { lite:"gpt-4.1-nano", medium:"gpt-4.1-mini", high:"gpt-4.1", max:"o3" },
   anthropic: { lite:"claude-3-5-haiku-20241022", medium:"claude-sonnet-4-20250514", high:"claude-sonnet-4-20250514", max:"claude-opus-4-1-20250805" }
 };
@@ -2142,23 +2153,23 @@ function activityEntries(chat, turn){
     const a=m.activity||{}, thumbs=window.__devThumbs && window.__devThumbs[m.id] || {};
     (a.commands||[]).forEach((c,j)=>{
       const cmd=String(c.cmd||''); let kind=c.dev?'device':/^🌐|^브라우저/.test(cmd)?'browser':/^(read_file|list_dir|glob|grep|fs_(read|ls|find|grep|head|tail))\b/.test(cmd)?'read':'command';
-      const title=kind==='browser'?cmd.replace(/^🌐\s*/, ''):kind==='device'?'화면 '+(c.dev==='screen'?'확인':c.dev==='type'?'입력':c.dev==='click'||c.dev==='tap'?'클릭':c.dev==='scroll'?'스크롤':'조작'):kind==='read'?(baseName(cmd.split(/\s+/).slice(1).join(' '))||'파일')+' 읽음':(cmd.split('\n')[0].replace(/^run_command\s+/,'').slice(0,72)||'명령')+(c.ok===false?' · 실행 실패':' 실행함');
+      const title=kind==='browser'?cmd.replace(/^🌐\s*/, ''):kind==='device'?'화면 '+(c.dev==='screen'?'확인':c.dev==='type'?'입력':c.dev==='click'||c.dev==='tap'?'클릭':c.dev==='scroll'?'스크롤':'조작'):kind==='read'?(baseName(cmd.split(/\s+/).slice(1).join(' '))||'파일')+' 확인':(cmd.split('\n')[0].replace(/^run_command\s+/,'').slice(0,72)||'명령')+(c.ok===false?' · 실행 실패':' 실행');
       add({kind,title,detail:cmd,out:String(c.out||''),failed:c.ok===false,image:thumbs[j]||''});
     });
-    for(const [key,label] of [['created','파일 생성함'],['edited','파일 수정함'],['deleted','파일 삭제함']])
+    for(const [key,label] of [['created','생성'],['edited','수정'],['deleted','삭제']])
       (a[key]||[]).forEach(path=>add({kind:key,title:baseName(path)+' · '+label,detail:String(path)}));
-    (a.uploaded||[]).forEach(file=>{const path=typeof file==='string'?file:file.name||file.path||'파일';add({kind:'upload',title:baseName(path)+' · 파일 전달함',detail:path});});
+    (a.uploaded||[]).forEach(file=>{const path=typeof file==='string'?file:file.name||file.path||'파일';add({kind:'upload',title:baseName(path)+' · 전달',detail:path});});
     if(m.running) add({kind:'running',title:typeof m.running==='string'?m.running:'작업 진행 중',running:true});
   }
   return entries;
 }
 function activitySummary(entries){
   const completed=entries.filter(e=>!e.running), counts={}; completed.forEach(e=>counts[e.kind]=(counts[e.kind]||0)+1);
-  const labels={created:n=>'파일 '+n+'개 생성함',browser:n=>'브라우저 사용함 ('+n+'개 작업)',edited:n=>'파일 '+n+'개 수정함',command:n=>'명령 '+n+'개 실행함',read:n=>'파일 '+n+'개 확인함',device:n=>'화면 조작함 ('+n+'단계)',upload:n=>'파일 '+n+'개 전달함',deleted:n=>'파일 '+n+'개 삭제함'};
+  const labels={created:n=>'파일 '+n+'개 생성',browser:n=>'브라우저 '+n+'개 작업',edited:n=>'파일 '+n+'개 수정',command:n=>'명령 '+n+'개 실행',read:n=>'파일 '+n+'개 확인',device:n=>'화면 조작 '+n+'단계',upload:n=>'파일 '+n+'개 전달',deleted:n=>'파일 '+n+'개 삭제'};
   const selected=Object.keys(labels).filter(k=>counts[k]).slice(0,2);
-  let text=selected.map(k=>labels[k](counts[k])).join(', '), represented=selected.reduce((sum,k)=>sum+counts[k],0);
+  let text=selected.map(k=>labels[k](counts[k])).join(' · '), represented=selected.reduce((sum,k)=>sum+counts[k],0);
   if(!text) text=completed.length?'작업 내역 '+completed.length+'단계':'작업 진행 중';
-  else if(completed.length>represented) text+=' 외 '+(completed.length-represented)+'단계 더';
+  else if(completed.length>represented) text+=' · 추가 '+(completed.length-represented)+'단계';
   if(entries.some(e=>e.running) && text!=='작업 진행 중') text='작업 중 · '+text;
   if(completed.some(e=>e.failed)) text+=' · 실패한 작업 있음';
   return text;
@@ -2167,7 +2178,7 @@ function renderTurnActivitySummary(m,index){
   const chat=currentChat(); if(!chat) return '';
   const turn=activityTurn(chat,index); if(turn.last!==index) return '';
   const entries=activityEntries(chat,turn); if(!entries.length) return '';
-  return `<button type="button" class="activity-summary" data-activity-open="${escapeHtml(turn.anchor)}" aria-haspopup="dialog"><span class="activity-summary-text">${escapeHtml(activitySummary(entries))}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>`;
+  return `<button type="button" class="activity-summary" data-activity-open="${escapeHtml(turn.anchor)}" aria-haspopup="dialog"><span class="activity-summary-text">작업 내역 · ${escapeHtml(activitySummary(entries))}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>`;
 }
 function renderTurnActivityFiles(m,index){
   const chat=currentChat();if(!chat)return '';
@@ -2184,7 +2195,7 @@ function renderTurnActivityFiles(m,index){
 function activitySheet(){
   let overlay=document.getElementById('activityOverlay'); if(overlay) return overlay;
   overlay=document.createElement('div');overlay.id='activityOverlay';overlay.className='activity-overlay';overlay.hidden=true;
-  overlay.innerHTML='<section class="activity-sheet" role="dialog" aria-modal="true" aria-labelledby="activityTitle" tabindex="-1"><header class="activity-sheet-header"><button type="button" class="activity-close" aria-label="작업 내역 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19"/></svg></button><h2 id="activityTitle">작업 내역</h2><span class="activity-count" aria-live="polite"></span></header><div class="activity-sheet-body" tabindex="0"><ol class="activity-timeline"></ol></div></section>';
+  overlay.innerHTML='<section class="activity-sheet" role="dialog" aria-modal="true" aria-labelledby="activityTitle" tabindex="-1"><header class="activity-sheet-header"><button type="button" class="activity-close" aria-label="작업 내역 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19"/></svg></button><h2 id="activityTitle">작업 내역</h2><span class="activity-count" aria-live="polite"></span></header><div class="activity-sheet-body" tabindex="0"><p class="activity-context"></p><ol class="activity-timeline"></ol></div></section>';
   document.body.appendChild(overlay);
   overlay.querySelector('.activity-close').addEventListener('click',closeActivitySheet);
   overlay.addEventListener('click',e=>{if(e.target===overlay)closeActivitySheet();});
@@ -2205,7 +2216,8 @@ function refreshActivitySheet(){
   const start=chat.messages.findIndex(m=>m.id===activitySheetState.anchor);
   if(start<0){closeActivitySheet();return;}
   const entries=activityEntries(chat,activityTurn(chat,start)),overlay=activitySheet(),body=overlay.querySelector('.activity-sheet-body'),list=overlay.querySelector('.activity-timeline');
-  overlay.querySelector('#activityTitle').textContent=activitySummary(entries);
+  overlay.querySelector('#activityTitle').textContent='작업 내역';
+  overlay.querySelector('.activity-context').textContent=activitySummary(entries);
   overlay.querySelector('.activity-count').textContent=entries.filter(e=>!e.running).length+'단계';
   const signature=JSON.stringify(entries);if(signature===activitySheetState.signature)return;
   activitySheetState.signature=signature;
@@ -3948,8 +3960,9 @@ class ApiCallError extends Error{
   }
 }
 function classifyStatus(status){
-  if(status === 401 || status === 403) return { friendly:"AI 서버 인증/권한 문제가 발생했어요. API 키가 올바른지 확인해줘.", retryable:false };
+  if(status === 401 || status === 403) return { friendly:"AI 서버 인증에 실패했어요. 설정에서 API 키를 확인해 주세요.", retryable:false };
   if(status === 429) return { friendly:"요청이 몰려서 잠시 제한됐어요. 곧 자동으로 다시 시도할게.", retryable:true };
+  if(status === 404) return { friendly:"선택한 AI 모델을 사용할 수 없어 다른 모델로 전환합니다.", retryable:false };
   if(status === 400) return { friendly:"요청 형식에 문제가 있어요.", retryable:false };
   if(status === 500) return { friendly:"AI 서버 내부에서 오류가 발생했어요.", retryable:true };
   if(status === 503) return { friendly:"AI 서비스가 일시적으로 이용 불가능해요.", retryable:true };
@@ -4046,7 +4059,20 @@ async function fetchJsonWithRetryOnce(url, opts, retryOpts){
 }
 
 /* SSE 스트리밍 요청: 응답이 오는 대로 onEvent(json)을 부른다. 시작 전 일시 오류(429/5xx/네트워크)는 fetchJsonWithRetry 와 같이 재시도. */
-function streamSSE(url, init, onEvent, onReset, noRetry){ return withBgResume(init || {}, i=>streamSSEOnce(url, i, onEvent, noRetry), onReset); }
+function streamSSE(url, init, onEvent, onReset, noRetry){
+  return withBgResume(init || {}, async i=>{
+    const ctl=new AbortController(),outer=i.signal;
+    let expired=false,timer;
+    const limit=curEffort()==='deep'?120000:60000;
+    const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>{expired=true;ctl.abort();},limit);};
+    const cancel=()=>ctl.abort();
+    if(outer){if(outer.aborted)cancel();else outer.addEventListener('abort',cancel,{once:true});}
+    arm();
+    try{return await streamSSEOnce(url,Object.assign({},i,{signal:ctl.signal}),j=>{arm();onEvent(j);},noRetry);}
+    catch(e){if(expired)throw new ApiCallError('AI 응답이 지연되어 요청을 멈췄어요. 잠시 후 다시 시도해 주세요.',{status:408,retryable:false,dev:'AI stream inactivity timeout'});throw e;}
+    finally{clearTimeout(timer);if(outer)outer.removeEventListener('abort',cancel);}
+  },onReset);
+}
 async function streamSSEOnce(url, init, onEvent, noRetry){
   const maxRetries = noRetry ? 1 : ((isCodeMode() || isWorkMode()) ? 5 : 3), baseDelay = 600;
   let res, lastErr;
@@ -4160,6 +4186,13 @@ function geminiThinkingBudget(model, level, preset, step){
   if(level === "off") return pro ? 128 : 0; // Pro 계열은 사고를 완전히 끌 수 없어서 최소값
   return { low:1024, medium:8192, high:24576 }[level];
 }
+function geminiThinkingConfig(model,budget){
+  if(budget===undefined)return undefined;
+  if(!/^gemini-[3-9]/i.test(model))return {thinkingBudget:budget};
+  const minimal=!/pro|gemini-3\.[78]-flash(?!-lite)/i.test(model);
+  const level=budget===0?(minimal?'MINIMAL':'LOW'):budget===-1||budget>=16384?'HIGH':budget>=4096?'MEDIUM':'LOW';
+  return {thinkingLevel:level};
+}
 async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutputTokens, signal, onDelta, opts){
   const contents = history.map(m=>({
     role: m.role==="user" ? "user" : "model",
@@ -4174,7 +4207,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
     if(fu) fu.parts.unshift({ text: pre + nbNote });
     else contents.unshift({ role:"user", parts:[{ text: pre + nbNote }] });
   }
-  const generationConfig = { temperature: agentTemperature() };
+  const generationConfig = /^gemini-3\.[78]-flash(?!-lite)/i.test(model) ? {} : { temperature: agentTemperature() };
   if(maxOutputTokens) generationConfig.maxOutputTokens = maxOutputTokens;
   // 사고 과정 강도 설정(자동/끔/낮음/보통/높음) → Gemini thinkingBudget.
   // 자동일 땐 예전처럼 Max 프리셋만 확장 사고(-1 = 동적 예산)를 켠다.
@@ -4184,7 +4217,8 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   // 짧은 보조 요청(채팅 제목 등, 출력 400토큰 이하)은 사고를 끈다. 안 끄면 에이전트 모드의 사고 예산(4096)이 출력 한도를 다 먹어서 빈 응답이 났다
   if(maxOutputTokens && maxOutputTokens <= 400) tb = /pro/i.test(model) ? 128 : 0;
   if(nbNote && (!settings.thinkingLevel || settings.thinkingLevel === "auto")) tb = /pro/i.test(model) ? 128 : 0; // NO BRAIN 유지: 고민하지 말고 바로
-  if(tb !== undefined) generationConfig.thinkingConfig = { thinkingBudget: tb };
+  const thinkingConfig=geminiThinkingConfig(model,tb);
+  if(thinkingConfig) generationConfig.thinkingConfig=thinkingConfig;
   // 사고 요약(무엇을 생각했는지)도 받아서 답변 위에 보여준다. 사고를 끈 경우(0)는 요청하지 않는다
   // 사고 과정(원문·요약)은 화면에 보여주지 않으므로 받지도 않는다 (includeThoughts 를 보내지 않음)
   const body = {
@@ -6306,7 +6340,7 @@ function makeLiveRow(label, chatId){
     const now = Date.now(), tt = "";   // 사고 내용은 보여주지 않는다 — 진행 상태와 시간만
     headEl.textContent = tText
       ? `🧠 ${fmtSec(tText - t0)} 생각 · ${base === STAGE.write || !base ? "작성 중" : base} ${fmtSec(now - tText)}`
-      : `${base} · ${fmtSec(now - t0)}${tt ? " — " + tt : ""}`;
+      : `${base} · ${fmtSec(now - t0)}${now-t0>20000 ? ' · 응답을 기다리고 있어요' : ''}`;
   }
   tick();
   const timer = setInterval(tick, 200);
@@ -7900,7 +7934,7 @@ window.addEventListener("choimini-perm", function(){ updateExecUI(); });
 /* ---------------- boot ---------------- */
 // Google 로그인 필수: choimini-auth.js가 로그인 게이트를 띄우고,
 /* 자동 테스트용 읽기 창구 (동작에는 영향 없음) */
-window.__chmT = { get settings(){ return settings; }, curEffort, geminiThinkingBudget, applyMode, renderProviderPill, stripThinkTags, groqScope, groqEligible, nbGroqAvailable, computeNormalCost, agentRequestCostInternal, agentToolCostInternal, attachFee, sanitizeTokens, looksLikeRedeemCode, redeemCode, startRecaptcha, renderMessages, renderActivityHtml, renderTurnActivitySummary, activityEntries, activityTurn, activitySummary, get chats(){return chats;}, get activeChatId(){return activeChatId;}, get tokensInternal(){return tokensInternal;} };
+window.__chmT = { get settings(){ return settings; }, curEffort, geminiThinkingBudget, geminiThinkingConfig, callGemini, streamSSE, renderContentWithCode, applyMode, renderProviderPill, stripThinkTags, groqScope, groqEligible, nbGroqAvailable, computeNormalCost, agentRequestCostInternal, agentToolCostInternal, attachFee, sanitizeTokens, looksLikeRedeemCode, redeemCode, startRecaptcha, renderMessages, renderActivityHtml, renderTurnActivitySummary, activityEntries, activityTurn, activitySummary, get chats(){return chats;}, get activeChatId(){return activeChatId;}, get tokensInternal(){return tokensInternal;} };
 // 로그인 완료 후에만 앱을 초기화한다.
 if (window.ChoiminiAuth) {
   ChoiminiAuth.onReady(function(){ init(); showAppPromo(); });
