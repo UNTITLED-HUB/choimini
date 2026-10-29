@@ -154,7 +154,7 @@
         '  <div id="clgEmailStep1" class="clg-row clg-email">' +
         '    <input id="clgEmail" type="text" inputmode="email" autocomplete="email" placeholder="이메일" aria-label="이메일" />' +
         '    <span aria-hidden="true">@</span>' +
-        '    <select id="clgDomain" aria-label="메일 서비스"><option value="gmail.com">Gmail</option><option value="naver.com">네이버</option><option value="daum.net">다음</option><option value="hanmail.net">한메일</option><option value="kakao.com">카카오</option><option value="outlook.com">Outlook</option><option value="icloud.com">iCloud</option><option value="custom">직접 입력</option></select>' +
+        '    <select id="clgDomain" aria-label="메일 서비스"><option value="gmail.com">gmail.com</option><option value="naver.com">naver.com</option><option value="daum.net">daum.net</option><option value="hanmail.net">hanmail.net</option><option value="kakao.com">kakao.com</option><option value="outlook.com">outlook.com</option><option value="icloud.com">icloud.com</option><option value="jne.kr">jne.kr</option><option value="custom">직접 입력</option></select>' +
         '  </div>' +
         '  <div id="clgDomainRow" class="clg-row" style="display:none"><input id="clgCustomDomain" type="text" inputmode="url" placeholder="도메인 직접 입력" aria-label="도메인" /></div>' +
         '  <div id="clgCodeRow" class="clg-row" style="display:none">' +
@@ -254,16 +254,11 @@
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { gateError("이메일 주소를 확인해 주세요."); return; }
     const btn = document.getElementById("clgSendBtn"); btn.disabled = true; gateError("");
     try {
-      try { await sendCustomMail(email); }
-      catch (customError) {
-        if (/rate|limit/i.test(String(customError && customError.message))) throw customError;
-        const result = await supabase.auth.signInWithOtp({ email: email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
-        if (result.error) throw result.error;
-      }
+      await sendCustomMail(email);
       pendingEmail = email;
       document.getElementById("clgCodeRow").style.display = "";
       document.getElementById("clgCode").focus();
-      gateError("메일의 링크 또는 인증번호를 확인해 주세요. 스팸함도 확인해 주세요.");
+      gateError("메일의 인증번호를 입력해 주세요. 스팸함도 확인해 주세요.");
       setTimeout(function () { btn.disabled = false; }, 30000);
     } catch (e) {
       btn.disabled = false;
