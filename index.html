@@ -179,7 +179,9 @@ details.act .cmd-ok{color:#3ddc84;} details.act .cmd-bad{color:#ff6b6b;}
 #previewOverlay.show{display:flex;}
 #previewOverlay .pv-box{background:var(--panel);border:1px solid var(--border);border-radius:14px;width:min(960px,100%);height:min(720px,100%);display:flex;flex-direction:column;overflow:hidden;}
 #previewOverlay .pv-head{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px;}
-#previewOverlay .pv-head span{flex:1;word-break:break-all;}
+#previewOverlay .pv-head span{flex:1 1 180px;min-width:0;overflow-wrap:anywhere;}
+#previewOverlay .pv-head{flex-wrap:wrap;}
+@media(max-width:600px){#previewOverlay{padding:0;align-items:stretch;}#previewOverlay .pv-box{width:100%;height:100%;max-height:100%;border-radius:0;}#previewOverlay .pv-head{gap:5px;padding:8px;}#previewOverlay .pv-head span{flex-basis:100%;}}
 #previewOverlay .pv-head button{padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);cursor:pointer;}
 #previewOverlay iframe{flex:1;border:0;background:#fff;width:100%;}
 #previewOverlay pre{flex:1;margin:0;padding:12px;overflow:auto;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;}
@@ -1067,6 +1069,13 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
           <button id="ttsPreviewBtn" type="button" style="padding:6px 12px;border-radius:8px;background:#3b82f6;color:#fff;border:0;font-size:12px;cursor:pointer">목소리 들어보기</button>
         </div>
         <div id="ttsVoiceNote" style="font-size:12px;color:var(--text-dim);margin-top:6px;line-height:1.6"></div>
+      </div>
+
+      <div class="field-group" id="androidStorageRow" style="display:none">
+        <label>Android 저장공간</label>
+        <div id="androidStorageInfo" style="font-size:12px;color:var(--text-dim)">확인 중…</div>
+        <button type="button" id="androidClearAiCache" style="margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--panel-2);color:var(--text)">AI 임시 캐시 비우기</button>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:5px">모델과 작업 파일은 유지돼요. 다음 모델 실행은 느려질 수 있어요.</div>
       </div>
 
       <div class="field-group" id="deviceUseRow" style="display:none">
@@ -2270,9 +2279,9 @@ function ensurePreviewOverlay(){
   let o = document.getElementById("previewOverlay");
   if(o) return o;
   o = document.createElement("div"); o.id = "previewOverlay";
-  o.innerHTML = `<div class="pv-box"><div class="pv-head"><span id="pvTitle"></span><button id="pvRaw" title="렌더링 대신 소스를 일반 텍스트로 봐요">일반 텍스트</button><button id="pvCopy">코드 복사</button><button id="pvRefresh">새로고침</button><button id="pvConsBtn">콘솔</button><button id="pvClose">닫기 ✕</button></div><div id="pvBody" style="flex:1;display:flex;min-height:0;"></div><div id="pvCons"><div id="pvConsOut"></div><input id="pvConsIn" placeholder="JavaScript 입력 후 Enter (미리보기 페이지에서 실행)" spellcheck="false"></div></div>`;
+  o.innerHTML = `<div class="pv-box"><div class="pv-head"><span id="pvTitle"></span><button id="pvRaw" title="렌더링 대신 소스를 일반 텍스트로 봐요">일반 텍스트</button><button id="pvCopy">코드 복사</button><button id="pvRefresh">새로고침</button><button id="pvDownload">다운로드</button><button id="pvConsBtn">콘솔</button><button id="pvClose">닫기 ✕</button></div><div id="pvBody" style="flex:1;display:flex;min-height:0;"></div><div id="pvCons"><div id="pvConsOut"></div><input id="pvConsIn" placeholder="JavaScript 입력 후 Enter (미리보기 페이지에서 실행)" spellcheck="false"></div></div>`;
   document.body.appendChild(o);
-  const close = ()=>{ o.classList.remove("show"); const b = document.getElementById("pvBody"); try{ window.ChoiminiPreview && ChoiminiPreview.dispose(b); }catch(_){} b.innerHTML = ""; };
+  const close = ()=>{ o._requestId = (o._requestId || 0)+1; o.classList.remove("show"); const b = document.getElementById("pvBody"); try{ window.ChoiminiPreview && ChoiminiPreview.dispose(b); }catch(_){} b.innerHTML = ""; };
   const cons = o.querySelector("#pvConsOut"), consIn = o.querySelector("#pvConsIn");
   const logLine = (t, m)=>{ const d = document.createElement("div"); d.className = t === "error" ? "e" : t === "warn" ? "w" : t === "in" || t === "info" ? "i" : ""; d.textContent = (t === "in" ? "> " : "") + m; cons.appendChild(d); cons.scrollTop = cons.scrollHeight; };
   window.addEventListener("message", ev=>{
@@ -2283,7 +2292,9 @@ function ensurePreviewOverlay(){
   o.querySelector("#pvRaw").addEventListener("click", ()=>{ o._raw = !o._raw; try{ localStorage.setItem("choimini.pvRaw", o._raw ? "1" : "0"); }catch(_){} if(o._path) previewFile(o._path); });
   try{ o._raw = localStorage.getItem("choimini.pvRaw") === "1"; }catch(_){ o._raw = false; }
   o.querySelector("#pvConsBtn").addEventListener("click", ()=>o.querySelector("#pvCons").classList.toggle("show"));
-  o.querySelector("#pvRefresh").addEventListener("click", ()=>{ if(o._path){ cons.innerHTML = ""; previewFile(o._path); toast("새로고침됨"); } });
+  o.querySelector("#pvRefresh").addEventListener("click", ()=>{ cons.innerHTML = ""; if(o._localPath) previewLocal(o._localPath, o._localReader); else if(o._path) previewFile(o._path); });
+  o.querySelector("#pvDownload").addEventListener("click", ()=>{ if(o._localPath) downloadLocal(o._localPath); else if(o._path) downloadFile(o._path); });
+  document.addEventListener("keydown", e=>{if(e.key === "Escape" && o.classList.contains("show")) close();});
   o.querySelector("#pvCopy").addEventListener("click", ()=>{
     const st = o._path && LinuxFS.stat(o._path); const t = st && typeof st.content === "string" && !/^data:/.test(st.content) ? st.content : null;
     if(t == null){ toast("복사할 텍스트 내용이 없어요"); return; }
@@ -2311,7 +2322,7 @@ function previewFile(p){
   body.innerHTML = "";
   const st = LinuxFS.stat(p);
   if(!st){ toast("파일을 찾을 수 없어요"); return; }
-  o._path = p;
+  o._path = p; o._localPath = null; o._localReader = null; o._requestId = (o._requestId || 0)+1;
   o.querySelector("#pvCopy").style.display = (typeof st.content === "string" && !/^data:/.test(st.content)) ? "" : "none";
   o.querySelector("#pvConsBtn").style.display = /\.(html?)$/i.test(p) ? "" : "none";
   if(!/\.(html?)$/i.test(p)) o.querySelector("#pvCons").classList.remove("show");
@@ -2348,7 +2359,9 @@ async function localFileSize(path){ const c = await localReadChunk(path, 0, 0); 
 async function localReadBytes(path, limit, onProgress){
   const parts = []; let off = 0, total = 0;
   for(;;){
-    const c = await localReadChunk(path, off, LOCAL_CHUNK);
+    const amount = limit ? Math.min(LOCAL_CHUNK, Math.max(0, limit - off)) : LOCAL_CHUNK;
+    if(limit && !amount) break;
+    const c = await localReadChunk(path, off, amount);
     parts.push(c.u); off += c.u.length; total = c.size != null ? c.size : off;
     if(onProgress) onProgress(Math.min(100, Math.round(off / Math.max(1, total) * 100)) + "%");
     if(c.whole || !c.u.length || off >= total || (limit && off >= limit)) break;
@@ -2358,11 +2371,12 @@ async function localReadBytes(path, limit, onProgress){
 async function previewLocal(path, rd){
   if((!rd && !LB()) || !window.ChoiminiPreview){ toast("Local 파일은 앱에서만 열 수 있어요"); return; }
   const o = ensurePreviewOverlay(), body = o.querySelector("#pvBody");
-  o._path = null; o.querySelector("#pvTitle").textContent = path;
+  o._path = null; o._localPath = path; o._localReader = rd; const requestId = o._requestId = (o._requestId || 0)+1; o.querySelector("#pvTitle").textContent = path;
   ["#pvCopy", "#pvRaw", "#pvConsBtn"].forEach(q=>{ o.querySelector(q).style.display = "none"; }); o.querySelector("#pvCons").classList.remove("show");
   body.innerHTML = "<div style='padding:14px;color:var(--text-dim)'>불러오는 중…</div>"; o.classList.add("show");
   try{
     const size = rd ? rd.size : await localFileSize(path);
+    if(requestId !== o._requestId) return;
     ChoiminiPreview.render(body, { name: baseName(path), size, load: rd ? rd.load : (lim, prog)=>localReadBytes(path, lim, prog) });
   }catch(e){ body.innerHTML = ""; const d = document.createElement("div"); d.style.cssText = "padding:14px;color:#e66"; d.textContent = "열지 못했어요: " + (e && e.message || e); body.appendChild(d); }
 }
@@ -3048,6 +3062,21 @@ setTimeout(()=>{
   if(ob) ob.addEventListener("click", ()=>setTimeout(()=>{ syncLang(); fillVoices(); }, 60));
   document.addEventListener("choimini-tts-voices",fillVoices);
 }, 0);
+
+function updateAndroidStorage(){
+  const row=document.getElementById("androidStorageRow"), b=window.AndroidBridge;
+  if(!row || !b || typeof b.localLlmStatus !== "function" || typeof b.localLlmClearCache !== "function") return;
+  row.style.display="";
+  try{const st=JSON.parse(b.localLlmStatus()); const mb=n=>(Number(n||0)/1048576).toFixed(1)+" MB";
+    document.getElementById("androidStorageInfo").textContent="AI 모델 " + mb(st.modelBytes) + " · AI 임시 캐시 " + mb(st.engineCacheBytes) + " · 전체 앱 캐시 " + mb(st.appCacheBytes);
+  }catch(_){document.getElementById("androidStorageInfo").textContent="저장공간을 확인하지 못했어요.";}
+}
+document.getElementById("androidClearAiCache").addEventListener("click",()=>{
+  const b=window.AndroidBridge; if(!b || !b.localLlmClearCache) return;
+  if(!confirm("AI 임시 캐시를 비울까요? 모델과 작업 파일은 유지돼요.")) return;
+  try{ toast(b.localLlmClearCache() ? "AI 임시 캐시를 비웠어요" : "모델을 내리고 다운로드를 끝낸 뒤 다시 시도해 주세요"); updateAndroidStorage(); }catch(_){toast("캐시를 비우지 못했어요");}
+});
+document.getElementById("openSettingsBtn").addEventListener("click",()=>setTimeout(updateAndroidStorage,0));
 
 /* ---- Groq 설정 + 연결 테스트 ----
    "키를 넣었는데 쓰이는지 모르겠다"를 눈으로 확인할 수 있게 실제로 한 번 호출해 본다.
@@ -5051,14 +5080,14 @@ async function generateReply(chat, signal, onDelta){
     // §4 실험: "일반 채팅" 을 켜 두면 Gemma 가 기기 안에서 먼저 답한다(토큰 0). 비거나 느리면 아래 클라우드로.
     if(localAnswerKind() === "chat" && !browserAvailable()){
       try{
-        const hist = chat.messages.filter(m=>m.role === "user" || m.role === "ai").map(m=>({ role:m.role, content:m.content }));
+        const hist = buildHistoryForChat(chat);
         const lr = await tryLocalAnswer("chat", null, hist, signal, onDelta);
         if(lr) return Object.assign(lr, { noBrain: true, noBrainCost: 0 });
       }catch(e){ if(e && e.name === "AbortError") throw e; }
     }
     if((apiKey || hasDefaultProxy(provider)) && tokensInternal >= cost){
       const model = settings.models[provider]["lite"]; // NO BRAIN 모드는 항상 lite급 모델 사용
-      const history = await withBrowserContext(chat.messages.filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files})));
+      const history = await withBrowserContext(buildHistoryForChat(chat));
       // Chrome in Choimini(브라우저 제어)에서는 ```browser 블록을 써야 하므로 NO BRAIN 의 "한 문장·60토큰" 제한을 풀어 준다
       const browserTask = browserAvailable();
       const shortPrompt = buildSystemPrompt() + (browserTask ? "\n\n[NO BRAIN · 브라우저 제어] 짧게 말하되, 사용자가 화면/페이지/사이트에 대해 묻거나 브라우저 조작을 시키면 반드시 ```browser 블록으로 먼저 확인·조작해라. 블록을 쓸 때는 길이 제한이 없다." : NO_BRAIN_SYSTEM_SUFFIX);
@@ -5198,22 +5227,11 @@ function memoryLevelHistoryCount(level){
   return ({1:2, 2:6, 3:14, 4:44, 5:60})[level] || 14;
 }
 function buildHistoryForChat(chat){
-  const level = settings.memoryLevel || 3;
-  const raw = chat.messages.filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files}));
-  if(level <= 1) return raw.slice(-2); // 매우 낮음: 최근 1턴 정도만
-  let base = raw;
-  if(chat.summary && typeof chat.summaryUpto === "number" && chat.summaryUpto > 0){
-    const after = raw.slice(chat.summaryUpto);
-    base = [
-      { role:"user", content:`[이전 대화 압축 요약]\n${chat.summary}` },
-      { role:"ai", content:"확인했어. 위 요약을 참고해서 이어서 답할게." }
-    ].concat(after);
+  const raw = (chat.messages || []).filter(m=>m.role==="user"||m.role==="ai").map(m=>({role:m.role, content:m.content, files:m.files}));
+  if(chat.summary && Number.isInteger(chat.summaryUpto) && chat.summaryUpto > 0){
+    return [{role:"user",content:`[이전 대화 압축 요약]\n${chat.summary}`},{role:"ai",content:"이전 요약과 이어지는 대화를 참고하겠습니다."}].concat(raw.slice(chat.summaryUpto));
   }
-  const n = memoryLevelHistoryCount(level);
-  if(chat.summary && typeof chat.summaryUpto === "number" && chat.summaryUpto > 0){
-    return base.slice(0,2).concat(base.slice(2).slice(-n));
-  }
-  return base.slice(-n);
+  return raw;
 }
 /* 대화가 길어지면(설정한 왕복 횟수마다) 오래된 구간을 AI로 요약해서 압축한다.
    최근 compressEvery 왕복 분량은 원문 그대로 남겨두고, 그보다 오래된 구간만 요약 대상으로 삼는다. */
@@ -5222,9 +5240,9 @@ async function maybeCompressChat(chat){
   if(!every) return;
   const turnMsgs = chat.messages.filter(m=>m.role==="user"||m.role==="ai");
   const already = chat.summaryUpto || 0;
-  const userTurns = turnMsgs.filter(m=>m.role === "user" && !m.auto).length;
-  const last = Number.isFinite(chat.summaryLastTurn) ? chat.summaryLastTurn : (already ? Math.floor(already / 2) : 0);
-  if(userTurns < every || userTurns - last < every) return; // 아직 압축 기준(왕복 수 * 2메시지)에 못 미침
+  const calls = Number.isFinite(chat.aiReplyCount) ? chat.aiReplyCount : 0;
+  const last = Number.isFinite(chat.summaryLastCall) ? chat.summaryLastCall : 0;
+  if(calls - last < every) return; // 아직 압축 기준(왕복 수 * 2메시지)에 못 미침
   const cutoff = Math.max(already, turnMsgs.length - 20);
   const toSummarize = turnMsgs.slice(already, cutoff);
   if(toSummarize.length < 2) return;
@@ -5239,7 +5257,7 @@ async function maybeCompressChat(chat){
     const summaryText = await summarizeMessages(toSummarize, chat.summary || "");
     if(!summaryText) return;
     chat.summary = summaryText;
-    chat.summaryLastTurn = userTurns;
+    chat.summaryLastCall = calls;
     chat.summaryUpto = cutoff;
     setPct(100);
     let used = 0;
@@ -5264,9 +5282,9 @@ async function summarizeMessages(msgs, previousSummary = ""){
   const model = settings.models[provider]["medium"];
   const history = (previousSummary ? [{role:"user", content:"[기존 대화 요약]\n" + previousSummary}, {role:"ai",content:"기존 요약을 반영하겠습니다."}] : []).concat(msgs, [{ role:"user", content: SUMMARY_PROMPT + " 기존 요약의 중요한 사실도 빠뜨리지 말고 함께 갱신해라." }]);
   let text;
-  if(provider === "gemini") ({ text } = await callGemini(model, apiKey, "너는 대화 요약 전용 도우미다.", history, "medium", 700));
-  else if(provider === "openai") ({ text } = await callOpenAI(model, apiKey, "너는 대화 요약 전용 도우미다.", history, 700));
-  else if(provider === "anthropic") ({ text } = await callAnthropic(model, apiKey, "너는 대화 요약 전용 도우미다.", history, 700));
+  if(provider === "gemini") ({ text } = await callGemini(model, apiKey, "너는 대화 요약 전용 도우미다.", history, "medium", 1400));
+  else if(provider === "openai") ({ text } = await callOpenAI(model, apiKey, "너는 대화 요약 전용 도우미다.", history, 1400));
+  else if(provider === "anthropic") ({ text } = await callAnthropic(model, apiKey, "너는 대화 요약 전용 도우미다.", history, 1400));
   return text || "";
 }
 
@@ -5463,7 +5481,6 @@ async function runGenerationTurn(chat, preset, depth){
     }
   }
   Stage.set(STAGE.compress);
-  await maybeCompressChat(chat);
   Stage.set(STAGE.send);
   if(isChatGenerating(chat.id)) return; // 같은 채팅에서 중복 실행 방지
   setChatGenerating(chat, true, new AbortController());
@@ -5497,6 +5514,7 @@ async function runGenerationTurn(chat, preset, depth){
 /* AI 응답 생성 + 추가 (전송/재요청 공용) */
 async function appendAiReply(chat, preset, depth, signal, live){
   depth = depth || 0;
+  await maybeCompressChat(chat);
   const result = await generateReply(chat, signal, live && live.update);
   if(result.tokenExhausted){
     // 작업 도중(에이전트 단계 중간) 토큰이 떨어지면 예전엔 아무 안내 없이 멈춰서 "AI를 쓸 수 없는 것"처럼 보였다
@@ -5506,6 +5524,7 @@ async function appendAiReply(chat, preset, depth, signal, live){
     showTokenOutModal();
     return;
   }
+  if(result && !result.usedLocal && typeof result.text === "string" && result.text.trim()) chat.aiReplyCount = (Number(chat.aiReplyCount) || 0) + 1;
   if(result && typeof result.text === "string") result.text = stripThinkTags(result.text);
   const { text: replyText, provider: usedProvider, usedLocal, skipDeduct, noBrain, noBrainCost, usageAmount, stats, localFast } = result;
   let normalCost = 0;
@@ -7548,6 +7567,7 @@ function refreshDeviceRow(){
   function plain(t){ return String(t || "").replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").replace(/\r/g, ""); }
   function bgRender(s){ if(!s.blk){ s.blk = document.createElement("div"); s.out.appendChild(s.blk); } fillBlock(s.blk, s.raw.replace(/\n+$/, ""), s.lastCmd || "", false); s.out.scrollTop = s.out.scrollHeight; }
   function bgEnded(s, code){
+    if(s.renderPending){ cancelAnimationFrame(s.renderPending); s.renderPending = 0; bgRender(s); }
     s.job = null; line(code === 0 ? "meta" : "err", "■ 종료됨 (코드 " + code + ")", s); s.blk = null; s.raw = ""; renderTabs();
     if(s === cur){ setPrompt(); $("chmStop").style.display = "none"; }
   }
@@ -7579,7 +7599,7 @@ function refreshDeviceRow(){
       line("meta", "🤖 " + waitSec + "초 시점 출력을 최미나이에게 전달했어요 (다음 메시지에 포함돼요)", s);
     }, waitSec * 1000);
   }
-  window.__chmBg = function(id, chunk){ const s = bgJobs[id]; if(!s) return; s.raw += chunk; if(s.raw.length > 200000) s.raw = s.raw.slice(-150000); bgRender(s); };
+  window.__chmBg = function(id, chunk){ const s = bgJobs[id]; if(!s) return; s.raw += chunk; if(s.raw.length > 200000) s.raw = s.raw.slice(-150000); if(!s.renderPending) s.renderPending = requestAnimationFrame(()=>{s.renderPending=0; bgRender(s);}); };
   window.__chmBgState = function(id, st, code, cmd, origin){
     if(st === "start"){
       if(origin === "ai" && !bgJobs[id]){ // 최미나이가 시작한 작업: 새 백그라운드 창에 연결
