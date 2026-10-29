@@ -763,6 +763,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 .activity-summary:hover{border-color:var(--accent);color:var(--text);background:var(--panel-2);box-shadow:none}
 .activity-summary-text{flex:1;min-width:0;word-break:keep-all;overflow-wrap:anywhere}
 .activity-summary>svg{width:16px;height:16px;flex:none;fill:none;stroke:var(--accent);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.live-message{padding:9px 12px;border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere}.live-message.user{background:var(--bubble-user);align-self:flex-end;max-width:85%}.live-message.ai{background:var(--panel-2);align-self:flex-start;max-width:90%}
 .activity-overlay[hidden]{display:none!important}
 .activity-overlay{position:fixed;inset:0;z-index:100010;background:#0008;display:flex;justify-content:flex-end;align-items:stretch;padding:18px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
 .activity-sheet{width:min(520px,100%);min-width:0;max-height:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 24px 80px #0005;animation:activity-enter .18s ease-out;outline:none;white-space:normal}
@@ -853,7 +854,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <script src="./choimini-preview.js?v=20261013"></script>
 <script src="./choimini-localai.js?v=20261027"></script>
 <link rel="stylesheet" href="./choimini-desktop.css?v=20261028b">
-<script src="./choimini-desktop.js?v=20261028b" defer></script>
+<script src="./choimini-desktop.js?v=20261029c" defer></script>
 
 
     <!-- Cloudflare Turnstile 접속 게이트: 통과 전까지 페이지 콘텐츠를 가림 -->
@@ -938,7 +939,6 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <button class="footer-btn" id="openAccountBtn">👤 계정 관리</button>
       <button class="footer-btn" id="openSettingsBtn">⚙️ 설정</button>
       <button class="footer-btn" id="openRedeemBtn">🎟️ 코드 교환</button>
-      <button class="footer-btn" id="openLiveBtn">🎙️ LIVE 음성 대화</button>
       <button class="footer-btn" id="openAdRewardBtn">🎁 토큰 받기</button>
       <button class="footer-btn" id="openStorageBtn">🗂️ 저장공간 관리</button>
     </div>
@@ -1157,7 +1157,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
         <button id="localAIClear" type="button" style="margin-top:6px;padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);font-size:12px;cursor:pointer">내려받은 로컬 모델 지우기</button>
       </div>
 
-      <div class="field-group">
+      <div class="field-group" id="groqSettings">
         <label>Groq <span style="font-weight:400;opacity:.7">· 선택한 작업을 빠르게 처리</span></label>
         <div class="cselect" id="groqEnabledSel" data-value="on">
           <button type="button" class="cselect-btn"><span class="cselect-label"></span><span class="cselect-chev">▾</span></button>
@@ -1420,8 +1420,8 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       </div>
       <div id="liveLog" style="max-height:230px;overflow:auto;font-size:13px;line-height:1.6;display:flex;flex-direction:column;gap:6px"></div>
       <div style="font-size:11.5px;color:var(--text-dim);line-height:1.5">
-        말이 끝나면 자동으로 알아듣고 답해요. 답변은 음성으로 읽어 줍니다.<br>
-        사용한 만큼 토큰이 차감돼요(짧은 답변 기준 1회 1~3토큰).
+        말하면 답변을 읽어 드려요. 대화는 시작한 채팅에 남습니다.<br>
+        사용한 만큼 토큰이 차감돼요.
       </div>
       <div class="btn-row">
         <button class="ghost-btn" id="liveStopBtn" style="flex:1">종료</button>
@@ -1500,7 +1500,7 @@ const LS = {
   redeemed: "choimini.redeemed",
   deviceId: "choimini.deviceId"
 };
-const APP_VERSION = "2.6.1";
+const APP_VERSION = "2.7.0";
 const TOKEN_MULT = 10; // internal = display * 10
 const DEFAULT_INTERNAL_TOKENS = 3000; // 하루 기본 지급 300 토큰
 
@@ -1929,6 +1929,7 @@ function init(){
   checkModules();
   settings = loadJSON(LS.settings, null) || defaultSettings();
   // backfill any missing fields for forward-compat
+  if(!Object.prototype.hasOwnProperty.call(DEFAULT_MODELS,settings.provider))settings.provider="gemini";
   settings.apiKeys = Object.assign({gemini:"",openai:"",anthropic:""}, settings.apiKeys||{});
   settings.models = Object.assign(JSON.parse(JSON.stringify(DEFAULT_MODELS)), settings.models||{});
   // 예전 로컬스토리지에 저장된 구버전/단종된 모델 ID를 강제로 최신 기본값으로 교체함
@@ -2831,7 +2832,7 @@ function toast(msg){
 function buildModelGrid(){
   const grid = document.getElementById("modelGrid");
   grid.innerHTML = "";
-  Object.keys(PROVIDER_LABEL).forEach(provider=>{
+  Object.keys(DEFAULT_MODELS).forEach(provider=>{
     const card = document.createElement("button");
     card.type = "button";
     card.className = "model-card";
@@ -3048,6 +3049,7 @@ setTimeout(()=>{
   }catch(_){}
   const ob = document.getElementById("openSettingsBtn");
   if(ob) ob.addEventListener("click", ()=>setTimeout(()=>{ syncLang(); fillVoices(); }, 60));
+  document.addEventListener("choimini-tts-voices",fillVoices);
 }, 0);
 
 /* ---- Groq 설정 + 연결 테스트 ----
@@ -4783,7 +4785,7 @@ const VoiceIn = (function(){
     try{ if(rec) rec.stop(); }catch(_){}
   }
   function abort(){
-    running = false; wantContinuous = false;
+    running = false; wantContinuous = false; cb = null;
     if(nativeOk()){ try{ AB().speechStop(); }catch(_){} return; }
     try{ if(rec){ rec.onresult = rec.onerror = rec.onend = null; rec.abort && rec.abort(); } }catch(_){}
     rec = null;
@@ -4840,136 +4842,90 @@ window.__choiminiBackupFailed = function(name, msg){
   console.warn("[백업 실패]", name, msg);
 };
 const LIVE = (function(){
-  let on = false, listening = false, busy = false, turns = 0;
-  function available(){ return VoiceIn.available(); }
-  function el(id){ return document.getElementById(id); }
-  function setStatus(t, pct){
-    const st = el("liveStatus"); if(st) st.textContent = t;
-    const bar = el("liveWaveBar"); if(bar) bar.style.width = (pct == null ? 0 : pct) + "%";
+  let on=false,listening=false,busy=false,turns=0,sessionId=0,chatId=null,request=null;
+  function available(){return VoiceIn.available();}
+  const el=id=>document.getElementById(id);
+  function setStatus(text,pct){el('liveStatus').textContent=text;el('liveWaveBar').style.width=(pct||0)+'%';}
+  function toChat(role,content){
+    const chat=chats[chatId];if(!chat||!String(content).trim())return;
+    chat.messages.push({id:uid(),role,content:String(content).trim(),ts:Date.now(),live:true,liveSession:sessionId});
+    if(role==='user'&&(!chat.title||chat.title==='새 채팅'))chat.needsTitle=true;
+    if(activeChatId!==chatId)chat.unread=true;
+    flushChats();renderChatList();if(activeChatId===chatId)renderMessages();
   }
-  /* LIVE 로 주고받은 말을 지금 보고 있는 채팅에 그대로 남긴다.
-     모달을 닫아도 대화가 사라지지 않고, 평소 대화와 똑같이 기록·검색·제목 짓기가 된다. */
-  function toChat(role, content){
-    try{
-      if(!content || !String(content).trim()) return;
-      let chat = currentChat();
-      if(!chat){ activeChatId = createChat(); chat = currentChat(); }
-      if(!chat) return;
-      chat.messages.push({ id: uid(), role, content: String(content).trim(), ts: Date.now(), live: true });
-      if(role === "user" && !chat.title) chat.needsTitle = true;
-      saveChats();
-      renderChatList(); renderMessages();
-    }catch(e){ console.warn("[LIVE 기록]", e); }
-  }
-  /* LIVE 답변에 쓸 최근 대화 (모달 안이 아니라 채팅 전체를 본다 → 하던 얘기를 이어갈 수 있다) */
   function recentForContext(){
-    try{
-      const chat = currentChat(); if(!chat) return [];
-      return (chat.messages || [])
-        .filter(m=>(m.role === "user" || m.role === "ai") && m.content)
-        .slice(-6)
-        .map(m=>({ role: m.role === "ai" ? "assistant" : "user", content: String(m.content).slice(0, 600) }));
-    }catch(_){ return []; }
+    const chat=chats[chatId];return ((chat&&chat.messages)||[])
+      .filter(m=>(m.role==='user'||m.role==='ai')&&!m.auto&&m.content).slice(-6)
+      .map(m=>({role:m.role==='ai'?'assistant':'user',content:String(m.content).slice(0,600)}));
   }
-  function log(who, text){
-    const box = el("liveLog"); if(!box) return;
-    const d = document.createElement("div");
-    d.style.cssText = "padding:7px 10px;border-radius:10px;white-space:pre-wrap;" +
-      (who === "me" ? "background:var(--bubble-user);align-self:flex-end;max-width:85%"
-                    : "background:var(--panel-2);align-self:flex-start;max-width:90%");
-    d.textContent = text;
-    box.appendChild(d); box.scrollTop = box.scrollHeight;
+  function log(who,text){
+    const box=el('liveLog'),d=document.createElement('div');
+    d.className='live-message '+(who==='me'?'user':'ai');d.textContent=text;
+    box.appendChild(d);box.scrollTop=box.scrollHeight;
   }
-  function stopListening(){
-    listening = false;
-    VoiceIn.stop();
-    const b = el("liveToggleBtn"); if(b) b.textContent = "듣기 시작";
-  }
+  function stopListening(){listening=false;VoiceIn.abort();el('liveToggleBtn').textContent='듣기 시작';}
   function startListening(){
-    if(!on || busy || listening) return;
-    listening = true;
-    const b = el("liveToggleBtn"); if(b) b.textContent = "듣는 중… (누르면 멈춤)";
-    setStatus("🎙️ 듣고 있어요", 35);
-    const ok = VoiceIn.start({
-      onFinal: t=>{ if(on && t.trim()) answer(t.trim()); },
-      onError: code=>{
-        listening = false;
-        const b2 = el("liveToggleBtn"); if(b2) b2.textContent = "듣기 시작";
-        if(code === "not-allowed" || code === "service-not-allowed"){ setStatus("마이크 권한이 필요해요", 0); on = false; }
-        else setStatus(VoiceIn.errorText(code) + " · [듣기 시작]", 0);
-      },
-      onEnd: ()=>{
-        listening = false;
-        const b2 = el("liveToggleBtn"); if(b2) b2.textContent = "듣기 시작";
-        if(on && !busy) setStatus("준비됨 · [듣기 시작]", 0);
-      },
+    if(!on||busy||listening)return;
+    listening=true;el('liveToggleBtn').textContent='듣기 멈춤';setStatus('듣고 있어요',35);
+    const turn=sessionId;
+    const ok=VoiceIn.start({
+      onFinal:text=>{if(on&&turn===sessionId&&!busy&&text.trim())answer(text.trim());},
+      onError:code=>{if(turn!==sessionId)return;listening=false;el('liveToggleBtn').textContent='듣기 시작';setStatus(VoiceIn.errorText(code),0);},
+      onEnd:()=>{if(turn!==sessionId)return;listening=false;el('liveToggleBtn').textContent='듣기 시작';if(on&&!busy)setStatus('이어서 말하려면 듣기를 시작하세요',0);}
     });
-    if(!ok){ listening = false; setStatus("음성 입력을 시작하지 못했어요", 0); }
+    if(!ok){listening=false;setStatus('음성 입력을 시작하지 못했어요',0);}
   }
   async function answer(text){
-    busy = true; stopListening();
-    log("me", text);
-    toChat("user", text);
-    setStatus("생각하는 중…", 70);
-    const provider = settings.provider;
-    const apiKey = resolveApiKey(provider);
-    if(!(apiKey || hasDefaultProxy(provider))){ setStatus("AI 를 쓸 수 없어요", 0); busy = false; return; }
-    const model = settings.models[provider] && settings.models[provider]["lite"];
-    const sys = "너는 음성으로 대화하는 비서다. 소리 내어 읽기 좋게 2~3문장으로 짧게 답한다. "
-      + "목록·코드·기호는 쓰지 말고 말하듯이 답해라.";
-    // 방금 채팅에 남긴 내 말까지 포함된 최근 대화를 문맥으로 준다 (앞서 하던 얘기를 이어갈 수 있다)
-    const hist = recentForContext();
-    if(!hist.length || hist[hist.length-1].content !== text) hist.push({ role:"user", content: text });
+    if(!on||busy)return;
+    busy=true;stopListening();const turn=sessionId;const ctl=new AbortController();request=ctl;
+    log('me',text);toChat('user',text);setStatus('답변을 준비하고 있어요',70);
+    const provider=settings.provider,apiKey=resolveApiKey(provider);
+    if(!(apiKey||hasDefaultProxy(provider))){setStatus('설정에서 AI 연결을 확인해 주세요',0);busy=false;return;}
+    const model=settings.models[provider]&&settings.models[provider].lite;
+    const sys='너는 음성으로 대화하는 비서다. 읽기 좋게 2~3문장으로 짧게 답한다. 목록·코드·기호 대신 말하듯이 답해라.';
+    const hist=recentForContext();
     try{
-      const out = await callGemini(model, apiKey, sys, hist, "lite", 220, null, null, { step:"followup", fast:true });
-      const reply = String((out && out.text) || "").trim() || "잘 못 들었어요.";
-      log("ai", reply);
-      toChat("ai", reply);
-      turns++;
-      // 실제 사용량 기준 차감 (일반 답변과 같은 계산식을 쓴다)
-      try{
-        const internal = Math.max(1, Math.ceil(((out && out.usageAmount) || 1) * COST_SCALE * modeCostMult()));
-        await chargeTokens(internal, "LIVE 대화");
-      }catch(_){}
-      setStatus("🔊 읽는 중", 100);
-      if(TTS.available()) TTS.speak("live-" + turns, reply);
-      // 다 읽을 때쯤 다시 듣기 (대략 글자 수 기준)
-      const waitMs = Math.min(12000, 1200 + reply.length * 90);
-      setTimeout(()=>{ busy = false; if(on) startListening(); }, waitMs);
+      let out;
+      if(provider==='gemini')out=await callGemini(model,apiKey,sys,hist,'lite',220,ctl.signal,null,{step:'followup',fast:true});
+      else if(provider==='openai')out=await callOpenAI(model,apiKey,sys,hist,220,ctl.signal);
+      else out=await callAnthropic(model,apiKey,sys,hist,220,ctl.signal);
+      if(!on||sessionId!==turn)return;
+      const reply=stripThinkTags(String(out&&out.text||'')).trim();
+      if(!reply)throw new Error('빈 응답');
+      log('ai',reply);toChat('ai',reply);turns++;
+      try{await chargeTokens(Math.max(1,Math.ceil(((out&&out.usageAmount)||1)*COST_SCALE*modeCostMult())),'LIVE 대화');}catch(_){}
+      if(!on||sessionId!==turn)return;
+      if(!TTS.available()){setStatus('읽어 주기를 사용할 수 없어요. Android 앱을 업데이트해 주세요.',0);busy=false;return;}
+      setStatus('답변을 읽고 있어요',100);
+      const spoken=await TTS.speakAsync('live-'+turn+'-'+turns,reply);
+      if(!on||sessionId!==turn)return;
+      busy=false;
+      if(spoken.ok)startListening();else setStatus('음성 재생을 마치지 못했어요. 듣기를 다시 시작할 수 있어요.',0);
     }catch(e){
-      console.warn("[LIVE]", e);
-      setStatus("오류가 나서 멈췄어요", 0);
-      busy = false;
-    }
+      if(!on||sessionId!==turn)return;
+      busy=false;if(e&&e.name!=='AbortError'){console.warn('[LIVE]',e);setStatus('답변을 받지 못했어요. 듣기를 다시 시작해 주세요.',0);}
+    }finally{if(request===ctl)request=null;}
   }
   function open(){
-    if(!available()){ toast("이 기기에서는 음성 인식을 지원하지 않아요"); return; }
-    try{ Dictation.stop(); }catch(_){}
-    on = true; turns = 0; busy = false; listening = false;
-    const box = el("liveLog"); if(box) box.innerHTML = "";
-    setStatus("준비됨 · [듣기 시작]", 0);
-    openModal("liveModal");
+    if(!available()){toast('이 기기에서는 음성 인식을 지원하지 않아요');return;}
+    if(on){openModal('liveModal');return;}
+    Dictation.stop();TTS.stop();
+    if(!currentChat())createChat();
+    chatId=activeChatId;sessionId++;on=true;turns=0;busy=false;listening=false;
+    el('liveLog').textContent='';openModal('liveModal');startListening();
   }
   function close(){
-    on = false; busy = false; listening = false;
-    VoiceIn.abort();
-    try{ TTS.stop(); }catch(_){}
-    closeModal("liveModal");
-    // LIVE 로만 대화했어도 채팅 제목이 붙도록
-    try{ maybeAutoTitle(currentChat()); }catch(_){}
+    const chat=chats[chatId];on=false;sessionId++;busy=false;listening=false;
+    if(request){request.abort();request=null;}
+    VoiceIn.abort();TTS.stop();el('liveModal').classList.remove('open');
+    flushChats();if(chat)maybeAutoTitle(chat);
   }
-  return { available, open, close, toggle(){ if(listening) stopListening(); else startListening(); }, isOn(){ return on; } };
+  return {available,open,close,toggle(){if(listening){stopListening();setStatus('듣기를 멈췄어요',0);}else startListening();},isOn(){return on;}};
 })();
-window.LIVE = LIVE;
-(function(){
-  const g = id=>document.getElementById(id);
-  if(g("openLiveBtn")) g("openLiveBtn").addEventListener("click", ()=>{
-    if(window.innerWidth <= 760) closeSidebar();
-    LIVE.open();
-  });
-  if(g("liveToggleBtn")) g("liveToggleBtn").addEventListener("click", ()=>LIVE.toggle());
-  if(g("liveStopBtn")) g("liveStopBtn").addEventListener("click", ()=>LIVE.close());
-})();
+window.LIVE=LIVE;
+document.getElementById('liveToggleBtn').addEventListener('click',()=>LIVE.toggle());
+document.getElementById('liveStopBtn').addEventListener('click',()=>LIVE.close());
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('liveModal').classList.contains('open'))LIVE.close();});
 
 /* ---- Gemma(실험)가 일반 답변까지 맡는 경우 ----
    §4: 도구 판단뿐 아니라 "일반 채팅", "코딩" 도 사용자가 켜면 기기 안에서 처리한다.
@@ -6437,7 +6393,8 @@ function updateComposerButtons(){
   if(!inp || !btn) return;
   const hasText = !!(inp.value && inp.value.trim()) || (typeof pendingFiles !== "undefined" && pendingFiles.length > 0);
   btn.classList.toggle("has-text", hasText);
-  btn.title = hasText ? "보내기" : (VoiceIn.available() ? "LIVE 음성 대화" : "보내기");
+  btn.title = hasText ? "보내기" : (VoiceIn.available() ? "LIVE 시작" : "보내기");
+  btn.setAttribute("aria-label",hasText?"메시지 보내기":(VoiceIn.available()?"LIVE 시작":"메시지 보내기"));
   const mic = document.getElementById("micBtn");
   if(mic) mic.style.display = VoiceIn.available() ? "" : "none";
 }
@@ -6722,7 +6679,7 @@ document.getElementById("modelPillBtn").addEventListener("click", ()=>{
 
 /* settings modal */
 function openModal(id){ document.getElementById(id).classList.add("open"); }
-function closeModal(id){ document.getElementById(id).classList.remove("open"); }
+function closeModal(id){ if(id==="liveModal"&&window.LIVE){LIVE.close();return;} document.getElementById(id).classList.remove("open"); }
 
 /* 토큰 소진 안내: "그전에 토큰 내놔" 같은 텍스트 답변 대신, 실제로 뭘 할 수 있는지 명확히 보여주는 모달 */
 function showTokenOutModal(){
@@ -6754,7 +6711,7 @@ document.querySelectorAll("[data-close]").forEach(btn=>{
 document.querySelectorAll(".modal-overlay").forEach(ov=>{
   ov.addEventListener("click", (e)=>{
     if(e.target===ov){
-      ov.classList.remove("open");
+      closeModal(ov.id);
       if(ov.id === "captchaModal"){
         const cb = captchaState && captchaState.onCancel;
         captchaState = null;
@@ -6873,18 +6830,41 @@ async function regenerateFromUser(userId){
 }
 
 /* ---------------- TTS: 답변을 음성으로 읽어 주기 ----------------
-   HTML 표준 음성 합성(Web Speech API)만 쓴다. 유료 TTS API 는 쓰지 않는다.
+   Android는 기기의 TextToSpeech, 웹은 Web Speech API를 쓴다. 유료 TTS API는 쓰지 않는다.
    기기/브라우저가 지원하지 않으면 메뉴에 나타나지 않는다. */
 const TTS = (function(){
   const synth = (typeof window !== "undefined" && window.speechSynthesis) ? window.speechSynthesis : null;
-  let currentId = null;
-  function available(){ return !!synth && typeof window.SpeechSynthesisUtterance === "function"; }
-  function stop(){ try{ if(synth) synth.cancel(); }catch(_){} currentId = null; }
+  let currentId=null,currentToken=null,completion=null;
+  function bridge(){return window.AndroidBridge||null;}
+  function nativeOk(){try{const b=bridge();return !!b&&typeof b.ttsSpeak==='function'&&typeof b.ttsStop==='function'&&typeof b.ttsAvailable==='function'&&b.ttsAvailable();}catch(_){return false;}}
+  function available(){return nativeOk()||!!synth&&typeof window.SpeechSynthesisUtterance==='function';}
+  function finish(result){const done=completion;completion=null;currentId=null;currentToken=null;if(done)done(result);}
+  function stop(){
+    try{const b=bridge();if(b&&typeof b.ttsStop==='function')b.ttsStop();}catch(_){}
+    try{if(synth)synth.cancel();}catch(_){}
+    finish({ok:false,cancelled:true});
+  }
+  window.__choiminiTtsEvent=function(raw){
+    let event;try{event=typeof raw==='string'?JSON.parse(raw):raw;}catch(_){return;}
+    if(!event)return;
+    if(event.type==='ready'){document.dispatchEvent(new Event('choimini-tts-voices'));return;}
+    if(event.id!==currentToken)return;
+    if(event.type==='end')finish({ok:true});
+    else if(event.type==='cancel')finish({ok:false,cancelled:true});
+    else if(event.type==='error'){
+      toast(event.error==='language-data-missing'?'기기 설정에서 한국어 음성 데이터를 설치해 주세요':'음성을 재생하지 못했어요. 기기 TTS 설정을 확인해 주세요.');
+      finish({ok:false,error:event.error});
+    }
+  };
   function speakingId(){ return currentId; }
   /* 목소리 목록은 비동기로 채워진다. 처음엔 비어 있을 수 있어서 바뀔 때마다 다시 받아 둔다. */
   let voiceCache = [];
   function refreshVoices(){
-    try{ voiceCache = synth.getVoices() || []; }catch(_){ voiceCache = []; }
+    try{
+      const b=bridge();
+      voiceCache=nativeOk()&&typeof b.ttsVoices==='function'?JSON.parse(b.ttsVoices()||'[]'):(synth?synth.getVoices():[])||[];
+      if(!Array.isArray(voiceCache))voiceCache=[];
+    }catch(_){voiceCache=[];}
     return voiceCache;
   }
   if(synth){
@@ -6938,12 +6918,20 @@ const TTS = (function(){
       .replace(/\s+/g, " ")
       .trim();
   }
-  function speak(id, text){
+  function speak(id, text, onFinish){
     if(!available()){ toast("이 기기에서는 음성 재생을 지원하지 않아요"); return false; }
     stop();
     const clean = readable(text);
     if(!clean){ toast("읽을 내용이 없어요"); return false; }
     const ko = /[가-힣]/.test(clean);
+    currentId=id;currentToken=uid();completion=onFinish||null;
+    if(nativeOk()){
+      const token=currentToken;
+      try{
+        if(bridge().ttsSpeak(token,clean.slice(0,4000),ko?'ko-KR':'en-US',settings.ttsVoice||'auto'))return true;
+      }catch(e){console.warn('[Native TTS]',e);}
+      finish({ok:false,error:'native-unavailable'});toast('기기의 TTS 엔진을 시작하지 못했어요');return false;
+    }
     const u = new window.SpeechSynthesisUtterance(clean.slice(0, 4000));   // 너무 길면 앞부분만
     u.lang = ko ? "ko-KR" : "en-US";
     const v = pickVoice(ko ? "ko" : "en");
@@ -6951,12 +6939,13 @@ const TTS = (function(){
     // 좋은(온라인) 목소리는 조금 천천히 읽어야 자연스럽고, 기계음은 조금 빠른 편이 덜 어색하다
     u.rate = (v && voiceScore(v) >= 40) ? 1.0 : 1.08;
     u.pitch = 1.0;
-    const done = ()=>{ if(currentId === id) currentId = null; };
-    u.onend = done; u.onerror = done;
-    currentId = id;
-    try{ synth.speak(u); }catch(e){ currentId = null; console.warn("[TTS]", e); return false; }
+    const token=currentToken;
+    u.onend=()=>{if(currentToken===token)finish({ok:true});};
+    u.onerror=()=>{if(currentToken===token)finish({ok:false,error:'synthesis-failed'});};
+    try{synth.speak(u);}catch(e){finish({ok:false,error:'synthesis-failed'});console.warn('[TTS]',e);return false;}
     return true;
   }
+  function speakAsync(id,text){return new Promise(resolve=>{if(!speak(id,text,resolve))resolve({ok:false});});}
   function toggle(id, text){
     if(currentId === id){ stop(); toast("음성 중지"); return false; }
     const ok = speak(id, text);
@@ -6976,7 +6965,7 @@ const TTS = (function(){
     const ko = /ko/i.test(VoiceIn && VoiceIn.lang ? VoiceIn.lang() : "ko-KR");
     speak("tts-preview", ko ? "안녕, 최미나이야. 이 목소리로 읽어 줄게." : "Hi, this is Choimini. I will read with this voice.");
   }
-  return { available, speak, stop, toggle, speakingId, readable, options, preview, refreshVoices };
+  return { available, speak, speakAsync, stop, toggle, speakingId, readable, options, preview, refreshVoices };
 })();
 /* 앱 셸(안드로이드/데스크톱)과 테스트에서 쓸 수 있게 밖으로 꺼내 둔다 */
 window.TTS = TTS;
