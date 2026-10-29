@@ -1052,16 +1052,6 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <div class="model-grid" id="modelGrid"></div>
 
       <div class="field-group">
-        <label>추론 강도 · <span id="thinkingLevelLabel">자동</span></label>
-        <select id="thinkingLevelSelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
-          <option value="auto">자동 (기본)</option>
-          <option value="off">끔 · 가장 빠르고 저렴</option>
-          <option value="low">낮음</option>
-          <option value="medium">보통</option>
-          <option value="high">높음 · 깊게 추론</option>
-        </select>
-      </div>
-      <div class="field-group">
         <label>음성 · 받아쓰기와 읽어 주기</label>
         <select id="speechLangSelect" style="width:100%;padding:8px;border-radius:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);">
           <option value="auto">인식 언어: 자동 (브라우저 언어)</option>
@@ -1107,6 +1097,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
       <div class="field-group">
         <label id="apiKeyLabel">API 키</label>
         <input type="password" id="apiKeyInput" placeholder="API 키를 입력하세요">
+        <a id="apiKeyGetLink" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;color:var(--accent);font-size:13px">API 키 발급받기 ↗</a>
       </div>
 
         <div style="font-size:11.5px;color:var(--text-dim);text-align:center;padding-top:2px" id="appVersionLine"></div>
@@ -1682,6 +1673,7 @@ function fsToolPrompt(mode){
     + "  · 디스코드 봇 모의 테스트: npm install discord.js 후 node bot.js --say \"!ping\" 또는 --slash 명령 옵션=값.\n"
     + "■ upload — 완성 파일을 사용자에게 전달(경로 한 줄에 하나). upload 해야 사용자가 미리보기·다운로드할 수 있다:\n"
     + F + "upload\n/user/projects/game/index.html\n" + F + "\n"
+    + "■ 여러 질문은 question-load 블록을 질문마다 각각 작성한다. 각 블록에 질문 제목과 선택지를 적는다.\n"
     + "■ question-load — 진행에 꼭 필요한 정보가 없을 때만 묻는다(선택지는 '- ' 줄). 쓰면 답을 기다리며 멈춘다. 요청이 충분히 구체적이면 묻지 말고 합리적으로 정해 진행:\n"
     + F + "question-load\n난이도는 어떻게 할까요?\n- 쉬움\n- 보통\n" + F + "\n"
     + "■ 테스트(필수): htmltest 파일.html [-t 대기ms] [-k ArrowLeft,Space] [-e 'JS식'] — 격리 브라우저에서 실제 실행해 콘솔 에러·캔버스·키 입력 뒤 상태 확인 / jscheck 파일 — JS 문법 검사. 통과를 확인한 뒤 upload. localStorage 는 try/catch, 외부 CDN 의존 금지.\n"
@@ -1852,8 +1844,8 @@ function defaultSettings(){
     noBrain: true,
     mode: "nobrain", // "nobrain" | "work" | "code"
     memory: true,
-    memoryLevel: 3,   // 설정 UI 는 없앴다(v2.2.0). 기본 "중간" 고정.
-    compressEvery: 12, // 설정 UI 없음(v2.2.0). AI 를 12번 부를 때마다 자동으로 오래된 대화를 요약한다.
+    memoryLevel: 4,   // 설정 UI 는 없앴다(v2.2.0). 기본 "중간" 고정.
+    compressEvery: 20, // 설정 UI 없음(v2.2.0). AI 를 12번 부를 때마다 자동으로 오래된 대화를 요약한다.
     thinkingLevel: "auto", // 사고 과정 강도: auto | off | low | medium | high
     effort: "fast",        // 추론 강도(WORK·CODE): fast | think | deep — 입력창 위에서 고른다
     fastFollow: "auto",    // 빠른 후속 판단: auto(WORK·화면/브라우저 조작) | always | off
@@ -1863,7 +1855,7 @@ function defaultSettings(){
     // Groq: 명령 실행·화면 조작 같은 "실행 판단"을 맡는다(계획·추론은 Gemini). 서버에 GROQ_API_KEY 가 있어야 동작.
     groq: { enabled:true, model:GROQ_DEFAULT_MODEL, scope:{...GROQ_SCOPE_DEFAULTS} },
     speechLang: "auto",   // 음성 인식 언어. auto = 브라우저 언어(한국어면 ko-KR)
-    ttsVoice: "auto",     // 읽어 주는 목소리. auto = 기기에서 제일 품질 좋은 것을 고름
+    ttsVoice: "male",     // 읽어 주는 목소리. auto = 기기에서 제일 품질 좋은 것을 고름
     terminalMode: "local" // 데스크톱 앱 터미널: "local"(실제 로컬 터미널) | "virtual"(가상 Linux_Local)
   };
 }
@@ -1937,11 +1929,10 @@ function init(){
   if(window.CHOIMINI_MODE === "code" && LB() && typeof LB().setLocal === "function"){ try{ LB().setLocal(false); }catch(_){} } // 앱의 Local 상태도 NO BRAIN 과 맞춘다
   if(settings.terminalMode !== "local" && settings.terminalMode !== "virtual") settings.terminalMode = "local";
   settings.noBrain = (settings.mode === "nobrain"); // mode를 기준값으로 재동기화
-  if(typeof settings.memory !== "boolean") settings.memory = true;
-  if(!Number.isInteger(settings.memoryLevel) || settings.memoryLevel<1 || settings.memoryLevel>5) settings.memoryLevel = settings.memory ? 3 : 1;
-  settings.compressEvery = 12;   // 사용자가 고르지 않는다 — 항상 12회마다 자동 압축
-  if(!Number.isInteger(settings.memoryLevel) || settings.memoryLevel < 1 || settings.memoryLevel > 5) settings.memoryLevel = 3;
-  if(!["auto","off","low","medium","high"].includes(settings.thinkingLevel)) settings.thinkingLevel = "auto";
+  settings.memory = true;
+  settings.memoryLevel = 4;
+  settings.compressEvery = 20;
+  settings.thinkingLevel = "auto";
   if(!["fast","think","deep"].includes(settings.effort)) settings.effort = "fast";
   settings.fastFollow = "auto";
   if(!settings.localAI || typeof settings.localAI !== "object") settings.localAI = {};
@@ -1952,7 +1943,7 @@ function init(){
   if(!settings.groq || typeof settings.groq !== "object") settings.groq = {};
   settings.groq = { enabled: settings.groq.enabled !== false, model:GROQ_DEFAULT_MODEL, scope:groqScope() };
   if(!["auto","ko-KR","en-US","ja-JP","zh-CN"].includes(settings.speechLang)) settings.speechLang = "auto";
-  if(typeof settings.ttsVoice !== "string" || !settings.ttsVoice) settings.ttsVoice = "auto";
+  if(typeof settings.ttsVoice !== "string" || !settings.ttsVoice || settings.ttsVoice === "auto") settings.ttsVoice = "male";
   setTimeout(()=>{ try{ startLocalAI(); }catch(_){} }, 0);
   chats = loadJSON(LS.chats, {});
   Object.values(chats).forEach(c=>{ if(c && c.pendingReply){ delete c.pendingReply; const l=(c.messages||[]).slice(-1)[0]; if(l && l.role==='user') c.messages.push({ id: uid(), role:'system', content:'📱 백그라운드에서 답변이 끊겼어요. 아래 버튼으로 이어 받기', ts: Date.now(), canRetry:true }); } });
@@ -2111,7 +2102,7 @@ function stripThinkTags(t){
 function parseAiDisplay(text){
   let t = stripThinkTags(text);
   const hasTools = hasToolBlocks(t) || hasBrowserBlocks(t);
-  t = t.replace(/```(tool|runcmd|upload|question-load|browser)[ \t]*\r?\n[\s\S]*?(```|$)/g, "");
+  t = t.replace(/```(tool|runcmd|upload|question[-_]load|browser)[ \t]*\r?\n[\s\S]*?(```|$)/g, "");
   let status = null;
   t = t.replace(/\[\[\s*(계획|사고|테스트)\s*[:：]?\s*([^\]]*?)\s*\]\]/g, (m,k,v)=>{ status = { kind:k, text:v }; return ""; });
   t = t.replace(/\[\[[^\]]*$/, "");
@@ -2251,9 +2242,8 @@ document.addEventListener('click',e=>{const button=e.target.closest && e.target.
 function renderActivityHtml(m){
   let h="";
   if(m.question){
-    h += `<div class="q-card"><div class="q-text">${escapeHtml(m.question.question)}</div>` +
-      (m.question.options && m.question.options.length ? `<div class="q-opts">` + m.question.options.map((o,i)=>`<button data-q="${i}">${escapeHtml(o)}</button>`).join("") + `</div>` : "") +
-      `<div class="q-hint">직접 입력해도 돼요.</div></div>`;
+    const questions = Array.isArray(m.question.questions) ? m.question.questions : [m.question];
+    h += `<div class="q-card">` + questions.map((q, qi)=>`<div class="q-group" data-qi="${qi}"><div class="q-text">${escapeHtml(q.question || q.title || "질문")}</div><div class="q-opts">` + (q.options || []).map((o,i)=>`<button type="button" data-q="${i}">${escapeHtml(typeof o === "string" ? o : (o.label || o.value || ""))}</button>`).join("") + `</div><input class="q-answer" aria-label="직접 입력" placeholder="직접 입력" style="width:100%;box-sizing:border-box;margin:8px 0 14px;padding:10px;border-radius:9px;border:1px solid var(--border);background:var(--panel);color:var(--text)"></div>`).join("") + `<button class="q-submit" type="button" style="padding:10px 16px;border:0;border-radius:9px;background:var(--accent);color:white;cursor:pointer">답변 보내기</button><div class="q-hint">각 질문에 답을 선택하거나 직접 입력하세요.</div></div>`;
   }
   return h;
 }
@@ -2557,13 +2547,26 @@ function renderMessageRow(m, isLast, idx){
       });
     });
   }
-  row.querySelectorAll(".q-opts button").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      if(activeGenerating()) return;
-      const opt = (m.question.options||[])[+btn.dataset.q];
-      const input = document.getElementById("msgInput");
-      input.value = opt; autoGrow(input); sendMessage();
-    });
+  row.querySelectorAll(".q-group").forEach(group=>{
+    group.querySelectorAll(".q-opts button").forEach(btn=>btn.addEventListener("click",()=>{
+      const qlist = Array.isArray(m.question.questions) ? m.question.questions : [m.question];
+      const q = qlist[+group.dataset.qi], opt = (q.options || [])[+btn.dataset.q];
+      const value = typeof opt === "string" ? opt : (opt && (opt.value || opt.label)) || "";
+      const field = group.querySelector(".q-answer");
+      if(/^(직접 입력|기타|other)$/i.test(value.trim())) { field.value=""; field.focus(); }
+      else { field.value=value; field.focus(); }
+    }));
+  });
+  const submitQuestion = row.querySelector(".q-submit");
+  if(submitQuestion) submitQuestion.addEventListener("click",()=>{
+    if(activeGenerating()) return;
+    const qs = Array.isArray(m.question.questions) ? m.question.questions : [m.question];
+    const groups = [...row.querySelectorAll(".q-group")];
+    const answers = groups.map(g=>g.querySelector(".q-answer").value.trim());
+    if(answers.some(a=>!a)){ toast("모든 질문에 답해 주세요."); return; }
+    const input=document.getElementById("msgInput");
+    input.value=qs.map((q,i)=>`질문: ${q.question || q.title || "질문"}\n답변: ${answers[i]}`).join("\n\n");
+    autoGrow(input); sendMessage();
   });
   row.querySelectorAll(".file-card").forEach(card=>{
     const p = decodeURIComponent(card.dataset.path);
@@ -2844,6 +2847,8 @@ function syncSettingsUI(){
     c.classList.toggle("active", c.dataset.provider===settings.provider);
   });
   document.getElementById("apiKeyLabel").textContent = PROVIDER_KEY_LABEL[settings.provider];
+  const keyLinks = {gemini:"https://aistudio.google.com/api-keys", openai:"https://platform.openai.com/api-keys", anthropic:"https://console.anthropic.com/settings/keys"};
+  document.getElementById("apiKeyGetLink").href = keyLinks[settings.provider] || keyLinks.gemini;
   document.getElementById("apiKeyInput").value = settings.apiKeys[settings.provider] || "";
   document.getElementById("apiKeyInput").placeholder = settings.provider === "gemini"
     ? "API 키 입력[기본값 사용중]"
@@ -3001,11 +3006,11 @@ setTimeout(()=>{
     if(!settings) { setTimeout(fillVoices, 250); return; }
     let opts = [];
     try{ opts = TTS.options(); }catch(_){ opts = []; }
-    const cur = settings.ttsVoice || "auto";
-    voiceSel.innerHTML = '<option value="auto">목소리: 자동 (이 기기에서 제일 좋은 것)</option>'
+    const cur = settings.ttsVoice || "male";
+    voiceSel.innerHTML = '<option value="male">목소리: 남성 우선 (기기 지원 시)</option><option value="auto">목소리: 자동</option>'
       + opts.map(o=>'<option value="' + escapeHtml(o.id) + '">' + escapeHtml(o.label) + "</option>").join("");
-    voiceSel.value = opts.some(o=>o.id === cur) ? cur : "auto";
-    if(voiceSel.value !== cur){ settings.ttsVoice = "auto"; }
+    voiceSel.value = (cur === "male" || cur === "auto" || opts.some(o=>o.id === cur)) ? cur : "male";
+    if(voiceSel.value !== cur && opts.length){ settings.ttsVoice = "male"; }
     try{ CSelect.refresh("ttsVoiceSelect"); }catch(_){}
     if(note){
       if(!TTS.available()){ note.textContent = "이 기기에서는 읽어 주기를 지원하지 않아요."; return; }
@@ -5003,11 +5008,12 @@ function plannedProvider(){ try{ return (settings.mode || "nobrain") === "nobrai
 function setLiveProvider(p){ liveProvider = p || null; try{ renderProviderPill(); }catch(_){} }
 function renderProviderPill(){
   const el = document.getElementById("providerLabel"); if(!el) return;
-  const p = liveProvider || plannedProvider();
+  const p = settings.provider;
+  const actual = liveProvider || plannedProvider();
   const narrow = window.matchMedia && matchMedia("(max-width:560px)").matches;   // 좁은 화면은 짧은 이름
   const SHORT = { gemini:"Gemini", openai:"OpenAI", anthropic:"Claude", groq:"Groq" };
   el.textContent = (narrow ? SHORT[p] : PROVIDER_LABEL[p]) || PROVIDER_LABEL[settings.provider];
-  el.parentElement && (el.parentElement.title = "지금 답하는 AI: " + (PROVIDER_LABEL[p] || p));
+  el.parentElement && (el.parentElement.title = "선택한 AI: " + (PROVIDER_LABEL[p] || p) + (actual !== p ? " · 실제 처리: " + (PROVIDER_LABEL[actual] || actual) : ""));
   el.dataset.provider = p;
 }
 async function tryGroqStep(chat, sys, history, signal, onDelta){
@@ -5189,7 +5195,7 @@ async function generateReply(chat, signal, onDelta){
    settings.compressEvery: 0(안함)|3|5|8|12. 대화(사용자+AI 합) 왕복이 그만큼 쌓이면 오래된 구간을
    AI 스스로 요약해서 chat.summary에 압축 저장하고, 그 이후로는 원문 대신 요약을 히스토리에 포함한다. */
 function memoryLevelHistoryCount(level){
-  return ({1:2, 2:6, 3:14, 4:24, 5:60})[level] || 14;
+  return ({1:2, 2:6, 3:14, 4:44, 5:60})[level] || 14;
 }
 function buildHistoryForChat(chat){
   const level = settings.memoryLevel || 3;
@@ -5204,7 +5210,10 @@ function buildHistoryForChat(chat){
     ].concat(after);
   }
   const n = memoryLevelHistoryCount(level);
-  return base.length > n ? base.slice(-n) : base;
+  if(chat.summary && typeof chat.summaryUpto === "number" && chat.summaryUpto > 0){
+    return base.slice(0,2).concat(base.slice(2).slice(-n));
+  }
+  return base.slice(-n);
 }
 /* 대화가 길어지면(설정한 왕복 횟수마다) 오래된 구간을 AI로 요약해서 압축한다.
    최근 compressEvery 왕복 분량은 원문 그대로 남겨두고, 그보다 오래된 구간만 요약 대상으로 삼는다. */
@@ -5213,8 +5222,10 @@ async function maybeCompressChat(chat){
   if(!every) return;
   const turnMsgs = chat.messages.filter(m=>m.role==="user"||m.role==="ai");
   const already = chat.summaryUpto || 0;
-  if(turnMsgs.length - already < every * 2) return; // 아직 압축 기준(왕복 수 * 2메시지)에 못 미침
-  const cutoff = Math.max(already, turnMsgs.length - every);
+  const userTurns = turnMsgs.filter(m=>m.role === "user" && !m.auto).length;
+  const last = Number.isFinite(chat.summaryLastTurn) ? chat.summaryLastTurn : (already ? Math.floor(already / 2) : 0);
+  if(userTurns < every || userTurns - last < every) return; // 아직 압축 기준(왕복 수 * 2메시지)에 못 미침
+  const cutoff = Math.max(already, turnMsgs.length - 20);
   const toSummarize = turnMsgs.slice(already, cutoff);
   if(toSummarize.length < 2) return;
   const wrap = document.getElementById("msgWrap");
@@ -5225,9 +5236,10 @@ async function maybeCompressChat(chat){
   const tick = setInterval(()=>{ if(pct < 90) setPct(pct + Math.max(1, (90 - pct) * 0.08)); }, 250);
   try{
     const inChars = toSummarize.reduce((a,m)=>a + (m.content||"").length, 0);
-    const summaryText = await summarizeMessages(toSummarize);
+    const summaryText = await summarizeMessages(toSummarize, chat.summary || "");
     if(!summaryText) return;
-    chat.summary = chat.summary ? (chat.summary + "\n" + summaryText) : summaryText;
+    chat.summary = summaryText;
+    chat.summaryLastTurn = userTurns;
     chat.summaryUpto = cutoff;
     setPct(100);
     let used = 0;
@@ -5238,7 +5250,7 @@ async function maybeCompressChat(chat){
   }catch(e){ console.warn("[압축 요약 실패]", e && (e.dev || e.message) || e); }
   finally{ clearInterval(tick); prow.remove(); try{ renderMessages(); }catch(_){} }
 }
-async function summarizeMessages(msgs){
+async function summarizeMessages(msgs, previousSummary = ""){
   const provider = settings.provider;
   const apiKey = resolveApiKey(provider);
   const SUMMARY_PROMPT = "너는 대화 요약 도우미다. 아래 대화 내용 중 이후 대화를 이어가는 데 필요한 핵심만 한국어로 간결하게 "
@@ -5247,10 +5259,10 @@ async function summarizeMessages(msgs){
     + "잡담이나 인사말 등 불필요한 내용은 생략해라.";
   if(!apiKey && !hasDefaultProxy(provider)){
     // 키가 없어 실제 API를 못 부르는 경우: 아주 단순한 길이 압축으로만 대체 (그래도 정보 유실을 최소화하기 위해 각 메시지 앞부분을 남김)
-    return msgs.map(m=>`${m.role==="user"?"사용자":"AI"}: ${(m.content||"").slice(0,160)}`).join("\n").slice(0, 1600);
+    return ""; // 요약 실패 시 기존 원문과 요약을 유지한다.
   }
   const model = settings.models[provider]["medium"];
-  const history = msgs.concat([{ role:"user", content: SUMMARY_PROMPT }]);
+  const history = (previousSummary ? [{role:"user", content:"[기존 대화 요약]\n" + previousSummary}, {role:"ai",content:"기존 요약을 반영하겠습니다."}] : []).concat(msgs, [{ role:"user", content: SUMMARY_PROMPT + " 기존 요약의 중요한 사실도 빠뜨리지 말고 함께 갱신해라." }]);
   let text;
   if(provider === "gemini") ({ text } = await callGemini(model, apiKey, "너는 대화 요약 전용 도우미다.", history, "medium", 700));
   else if(provider === "openai") ({ text } = await callOpenAI(model, apiKey, "너는 대화 요약 전용 도우미다.", history, 700));
@@ -5611,7 +5623,7 @@ function agentMaxSteps(){
    ```upload  : 업로드할 파일 경로(한 줄에 하나)       예) ```upload\n/user/projects/game.html\n```
    ```question-load : 사용자에게 물어볼 질문(+ "- 선택지")
    ```tool    : {"tool":"…", …} JSON (한 줄에 하나 또는 배열) — 구조화 도구(fs_*, pkg_* 등) */
-function toolFenceRe(){ return /```(tool|runcmd|upload|question-load)[ \t]*\r?\n([\s\S]*?)\r?\n?```/g; }
+function toolFenceRe(){ return /```(tool|runcmd|upload|question[-_]load)[ \t]*\r?\n([\s\S]*?)\r?\n?```/g; }
 /* Chrome in Choimini: 마지막 메시지에 "열린 탭 목록 + 지금 보는 탭(★)" 을 붙인다 (저장되지 않고 이번 요청에만) */
 async function withBrowserContext(history){
   if(!browserAvailable() || !ChoiminiBrowser.tabContext || !history.length) return history;
@@ -5624,7 +5636,7 @@ async function withBrowserContext(history){
 }
 function hasBrowserBlocks(text){ return /```browser[ \t]*\r?\n/.test(text||""); }
 function browserAvailable(){ try{ return !!(window.ChoiminiBrowser && ChoiminiBrowser.available && ChoiminiBrowser.available()); }catch(e){ return false; } }
-function hasToolBlocks(text){ return /```(tool|runcmd|upload|question-load)[ \t]*\r?\n/.test(text||""); }
+function hasToolBlocks(text){ return /```(tool|runcmd|upload|question[-_]load)[ \t]*\r?\n/.test(text||""); }
 function parseToolCalls(text){
   const calls = [];
   const re = toolFenceRe();
@@ -5639,9 +5651,9 @@ function parseToolCalls(text){
       catch(_){ paths = body.split("\n").map(l=>l.replace(/^\s*[-*•]\s*/, "").replace(/^["'`]|["'`]$/g, "").trim()).filter(Boolean); }
       calls.push({ tool:"upload", paths }); continue;
     }
-    if(kind === "question-load"){
+    if(kind === "question-load" || kind === "question_load"){
       let q = null;
-      try{ const j = JSON.parse(body); if(j && j.question) q = { question:String(j.question), options:[].concat(j.options||[]).map(String) }; }catch(_){}
+      try{ const j = JSON.parse(body); if(j && Array.isArray(j.questions)) { j.questions.forEach(x=>{ if(x && (x.question || x.title)) calls.push({tool:"question_load", question:String(x.question || x.title), options:Array.isArray(x.options)?x.options:[]}); }); continue; } if(j && j.question) q = { question:String(j.question), options:[].concat(j.options||[]).map(String) }; }catch(_){}
       if(!q){
         const ls = body.split("\n").map(l=>l.trim()).filter(Boolean);
         q = { question: ls.filter(l=>!/^[-*•]\s+/.test(l)).join(" "), options: ls.filter(l=>/^[-*•]\s+/.test(l)).map(l=>l.replace(/^[-*•]\s+/, "")) };
@@ -5657,7 +5669,9 @@ function parseToolCalls(text){
       });
     }
   }
-  return calls.map(normalizeToolCall);
+  return calls.flatMap(c=>c && c.tool === "question_load" && Array.isArray(c.questions)
+    ? c.questions.filter(q=>q && (q.question || q.title)).map(q=>({tool:"question_load",question:String(q.question || q.title),options:Array.isArray(q.options)?q.options:[]}))
+    : [c]).map(normalizeToolCall);
 }
 /* 모델이 도구 이름/인자를 조금 다르게 써도 실행되게 정리한다.
    예: {"tool":"Device_Key","args":{"key":"ENTER"}} → {"tool":"device_key","key":"enter"} */
@@ -5895,6 +5909,10 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
   const shortCmd = (t)=>{ t = String(t); const ls = t.split("\n"); let r = ls.slice(0,4).join("\n"); if(ls.length > 4) r += "\n… (" + (ls.length - 4) + "줄 더)"; return r.length > 400 ? r.slice(0,400) + "…" : r; };
   const cmdLabel = (c, args)=> args.command ? shortCmd(args.command) : (c.tool + (args.path ? " " + args.path : args.from ? ` ${args.from} → ${args.to}` : args.name ? " " + args.name : args.pattern ? " " + args.pattern : ""));
   try{
+    if((isWorkMode() || isCodeMode()) && hasToolBlocks(aiMsg.content || "")){
+      const questions = parseToolCalls(aiMsg.content).filter(c=>c && c.tool === "question_load").map(c=>({question:c.question || c.title || "",options:Array.isArray(c.options)?c.options:[]}));
+      if(questions.length){ aiMsg.question={questions}; aiMsg.running=false; autoLoadChat(chat); return; }
+    }
     if(useLocalTerminal() && /```(tool|runcmd|upload)[ \t]*\r?\n/.test(aiMsg.content)){
       const calls = parseToolCalls(aiMsg.content).filter(c=>!(c && c.tool === "question_load"));
       const outs = [], commands = [], localUploaded = [];
@@ -5961,12 +5979,12 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
       const outs = [], commands = [], uploaded = [];
       const modeForTools = isCodeMode() ? "code" : "work";
       const before = window.LinuxFS && LinuxFS.snapshot ? LinuxFS.snapshot() : null; // 실행 전 파일 상태 → 끝나고 비교해서 "생성/편집/삭제" 표시
-      let asked = null, outOfTokens = false;
+      let asked = [], outOfTokens = false;
       setRunning("명령 실행중...");
       for(const c of calls){
         if(!c || !c.tool || c.tool === "__invalid"){ outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요. (명령은 ```runcmd 블록을 쓰면 JSON 이 필요 없어요)"); continue; }
         if(signal() && signal().aborted) throw Object.assign(new Error("aborted"), { name:"AbortError" });
-        if(c.tool === "question_load"){ asked = { question: c.question || "", options: c.options || [] }; break; }
+        if(c.tool === "question_load"){ asked.push({ question: c.question || c.title || "", options: c.options || [] }); continue; }
         // ③ 도구 사용: 실행 직전에 1 토큰을 즉시 차감. 다음 작업(답변)까지 이어갈 토큰이 모자라면 여기서 멈추고 알려준다.
         if(tokensInternal < agentToolCostInternal()){
           outs.push("▶ " + c.tool + "\n실행 안 함: 토큰이 부족해서 도구를 사용할 수 없어요.");
@@ -5997,7 +6015,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
       }
       const d = before ? LinuxFS.diffSnapshot(before) : { created:[], edited:[], deleted:[] };
       aiMsg.activity = { commands, created:d.created, edited:d.edited, deleted:d.deleted, uploaded };
-      if(asked){ aiMsg.question = asked; aiMsg.running = false; autoLoadChat(chat); return; } // 사용자 답을 기다린다
+      if(asked.length){ aiMsg.question = { questions: asked }; aiMsg.running = false; autoLoadChat(chat); return; } // 사용자 답을 기다린다
       if(outOfTokens){
         aiMsg.running = false;
         chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(agentToolCostInternal(), "도구 사용") + ` 충전 후 "계속해줘"`, ts: Date.now() });
@@ -6305,7 +6323,7 @@ function makeLiveRow(label, chatId){
   }
   attach();
   function openBlock(t){
-    const ms = [...t.matchAll(/```(tool|runcmd|upload|question-load)[ \t]*\r?\n/g)];
+    const ms = [...t.matchAll(/```(tool|runcmd|upload|question[-_]load)[ \t]*\r?\n/g)];
     if(!ms.length) return "";
     const last = ms[ms.length-1], rest = t.slice(last.index + last[0].length);
     if(rest.includes("```")) return "";                     // 이미 닫힌 블록
@@ -6886,7 +6904,11 @@ const TTS = (function(){
   function pickVoice(prefix){
     const want = (function(){ try{ return (settings && settings.ttsVoice) || ""; }catch(_){ return ""; } })();
     const all = refreshVoices();
-    if(want && want !== "auto"){
+    if(want === "male"){
+      const male = voices(prefix).filter(v=>/(\b(male|man|david|daniel|james|guy|inho|in-?joon|hyunsu)\b|현수|인준|남성)/i.test(v.name || "") && !/female/i.test(v.name || ""));
+      if(male.length) return male.sort((a,b)=>voiceScore(b)-voiceScore(a))[0];
+    }
+    if(want && want !== "auto" && want !== "male"){
       const chosen = all.find(v=>v.voiceURI === want || v.name === want);
       // 고른 목소리가 지금 읽을 언어와 맞을 때만 쓴다 (한국어 글을 영어 목소리로 읽지 않도록)
       if(chosen && chosen.lang && chosen.lang.toLowerCase().replace("_", "-").indexOf(prefix) === 0) return chosen;
@@ -6920,7 +6942,8 @@ const TTS = (function(){
     if(nativeOk()){
       const token=currentToken;
       try{
-        if(bridge().ttsSpeak(token,clean.slice(0,4000),ko?'ko-KR':'en-US',settings.ttsVoice||'auto'))return true;
+        const picked = settings.ttsVoice === 'male' ? pickVoice(ko?'ko':'en') : null;
+        if(bridge().ttsSpeak(token,clean.slice(0,4000),ko?'ko-KR':'en-US',picked ? (picked.voiceURI || picked.name) : (settings.ttsVoice === 'male' ? 'auto' : (settings.ttsVoice||'auto'))))return true;
       }catch(e){console.warn('[Native TTS]',e);}
       finish({ok:false,error:'native-unavailable'});toast('기기의 TTS 엔진을 시작하지 못했어요');return false;
     }
