@@ -5956,31 +5956,33 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
     if(useLocalTerminal() && /```(tool|runcmd|upload)[ \t]*\r?\n/.test(aiMsg.content)){
       const calls = parseToolCalls(aiMsg.content).filter(c=>!(c && c.tool === "question_load"));
       const outs = [], commands = [], localUploaded = [];
-      let uploadsSucceeded = calls.length > 0 && calls.every(c=>c && c.tool === "upload") && !hasBrowserBlocks(aiMsg.content);
+      let uploadsSucceeded = calls.length > 0 && calls[calls.length-1]?.tool === "upload" && !hasBrowserBlocks(aiMsg.content);
       if(calls.some(c=>c && String(c.tool).indexOf("device_") === 0)){ // 화면 조작 중에는 다른 앱 화면 위에서도 AI 가 하는 말이 보이게 [중지] 버튼 옆으로 보낸다
         try{ const say = parseAiDisplay(aiMsg.content).text; const B = devBridge(); if(say && B && B.deviceNarrate) B.deviceNarrate(say); }catch(_){}
       }
       setRunning("명령 실행중...");
       for(const c of calls){
-        if(!c || !c.tool || c.tool === "__invalid"){ outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요."); continue; }
+        if(!c || !c.tool || c.tool === "__invalid"){ uploadsSucceeded = false; outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요."); continue; }
         if(signal() && signal().aborted) throw Object.assign(new Error("aborted"), { name:"AbortError" });
         if(c.tool === "runcmd"){ c.tool = "run_command"; } // 모델이 가상 Linux 습관대로 runcmd 를 써도 로컬 명령으로 실행
         if(c.tool === "to_local") c.tool = "from_sandbox"; else if(c.tool === "from_local") c.tool = "to_sandbox";
         if(c.tool === "make_apk"){
           let msg, okT = true;
           try{ setRunning("APK 빌드중..."); msg = await makeApkLocal(c, localUploaded); }catch(e){ okT = false; msg = "오류: " + (e && e.message || e); }
+          if(!okT) uploadsSucceeded = false;
           commands.push({ cmd: "make_apk " + (c.dir || c.from || "."), ok: okT, out: shortOut(msg) }); outs.push("▶ make_apk\n" + msg); continue;
         }
         if(c.tool === "term_list" || c.tool === "term_rename" || c.tool === "term_close"){ // 터미널 창 관리: 이름 변경/닫기는 사용자 확인창을 거친다
           let msg, okT = true;
           try{ msg = termTool(c); }catch(e){ okT = false; msg = "오류: " + (e && e.message || e); }
+          if(!okT) uploadsSucceeded = false;
           commands.push({ cmd: c.tool + " " + (c.id || c.name || ""), ok: okT, out: shortOut(msg) }); outs.push("▶ " + c.tool + "\n" + msg); continue;
         }
         if(c.tool === "upload" || c.tool === "to_sandbox" || c.tool === "from_sandbox"){ // Local ↔ SandBox Linux 파일 이동 / 사용자에게 파일 카드 전달
           let msg, okT = true;
           Stage.set(STAGE.upload);
           try{ msg = await transferFiles(c, localUploaded); }catch(e){ okT = false; msg = "오류: " + (e && e.message || e); }
-          if(!okT || /^오류[:：]/.test(String(msg))) uploadsSucceeded = false;
+          if(!okT || /(?:^|\n)(?:오류|실패)[:：]/.test(String(msg))) uploadsSucceeded = false;
           commands.push({ cmd: c.tool + " " + (uploadPathsOf(c).join(", ") || c.from || ""), ok: okT, out: shortOut(msg) });
           outs.push("▶ " + c.tool + "\n" + msg);
           continue;
@@ -6001,6 +6003,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         if(r && r.aborted){ aiMsg.running = false; chat.messages.push({ id: uid(), role:"system", content:"작업을 중단했어요.", ts: Date.now() }); autoLoadChat(chat); return; }
         const label = c.tool + (args.path ? " " + args.path : args.command ? " " + String(args.command).slice(0, 80) : args.pattern ? " " + args.pattern : "");
         const ok = !!(r && r.ok), out = ok ? (r.output || "(출력 없음)") : "오류: " + ((r && r.error) || "알 수 없는 오류");
+        if(!ok) uploadsSucceeded = false;
         if(String(c.tool).indexOf("device_") === 0){ // 화면 조작: 무엇을 했는지(+ 화면 캡처)를 채팅에 바로바로 보여준다. 캡처는 저장하지 않고 이번 실행 중에만 보관
           const dl = (r && r.desc) || (ok ? "완료" : "실패");
           commands.push({ cmd: dl, ok, out: shortOut(out), dev: String(c.tool).replace("device_", "") });
@@ -6020,13 +6023,13 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
     if(!feedback && (isWorkMode() || isCodeMode()) && window.ChoiminiToolRunner && hasToolBlocks(aiMsg.content)){
       const calls = parseToolCalls(aiMsg.content);
       const outs = [], commands = [], uploaded = [];
-      let uploadsSucceeded = calls.length > 0 && calls.every(c=>c && c.tool === "upload") && !hasBrowserBlocks(aiMsg.content);
+      let uploadsSucceeded = calls.length > 0 && calls[calls.length-1]?.tool === "upload" && !hasBrowserBlocks(aiMsg.content);
       const modeForTools = isCodeMode() ? "code" : "work";
       const before = window.LinuxFS && LinuxFS.snapshot ? LinuxFS.snapshot() : null; // 실행 전 파일 상태 → 끝나고 비교해서 "생성/편집/삭제" 표시
       let asked = [], outOfTokens = false;
       setRunning("명령 실행중...");
       for(const c of calls){
-        if(!c || !c.tool || c.tool === "__invalid"){ outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요. (명령은 ```runcmd 블록을 쓰면 JSON 이 필요 없어요)"); continue; }
+        if(!c || !c.tool || c.tool === "__invalid"){ uploadsSucceeded = false; outs.push("▶ (잘못된 도구 호출)\n오류: JSON 형식이 올바르지 않아요. ```tool 블록에는 한 줄에 JSON 객체 하나씩 쓰세요. (명령은 ```runcmd 블록을 쓰면 JSON 이 필요 없어요)"); continue; }
         if(signal() && signal().aborted) throw Object.assign(new Error("aborted"), { name:"AbortError" });
         if(c.tool === "question_load"){ asked.push({ question: c.question || c.title || "", options: c.options || [] }); continue; }
         // ③ 도구 사용: 실행 직전에 1 토큰을 즉시 차감. 다음 작업(답변)까지 이어갈 토큰이 모자라면 여기서 멈추고 알려준다.
@@ -6048,12 +6051,13 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
           outs.push("▶ upload " + paths.join(", ") + "\n" + (ok.length ? "업로드됨: " + ok.map(baseName).join(", ") + " (사용자가 미리보기/다운로드할 수 있어요)" : "오류: 업로드할 파일을 찾을 수 없어요") + (bad.length ? "\n찾을 수 없음: " + bad.join(", ") : ""));
           continue;
         }
-        if(!ChoiminiToolRunner.isFsTool(c.tool)){ outs.push(`▶ ${c.tool}\n오류: 사용할 수 없는 도구예요. 사용 가능: runcmd, upload, question-load, fs_*`); continue; }
+        if(!ChoiminiToolRunner.isFsTool(c.tool)){ uploadsSucceeded = false; outs.push(`▶ ${c.tool}\n오류: 사용할 수 없는 도구예요. 사용 가능: runcmd, upload, question-load, fs_*`); continue; }
         const args = Object.assign({}, c); delete args.tool;
         const label = c.tool + (args.command ? " " + String(args.command).split("\n")[0].slice(0, 80) : args.path ? " " + args.path : args.from ? ` ${args.from} → ${args.to}` : args.name ? " " + args.name : "");
         let ok = true, out;
         try{ out = await ChoiminiToolRunner.run(c, modeForTools); }
         catch(e){ ok = false; out = "오류: " + (e && e.message || e); }
+        if(!ok || /\[종료 코드 [1-9]/.test(out)) uploadsSucceeded = false;
         outs.push("▶ " + label + "\n" + out);
         // 파일을 통째로 쓰는 fs_write 는 아래 "파일 생성됨/편집됨" 으로 표시하므로 "명령 실행" 개수엔 넣지 않는다
         if(c.tool !== "fs_write") commands.push({ cmd: cmdLabel(c, args), ok: ok && !/\[종료 코드 [1-9]/.test(out), out: shortOut(out) });
@@ -6112,11 +6116,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
   }
   aiMsg.running = false;
   autoLoadChat(chat); // 실행 결과(명령/파일 변경)를 채팅에 즉시 반영
-  // 도구를 안 쓰고 끝내려는데 파일을 업로드 안 했거나 코드를 채팅에 붙여넣었다면 한 번 되돌려서 스킬을 쓰게 한다
-  if(!feedback && (isWorkMode() || isCodeMode())){
-    const nudge = computeNudge(chat, aiMsg);
-    if(nudge) feedback = nudge;
-  }
+  // 도구가 없는 답변은 완료로 처리한다. 코드 답변을 파일 생성 요청으로 바꿔 재호출하지 않는다.
   if(!feedback) return;
   if(repeatedToolResult(chat, aiMsg, feedback)){
     chat.messages.push({ id:uid(), role:"system", content:"같은 작업이 반복되어 자동 진행을 멈췄어요. 작업 결과와 파일을 확인한 뒤 다시 요청해 주세요.", ts:Date.now() });
