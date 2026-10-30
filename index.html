@@ -854,7 +854,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./choimini-auth.js?v=20261028b"></script>
 <script src="./choimini-browser.js?v=20261019"></script>
-<script src="./choimini-linuxfs.js?v=20261027"></script>
+<script src="./choimini-linuxfs.js?v=20261030-media1"></script>
 <script src="./choimini-shell.js?v=20261005"></script>
 <script src="./choimini-shell-cmds.js?v=20261011"></script>
 <script src="./choimini-apk.js?v=20261004"></script>
@@ -1686,7 +1686,7 @@ function fsToolPrompt(mode){
     + "■ question-load — 진행에 꼭 필요한 정보가 없을 때만 묻는다(선택지는 '- ' 줄). 쓰면 답을 기다리며 멈춘다. 요청이 충분히 구체적이면 묻지 말고 합리적으로 정해 진행:\n"
     + F + "question-load\n난이도는 어떻게 할까요?\n- 쉬움\n- 보통\n" + F + "\n"
     + "■ 테스트(필수): htmltest 파일.html [-t 대기ms] [-k ArrowLeft,Space] [-e 'JS식'] — 격리 브라우저에서 실제 실행해 콘솔 에러·캔버스·키 입력 뒤 상태 확인 / jscheck 파일 — JS 문법 검사. 통과를 확인한 뒤 upload. localStorage 는 try/catch, 외부 CDN 의존 금지.\n"
-    + "■ 보조 도구(" + F + "tool, JSON 한 줄에 하나): fs_ls fs_read fs_write(path,content) fs_rm fs_mv fs_cp fs_find fs_grep fs_head fs_tail fs_mkdir fs_touch fs_cd fs_pwd convert_image(path,format) pkg_install(name) pkg_list(). 긴 코드는 runcmd 히어독이 안전하다.\n"
+    + "■ 보조 도구(" + F + "tool, JSON 한 줄에 하나): fs_ls fs_read fs_write(path,content) fs_rm fs_mv fs_cp fs_find fs_grep fs_head fs_tail fs_mkdir fs_touch fs_cd fs_pwd convert_image(path,format) edit_image(path,out,width,height,crop:{x,y,width,height},flipX,flipY,format) edit_video(path,out,start,end,width,height) create_video(paths,out,seconds_per_image,width,height) generate_image(prompt,out,path?) pkg_install(name) pkg_list(). edit_video는 최대 60초, 무음 WebM이다. generate_image는 직접 등록한 Gemini 키가 필요하고, path를 지정하면 이미지를 AI로 편집한다. create_video는 이미지로 무음 슬라이드 영상을 만든다. 사진 같은 생성형 동영상은 지원하지 않는다. 긴 코드는 runcmd 히어독이 안전하다.\n"
     + "■ 사용 가능한 명령(실시간): " + cmds + "\n  모르면 which <명령> / cmds -l 로 확인.\n"
     + "■ 한계(되는 척하지 말고 사실대로): 진짜 리눅스가 아닌 브라우저 구현. python=Pyodide(첫 실행 느림), node=샌드박스(npm 은 esm.sh), curl/wget 은 CORS 제약, git 원격 불가, ps/kill 가상, awk/sed 일부만.\n"
     + SPEED_RULE
@@ -4148,6 +4148,13 @@ async function streamSSEOnce(url, init, onEvent, noRetry){
         onEvent(j);
       }
     }
+    // 서버가 마지막 줄바꿈 없이 종료하더라도 마지막 SSE 이벤트를 처리한다.
+    buf += dec.decode();
+    const lastLine = buf.trim();
+    if(lastLine.startsWith("data:")){
+      const d = lastLine.slice(5).trim();
+      if(d && d !== "[DONE]"){ let j; try{ j=JSON.parse(d); }catch(_){} if(j) onEvent(j); }
+    }
   }catch(e){
     if(e && (e.name === "AbortError" || e instanceof ApiCallError)) throw e;
     throw new ApiCallError("AI 응답을 받는 도중 연결이 끊겼어요. 다시 시도하는 중...", { retryable:true, dev: e.message||String(e) });
@@ -4286,7 +4293,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
     }, ()=>{ acc = ""; usageMd = {}; fin = ""; th = ""; }, wantGroq);
     if(!acc){ const e = new ApiCallError("AI가 빈 응답을 보냈어요. 다시 시도하는 중...", { retryable:true, dev:"empty stream " + fin }); e.empty = true; throw e; }
     const raw = (usageMd.candidatesTokenCount||0) + (usageMd.thoughtsTokenCount||0) * THOUGHT_COST_W;
-    return { text: acc, usageAmount: raw > 0 ? raw / 15 : null, streamed:true, thoughts: th, thoughtTokens: usageMd.thoughtsTokenCount||0, outTokens: usageMd.candidatesTokenCount||0, inTokens: usageMd.promptTokenCount||0 };
+    return { text: acc, usageAmount: raw > 0 ? raw / 15 : null, streamed:true, thoughts: th, thoughtTokens: usageMd.thoughtsTokenCount||0, outTokens: usageMd.candidatesTokenCount||0, inTokens: usageMd.promptTokenCount||0, finishReason:fin };
   }
   const data = await fetchJsonWithRetry(url, { method:"POST", headers, body: JSON.stringify(payload), signal });
   const gParts = data?.candidates?.[0]?.content?.parts || [];
@@ -4300,7 +4307,7 @@ async function callGemini(model, apiKey, systemPrompt, history, preset, maxOutpu
   // 실제 API가 보고하는 사용량(사고 과정 포함)을 그대로 "사고 과정에서 사용된 양"으로 반영
   const usage = data?.usageMetadata || {};
   const rawTokens = (usage.candidatesTokenCount||0) + (usage.thoughtsTokenCount||0) * THOUGHT_COST_W;
-  return { text, usageAmount: rawTokens > 0 ? rawTokens / 15 : null, thoughts: gThoughts, thoughtTokens: usage.thoughtsTokenCount||0, outTokens: usage.candidatesTokenCount||0, inTokens: usage.promptTokenCount||0 };
+  return { text, usageAmount: rawTokens > 0 ? rawTokens / 15 : null, thoughts: gThoughts, thoughtTokens: usage.thoughtsTokenCount||0, outTokens: usage.candidatesTokenCount||0, inTokens: usage.promptTokenCount||0, finishReason:data?.candidates?.[0]?.finishReason || "" };
 }
 /* Local 작업공간에 복사된 첨부파일이면 AI 에게 그 경로를 알려준다(이미지·바이너리 포함) */
 function localAttachHint(m){
@@ -5066,7 +5073,7 @@ async function tryGroqStep(chat, sys, history, signal, onDelta){
   groqGuard.bad = 0;
   const tEnd = Date.now();
   return { text: stripThinkTags(out.text), provider: "groq", usedLocal: false, usageAmount: out.usageAmount, streamed: !!out.streamed,
-    stats: { step: "fast-groq", model: model + " (Groq)", thinkMs: (tText || tEnd) - t0, totalMs: tEnd - t0,
+    finishReason:out.finishReason, stats: { step: "fast-groq", model: model + " (Groq)", thinkMs: (tText || tEnd) - t0, totalMs: tEnd - t0,
              thoughtTokens: 0, outTokens: out.outTokens || 0, inTokens: out.inTokens || 0, thoughts: "" } };
 }
 
@@ -5203,7 +5210,7 @@ async function generateReply(chat, signal, onDelta){
         if(tried.size > 1) toast(`ℹ️ ${m} 모델로 전환해서 응답했어요`);
         const tEnd = Date.now();
         const stats = { step: fast && pr === "lite" ? "fast" : step, model: m, thinkMs: (tText || tEnd) - t0, totalMs: tEnd - t0, thoughtTokens: out.thoughtTokens || 0, outTokens: out.outTokens || 0, inTokens: out.inTokens || 0, thoughts: "", retries: attempt + tried.size - 1 };
-        return { text: out.text, provider, usedLocal: false, usageAmount: out.usageAmount, streamed: !!out.streamed, stats };
+        return { text: out.text, provider, usedLocal: false, usageAmount: out.usageAmount, streamed: !!out.streamed, finishReason:out.finishReason, stats };
       }catch(e){
         if(e && e.name === "AbortError") throw e;
         lastErr = e;
@@ -5553,8 +5560,9 @@ async function appendAiReply(chat, preset, depth, signal, live){
             : `${PROVIDER_LABEL[usedProvider]} · -${normalCost/TOKEN_MULT} 토큰${memoryTag}`));
   const disp = parseAiDisplay(replyText);
   // ```tool 블록(자동 실행용)과 [[상태]] 태그는 "코드 공개" 잠금 대상이 아니다 — 사용자에게 보여줄 코드 블록만 잠근다
-  const hasCode = containsCodeBlock(disp.text);
-  const aiMsg = { id: uid(), role:"ai", content: replyText, meta, ts: Date.now(), codeLocked: hasCode, _chatId: chat.id, charges: chargeTarget.charges };
+  const incompleteFence = (String(replyText).match(/```/g) || []).length % 2 === 1 || /^(MAX_TOKENS|LENGTH)$/i.test(result.finishReason || "");
+  const hasCode = !incompleteFence && containsCodeBlock(disp.text);
+  const aiMsg = { id: uid(), role:"ai", content: replyText, finishReason:result.finishReason || "", meta, ts: Date.now(), codeLocked: hasCode, _chatId: chat.id, charges: chargeTarget.charges };
   if(stats) aiMsg.stats = stats;
   chat.messages.push(aiMsg);
   // 실시간 말풍선(live)은 진짜 메시지가 생기는 순간 치운다 — 안 치우면 같은 답변이 live + 진짜 메시지로 두 번 보인다
@@ -5573,7 +5581,11 @@ async function appendAiReply(chat, preset, depth, signal, live){
   } else {
     // 이미 실시간 스트리밍으로 보여줬다면 그대로 확정, 아니면(프록시 등) 타자 효과로 점진 공개
     if(result.streamed) autoLoadChat(chat); else await streamRevealMessage(aiMsg);
-    if(autoRun){
+    if(incompleteFence && (isWorkMode() || isCodeMode())){
+      // 잘린 호출은 실행하지 않는다. 불필요한 CAPTCHA 없이 재작성 단계로 보낸다.
+      await costPromise;
+      await afterReplyActions(chat, aiMsg, preset, depth);
+    } else if(autoRun){
       // 명령 실행은 세션당 한 번 jCAPTCHA 인증 후에만 (이미 통과했으면 바로 진행)
       await new Promise(resolve=>{
         startCaptcha(
@@ -5934,6 +5946,20 @@ function termTool(c){
   api.close(t); return "터미널을 닫았어요: " + t.name;
 }
 
+async function sandboxGenerateImage(call, signal){
+  const key = resolveApiKey("gemini");
+  if(!key) throw new Error("이미지 생성에는 설정에 직접 등록한 Gemini API 키와 이미지 생성 모델 사용 권한이 필요해요.");
+  const prompt=String(call.prompt||"").trim(), out=String(call.out||"").trim();
+  if(!prompt || !out || !/\.png$/i.test(out)) throw new Error("prompt와 PNG 출력 경로 out이 필요해요.");
+  const parts=[{text:prompt}];
+  if(call.path){const st=LinuxFS.stat(call.path);if(!st||st.type!=="file"||!/^image\/(png|jpeg|webp)$/.test(st.mime||"")) throw new Error("PNG/JPEG/WebP 입력 이미지를 찾을 수 없어요."); const m=String(LinuxFS.readFile(call.path)).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);if(!m)throw new Error("이미지 데이터를 읽을 수 없어요.");parts.push({inlineData:{mimeType:m[1],data:m[2]}});}
+  const res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseModalities:["IMAGE"]}}),signal});
+  if(!res.ok) throw new Error("이미지 생성 요청 실패 (HTTP " + res.status + "). 키와 모델 권한을 확인하세요.");
+  const data=await res.json(), part=(data.candidates?.[0]?.content?.parts||[]).find(p=>p.inlineData?.data && p.inlineData?.mimeType==="image/png");
+  if(!part) throw new Error("이미지 생성 결과가 없거나 PNG가 아니에요.");
+  return LinuxFS.asAI(()=>LinuxFS.writeFile(out,"data:image/png;base64,"+part.inlineData.data,"image/png"));
+}
+
 async function afterReplyActions(chat, aiMsg, preset, depth){
   if(depth >= agentMaxSteps()){
     if(hasToolBlocks(aiMsg.content||"")){
@@ -5943,17 +5969,22 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
     return;
   }
   let feedback = "", lastShot = null;
+  // 미완성 도구 호출은 절대 실행하지 않고 새로 작성하도록 요청한다.
+  const fenceStarts = (String(aiMsg.content || "").match(/```/g) || []).length;
+  if((isWorkMode() || isCodeMode()) && (fenceStarts % 2 || /^(MAX_TOKENS|LENGTH)$/i.test(aiMsg.finishReason || ""))){
+    feedback = "[시스템 안내] 이전 응답이 코드 또는 도구 블록 작성 중 잘렸으므로 실행되지 않았습니다. 처음부터 다시 작성하세요. 파일은 작은 단위로 나누어 쓰고 각 도구 블록과 히어독을 반드시 닫으세요.";
+  }
   const signal = () => chatSignal(chat);
   const setRunning = (v)=>{ aiMsg.running = v; if(chat.id === activeChatId) renderMessages(); };
   const shortOut = (t)=>{ t = String(t==null?"":t); return t.length > 900 ? t.slice(0,900) + "\n…(생략)" : t; };
   const shortCmd = (t)=>{ t = String(t); const ls = t.split("\n"); let r = ls.slice(0,4).join("\n"); if(ls.length > 4) r += "\n… (" + (ls.length - 4) + "줄 더)"; return r.length > 400 ? r.slice(0,400) + "…" : r; };
   const cmdLabel = (c, args)=> args.command ? shortCmd(args.command) : (c.tool + (args.path ? " " + args.path : args.from ? ` ${args.from} → ${args.to}` : args.name ? " " + args.name : args.pattern ? " " + args.pattern : ""));
   try{
-    if((isWorkMode() || isCodeMode()) && hasToolBlocks(aiMsg.content || "")){
+    if(!feedback && (isWorkMode() || isCodeMode()) && hasToolBlocks(aiMsg.content || "")){
       const questions = parseToolCalls(aiMsg.content).filter(c=>c && c.tool === "question_load").map(c=>({question:c.question || c.title || "",options:Array.isArray(c.options)?c.options:[]}));
       if(questions.length){ aiMsg.question={questions}; aiMsg.running=false; autoLoadChat(chat); return; }
     }
-    if(useLocalTerminal() && /```(tool|runcmd|upload)[ \t]*\r?\n/.test(aiMsg.content)){
+    if(!feedback && useLocalTerminal() && /```(tool|runcmd|upload)[ \t]*\r?\n/.test(aiMsg.content)){
       const calls = parseToolCalls(aiMsg.content).filter(c=>!(c && c.tool === "question_load"));
       const outs = [], commands = [], localUploaded = [];
       let uploadsSucceeded = calls.length > 0 && calls[calls.length-1]?.tool === "upload" && !hasBrowserBlocks(aiMsg.content);
@@ -6050,6 +6081,10 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
           if(!ok.length || bad.length) uploadsSucceeded = false;
           outs.push("▶ upload " + paths.join(", ") + "\n" + (ok.length ? "업로드됨: " + ok.map(baseName).join(", ") + " (사용자가 미리보기/다운로드할 수 있어요)" : "오류: 업로드할 파일을 찾을 수 없어요") + (bad.length ? "\n찾을 수 없음: " + bad.join(", ") : ""));
           continue;
+        }
+        if(c.tool === "generate_image"){
+          let out, ok=true; try{setRunning("이미지 생성 중...");out="이미지 저장됨: " + await sandboxGenerateImage(c,signal());}catch(e){if(e?.name === "AbortError") throw e;ok=false;out="오류: " + (e.message||e);}
+          if(!ok) uploadsSucceeded=false;commands.push({cmd:"generate_image " + (c.out||""),ok,out:shortOut(out)});outs.push("▶ generate_image\n"+out);continue;
         }
         if(!ChoiminiToolRunner.isFsTool(c.tool)){ uploadsSucceeded = false; outs.push(`▶ ${c.tool}\n오류: 사용할 수 없는 도구예요. 사용 가능: runcmd, upload, question-load, fs_*`); continue; }
         const args = Object.assign({}, c); delete args.tool;
