@@ -2250,6 +2250,9 @@ document.addEventListener('click',e=>{const button=e.target.closest && e.target.
 
 function renderActivityHtml(m){
   let h="";
+  if(m.pendingContinuation){
+    h += `<div class="q-card"><div class="q-text">추가 AI 호출로 작업을 계속할까요?</div><div class="q-opts"><button type="button" data-agent-choice="continue">계속하기</button><button type="button" data-agent-choice="stop">여기서 끝내기</button></div></div>`;
+  }
   if(m.question){
     const questions = Array.isArray(m.question.questions) ? m.question.questions : [m.question];
     h += `<div class="q-card">` + questions.map((q, qi)=>`<div class="q-group" data-qi="${qi}"><div class="q-text">${escapeHtml(q.question || q.title || "질문")}</div><div class="q-opts">` + (q.options || []).map((o,i)=>`<button type="button" data-q="${i}">${escapeHtml(typeof o === "string" ? o : (o.label || o.value || ""))}</button>`).join("") + `</div><input class="q-answer" aria-label="직접 입력" placeholder="직접 입력" style="width:100%;box-sizing:border-box;margin:8px 0 14px;padding:10px;border-radius:9px;border:1px solid var(--border);background:var(--panel);color:var(--text)"></div>`).join("") + `<button class="q-submit" type="button" style="padding:10px 16px;border:0;border-radius:9px;background:var(--accent);color:white;cursor:pointer">답변 보내기</button><div class="q-hint">각 질문에 답을 선택하거나 직접 입력하세요.</div></div>`;
@@ -2561,6 +2564,19 @@ function renderMessageRow(m, isLast, idx){
       });
     });
   }
+  row.querySelectorAll("[data-agent-choice]").forEach(btn=>btn.addEventListener("click", async ()=>{
+    if(activeGenerating() || !m.pendingContinuation) return;
+    const pending = m.pendingContinuation, chat = currentChat();
+    if(!chat || chat.id !== m._chatId) return;
+    delete m.pendingContinuation;
+    if(btn.dataset.agentChoice === "stop"){
+      chat.messages.push({id:uid(),role:"system",content:"추가 AI 호출 없이 작업을 종료했어요.",ts:Date.now()});
+      autoLoadChat(chat); return;
+    }
+    chat.messages.push(pending.feedbackMessage);
+    autoLoadChat(chat);
+    await runGenerationTurn(chat, pending.preset, pending.depth);
+  }));
   row.querySelectorAll(".q-group").forEach(group=>{
     group.querySelectorAll(".q-opts button").forEach(btn=>btn.addEventListener("click",()=>{
       const qlist = Array.isArray(m.question.questions) ? m.question.questions : [m.question];
@@ -6190,23 +6206,10 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
       ? `\n\n[첨부: 현재 화면 캡처 ${lastShot.w}x${lastShot.h}. 좌표는 이 이미지 기준 그대로 쓰면 된다. 가능하면 device_click 의 id 를 써라.]`
       : `\n\n[첨부: 현재 화면 캡처 ${lastShot.w}x${lastShot.h} (실제 화면 ${lastShot.sw}x${lastShot.sh}). device_tap 좌표는 실제 화면 기준이므로 이미지 좌표에 ${(lastShot.sw/lastShot.w).toFixed(3)} 을 곱해라. 가능하면 device_click 의 id 를 써라.]`;
   }
-  chat.messages.push(fbMsg);
-  saveChats();
-  const live = makeLiveRow("다음 단계를 생각하는 중...", chat.id);
-  if(genState[chat.id]) genState[chat.id].live = live;
-  try{
-    await appendAiReply(chat, preset, depth + 1, signal(), live);
-  }catch(err){
-    if(err && err.name === "AbortError"){
-      chat.messages.push({ id: uid(), role:"system", content:"⏹️ 답변을 중지했어요.", ts: Date.now() });
-    }else{
-      console.error("[에이전트 루프 오류]", err && (err.dev || err.message) || err);
-      chat.messages.push({ id: uid(), role:"system", content:(err && err.message)||String(err), ts: Date.now(), canRetry:true });
-    }
-    autoLoadChat(chat);
-  }
-  live.remove();
-  if(genState[chat.id] && genState[chat.id].live === live) genState[chat.id].live = null;
+  // 추가 모델 호출은 사용자가 선택한 경우에만 수행한다.
+  aiMsg.pendingContinuation = { feedbackMessage:fbMsg, preset, depth:depth+1 };
+  autoLoadChat(chat);
+  return;
 }
 
 /* 마지막 AI 응답 재요청 (다시 요청) */
