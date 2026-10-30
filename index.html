@@ -5772,6 +5772,19 @@ function repeatedToolResult(chat, current, feedback){
   const recent = pairs.slice(-2);
   return recent.length === 2 && recent.every(p=>p[0] === signature(current) && p[1] === feedback);
 }
+// 서로 다른 명령이라도 실패가 계속되면 같은 턴에서 무한 재시도하지 않는다.
+function consecutiveToolFailures(chat, feedback){
+  const prefix=/^\[(?:도구|Linux_Local|브라우저) 실행 결과\]/;
+  if(!prefix.test(feedback) || !STEP_ERR_RE.test(feedback)) return 0;
+  let count=1;
+  const recent=turnMessages(chat).filter(m=>m.role==="user" && m.auto && prefix.test(m.content||""));
+  for(let i=recent.length-1;i>=0;i--){
+    const text=String(recent[i].content||"").split("\n\n[사용자의 원래 요청 —")[0];
+    if(!STEP_ERR_RE.test(text)) break;
+    count++;
+  }
+  return count;
+}
 /* AI 가 스킬(runcmd/upload)을 안 쓰고 끝내려 할 때 한 번씩 되돌려 보내는 안내 (화면엔 안 보이고 AI 에게만 전달) */
 function computeNudge(chat, aiMsg){
   const turn = turnMessages(chat);
@@ -6153,6 +6166,10 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
   autoLoadChat(chat); // 실행 결과(명령/파일 변경)를 채팅에 즉시 반영
   // 도구가 없는 답변은 완료로 처리한다. 코드 답변을 파일 생성 요청으로 바꿔 재호출하지 않는다.
   if(!feedback) return;
+  if(consecutiveToolFailures(chat, feedback) >= 3){
+    chat.messages.push({ id:uid(), role:"system", content:"작업 오류가 연속으로 발생해 추가 호출을 중지했어요. 요청한 결과물이 완성됐는지 확인되지 않았습니다. 작업 내역의 오류를 확인하고 다시 요청해 주세요.", ts:Date.now() });
+    autoLoadChat(chat); return;
+  }
   if(repeatedToolResult(chat, aiMsg, feedback)){
     chat.messages.push({ id:uid(), role:"system", content:"같은 작업이 반복되어 자동 진행을 멈췄어요. 작업 결과와 파일을 확인한 뒤 다시 요청해 주세요.", ts:Date.now() });
     autoLoadChat(chat); return;
