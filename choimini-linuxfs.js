@@ -559,6 +559,7 @@
     const entry = state.fs[p];
     if(!/^image\//.test(entry.mime||"")) throw new Error(`이미지 파일이 아님: ${p} (${entry.mime})`);
     const fmt = (format||"jpeg").toLowerCase().replace("jpg","jpeg");
+    if(!["png","jpeg","webp"].includes(fmt)) throw new Error("지원 형식: png, jpeg, webp");
     const mimeOut = "image/" + fmt;
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -570,6 +571,7 @@
           if(fmt === "jpeg"){ ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width,canvas.height); }
           ctx.drawImage(img, 0, 0);
           const dataUrl = canvas.toDataURL(mimeOut, 0.92);
+          if(!dataUrl.startsWith("data:" + mimeOut + ";")) throw new Error("브라우저가 이 이미지 형식을 지원하지 않아요");
           const outPath = p.replace(/\.[^./]+$/, "") + "." + (fmt==="jpeg"?"jpg":fmt);
           const outP = writeFile(outPath, dataUrl, mimeOut);
           resolve(outP);
@@ -672,6 +674,64 @@
     get cwd(){ return state.cwd; }
   };
 
+  // 브라우저 내에서 영상의 구간을 캔버스에 렌더링하여 WebM으로 저장한다.
+  async function editVideo(call){
+    const entry=state.fs[abs(call.path)];
+    if(!entry || entry.type!=="file" || !/^video\//.test(entry.mime||"")) throw new Error("동영상 파일을 찾을 수 없어요");
+    if(!call.out || !/\.webm$/i.test(call.out)) throw new Error("출력 경로는 .webm이어야 해요");
+    if(typeof MediaRecorder==="undefined" || !HTMLCanvasElement.prototype.captureStream || !MediaRecorder.isTypeSupported("video/webm")) throw new Error("이 브라우저는 WebM 동영상 편집을 지원하지 않아요");
+    const v=document.createElement("video"); v.muted=true; v.playsInline=true; v.preload="auto"; v.src=entry.content;
+    await new Promise((resolve,reject)=>{v.onloadedmetadata=resolve;v.onerror=()=>reject(new Error("동영상을 열 수 없어요"));});
+    const start=Number(call.start||0), end=call.end==null?v.duration:Number(call.end);
+    if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||end>v.duration||end-start>60) throw new Error("편집 구간을 확인하세요 (최대 60초)");
+    const w=Number(call.width||v.videoWidth),h=Number(call.height||v.videoHeight);
+    if(!Number.isInteger(w)||!Number.isInteger(h)||w<1||h<1||w>1920||h>1080) throw new Error("영상 크기가 올바르지 않아요 (최대 1920×1080)");
+    const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d"),stream=c.captureStream(30),chunks=[];
+    const rec=new MediaRecorder(stream,{mimeType:"video/webm"});rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+    try {
+      if(start > 0){ await new Promise((resolve,reject)=>{v.onseeked=resolve;v.onerror=()=>reject(new Error("영상 탐색 실패"));v.currentTime=start;}); }
+      const finished=new Promise((resolve,reject)=>{rec.onstop=resolve;rec.onerror=()=>reject(new Error("영상 인코딩 실패"));});
+      rec.start(); await v.play();
+      await new Promise((resolve,reject)=>{const step=()=>{if(v.error){reject(new Error("영상 재생 실패"));return;}if(v.currentTime>=end||v.ended){resolve();return;}ctx.drawImage(v,0,0,w,h);requestAnimationFrame(step);};step();});
+      v.pause(); rec.stop(); await finished;
+      const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("영상 저장 실패"));reader.readAsDataURL(new Blob(chunks,{type:rec.mimeType||"video/webm"}));});
+      return writeFile(call.out,data,"video/webm");
+    } finally {v.pause();if(rec.state!=="inactive") rec.stop();stream.getTracks().forEach(t=>t.stop());v.removeAttribute("src");v.load();}
+  }
+
+  async function createVideo(call){
+    const paths=Array.isArray(call.paths)?call.paths:[];
+    const duration=Number(call.seconds_per_image||2),w=Number(call.width||720),h=Number(call.height||720);
+    if(!paths.length || paths.length>20 || !Number.isFinite(duration) || duration<0.5 || duration*paths.length>60) throw new Error("이미지 1~20개와 총 60초 이내의 길이가 필요해요");
+    if(!call.out || !/\.webm$/i.test(call.out) || !Number.isInteger(w) || !Number.isInteger(h) || w<1 || h<1 || w>1920 || h>1080) throw new Error("WebM 출력 경로와 올바른 크기가 필요해요");
+    if(typeof MediaRecorder==="undefined" || !HTMLCanvasElement.prototype.captureStream || !MediaRecorder.isTypeSupported("video/webm")) throw new Error("이 브라우저는 WebM 영상 제작을 지원하지 않아요");
+    const images=await Promise.all(paths.map(path=>new Promise((resolve,reject)=>{const e=state.fs[abs(path)];if(!e||e.type!=="file"||!/^image\//.test(e.mime||"")){reject(new Error("이미지가 없어요: "+path));return;}const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("이미지 디코딩 실패: "+path));img.src=e.content;})));
+    const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;const ctx=canvas.getContext("2d"),stream=canvas.captureStream(30),rec=new MediaRecorder(stream,{mimeType:"video/webm"}),chunks=[];
+    rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+    try{const done=new Promise((resolve,reject)=>{rec.onstop=resolve;rec.onerror=()=>reject(new Error("영상 인코딩 실패"));});rec.start();const began=performance.now();
+      await new Promise(resolve=>{function frame(now){const i=Math.floor((now-began)/(duration*1000));if(i>=images.length){resolve();return;}const img=images[i];ctx.fillStyle="#000";ctx.fillRect(0,0,w,h);const scale=Math.min(w/img.naturalWidth,h/img.naturalHeight),iw=img.naturalWidth*scale,ih=img.naturalHeight*scale;ctx.drawImage(img,(w-iw)/2,(h-ih)/2,iw,ih);requestAnimationFrame(frame);}requestAnimationFrame(frame)});
+      rec.stop();await done;const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("영상 저장 실패"));reader.readAsDataURL(new Blob(chunks,{type:rec.mimeType||"video/webm"}));});return writeFile(call.out,data,"video/webm");
+    }finally{if(rec.state!=="inactive")rec.stop();stream.getTracks().forEach(t=>t.stop());}
+  }
+
+  async function editImage(call){
+    const p = abs(call.path), entry = state.fs[p];
+    if(!entry || entry.type !== "file" || !/^image\//.test(entry.mime||"")) throw new Error("이미지 파일을 찾을 수 없어요: " + p);
+    const img = await new Promise((resolve,reject)=>{ const i = new Image(); i.onload=()=>resolve(i); i.onerror=()=>reject(new Error("이미지 디코딩 실패")); i.src=entry.content; });
+    const crop = call.crop || {}, x = Number(crop.x || 0), y = Number(crop.y || 0), sw = Number(crop.width || img.naturalWidth), sh = Number(crop.height || img.naturalHeight);
+    const w = Number(call.width || sw), h = Number(call.height || sh);
+    if(![x,y,sw,sh,w,h].every(Number.isFinite) || x<0 || y<0 || sw<=0 || sh<=0 || x+sw>img.naturalWidth || y+sh>img.naturalHeight || w<1 || h<1 || w>4096 || h>4096 || w*h>16777216) throw new Error("이미지 크기 또는 자르기 영역이 올바르지 않아요");
+    const format=String(call.format||"png").toLowerCase().replace("jpg","jpeg"), mime="image/"+format;
+    if(!["png","jpeg","webp"].includes(format)) throw new Error("지원 형식: png, jpeg, webp");
+    if(!call.out) throw new Error("결과 파일 경로 out이 필요해요");
+    const canvas=document.createElement("canvas"); canvas.width=w; canvas.height=h; const ctx=canvas.getContext("2d");
+    if(format==="jpeg"){ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);}
+    ctx.save(); if(call.flipX || call.flipY){ctx.translate(call.flipX?w:0,call.flipY?h:0);ctx.scale(call.flipX?-1:1,call.flipY?-1:1);}
+    ctx.drawImage(img,x,y,sw,sh,0,0,w,h);ctx.restore();
+    const data=canvas.toDataURL(mime,0.92); if(!data.startsWith("data:"+mime+";")) throw new Error("브라우저에서 지원하지 않는 형식이에요");
+    return writeFile(call.out,data,mime);
+  }
+
   /* ============================================================================
      ChoiminiToolRunner
      ----------------------------------------------------------------------------
@@ -724,6 +784,9 @@
         return r.alreadyInstalled ? `이미 설치됨: ${r.name}` : `설치 완료(시뮬레이션): ${r.name}`;
       }
       case "pkg_list": { const l = pkgList(); return l.length ? l.join(", ") : "(설치된 패키지 없음)"; }
+      case "create_video": return "이미지 슬라이드 영상 생성 완료 (무음 WebM): " + await createVideo(call);
+      case "edit_video": return "편집 완료 (무음 WebM): " + await editVideo(call);
+      case "edit_image": return "편집 완료: " + await editImage(call);
       case "convert_image": {
         const out = await convertImage(call.path, call.format);
         return "변환 완료: " + out;
@@ -734,7 +797,7 @@
   }
 
   global.ChoiminiToolRunner = {
-    isFsTool(name){ return SHELL_TOOLS.has(name) || FS_TOOLS.has(name) || CODE_ONLY_TOOLS.has(name) || name === "convert_image"; },
+    isFsTool(name){ return SHELL_TOOLS.has(name) || FS_TOOLS.has(name) || CODE_ONLY_TOOLS.has(name) || (["convert_image","edit_image","edit_video","create_video","pkg_install","pkg_list"].includes(name)); },
     run: (call, mode) => global.LinuxFS.asAI(() => runToolCall(call, mode))
   };
 
