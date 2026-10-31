@@ -854,7 +854,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./choimini-auth.js?v=20261028b"></script>
 <script src="./choimini-browser.js?v=20261019"></script>
-<script src="./choimini-linuxfs.js?v=20261030-media1"></script>
+<script src="./choimini-linuxfs.js?v=20261031-media2"></script>
 <script src="./choimini-shell.js?v=20261005"></script>
 <script src="./choimini-shell-cmds.js?v=20261011"></script>
 <script src="./choimini-apk.js?v=20261004"></script>
@@ -1495,7 +1495,7 @@ const LS = {
   redeemed: "choimini.redeemed",
   deviceId: "choimini.deviceId"
 };
-const APP_VERSION = "2.7.0";
+const APP_VERSION = "2.8.0";
 const TOKEN_MULT = 10; // internal = display * 10
 const DEFAULT_INTERNAL_TOKENS = 3000; // 하루 기본 지급 300 토큰
 
@@ -1665,6 +1665,7 @@ const SYSTEM_PROMPT = _b64d(
 "IOyEpOuqhe2VoCDsiJgg7J6I7Ja07JqULiIK"
 );
 
+const AGENT_DECISION_RULE = "■ 다음 단계는 네가 정한다(필수): 도구 블록을 쓴 답변의 맨 끝 줄에 [[계속]] 또는 [[완료]] 하나를 쓴다. [[계속]] = 실행 결과를 보고 이어서 할 일이 있다(결과 읽기·테스트·수정·upload 가 남음). [[완료]] = 이 블록이 성공하면 요청이 끝난다(보통 upload 가 포함된 마지막 단계). 결과를 봐야 판단할 수 있으면 [[계속]]. 앱은 [[계속]]이면 결과를 자동으로 다시 보내고 [[완료]]면 사용자에게 결과를 보여주고 끝낸다. 실패하면 [[완료]]여도 결과가 다시 오니 원인을 고친다. 모든 일이 끝났으면 도구 없이 1~2문장으로 마무리한다. 사용자에게 '더 진행할까요?'라고 묻지 않는다.\n";
 const SPEED_RULE = "■ 빠르게 (중요): 서로 결과를 기다릴 필요 없는 동작은 한 답변에 모아서 한 번에 요청한다 — 여러 파일 읽기·검색·폴더 보기, 여러 파일 쓰기, 이어지는 명령은 한 블록에 여러 줄(또는 한 runcmd 에 여러 명령)로. 앞 결과를 봐야 다음을 정할 수 있을 때만 단계를 나눈다. 같은 파일을 다시 읽지 말고, 한 단계로 끝낼 일을 여러 단계로 쪼개지 마라.\n";
 /* WORK/CODE 모드에서 AI에게 알려주는 스킬(runcmd / upload / question-load)과 가상 Linux(Linux_Local) 사용법.
    (1.2.29: 같은 내용을 유지하면서 중복 설명을 줄였다 — 매 단계마다 같이 보내지므로 짧을수록 빠르다) */
@@ -1686,22 +1687,33 @@ function fsToolPrompt(mode){
     + "■ question-load — 진행에 꼭 필요한 정보가 없을 때만 묻는다(선택지는 '- ' 줄). 쓰면 답을 기다리며 멈춘다. 요청이 충분히 구체적이면 묻지 말고 합리적으로 정해 진행:\n"
     + F + "question-load\n난이도는 어떻게 할까요?\n- 쉬움\n- 보통\n" + F + "\n"
     + "■ 테스트(필수): htmltest 파일.html [-t 대기ms] [-k ArrowLeft,Space] [-e 'JS식'] — 격리 브라우저에서 실제 실행해 콘솔 에러·캔버스·키 입력 뒤 상태 확인 / jscheck 파일 — JS 문법 검사. 통과를 확인한 뒤 upload. localStorage 는 try/catch, 외부 CDN 의존 금지.\n"
-    + "■ 보조 도구(" + F + "tool, JSON 한 줄에 하나): fs_ls fs_read fs_write(path,content) fs_rm fs_mv fs_cp fs_find fs_grep fs_head fs_tail fs_mkdir fs_touch fs_cd fs_pwd convert_image(path,format) edit_image(path,out,width,height,crop:{x,y,width,height},flipX,flipY,format) edit_video(path,out,start,end,width,height) create_video(paths,out,seconds_per_image,width,height) generate_image(prompt,out,path?) pkg_install(name) pkg_list(). edit_video는 최대 60초, 무음 WebM이다. generate_image는 직접 등록한 Gemini 키가 필요하고, path를 지정하면 이미지를 AI로 편집한다. create_video는 이미지로 무음 슬라이드 영상을 만든다. 사진 같은 생성형 동영상은 지원하지 않는다. 긴 코드는 runcmd 히어독이 안전하다.\n"
-    + "■ 미디어 도구는 셸 명령이 아니다. runcmd 안에 쓰지 말고 tool 블록에서 정확한 tool 이름과 인자를 JSON으로 전달한다. 아래는 형식 예시이며 필요한 호출만 작성한다:\n"
+    + "■ 보조 도구(" + F + "tool, JSON 한 줄에 하나): fs_ls fs_read fs_write(path,content) fs_rm fs_mv fs_cp fs_find fs_grep fs_head fs_tail fs_mkdir fs_touch fs_cd fs_pwd media_info(path) convert_image(path,format) edit_image edit_video create_video generate_image(prompt,out,path?) pkg_install(name) pkg_list(). 긴 코드는 runcmd 히어독이 안전하다.\n"
+    + "■ 미디어 도구는 셸 명령이 아니다. runcmd 안에 쓰지 말고 tool 블록에 JSON으로 쓴다. 위치를 정하기 전에 media_info 로 크기·길이를 확인한다.\n"
+    + "  · edit_image(path,out,width,height,crop:{x,y,width,height},flipX,flipY,format) + 선택: rotate(도), fit(stretch|contain|cover), background, quality, vignette(0~1), filters:{brightness,contrast,saturation(1=원본),grayscale,sepia,invert(0~1),hue(도),blur(px),sharpen(0~2)}, layers:[…]. path 없이 width·height·background 만 주면 빈 캔버스에서 새로 만든다. 순서: 자르기→회전·뒤집기→크기→필터→layers→vignette.\n"
+    + "  · layers(아래부터 위로 합성, 좌표는 결과 크기 기준, 숫자 px 또는 \"50%\"; x,y 대신 position:top-left|top|top-right|left|center|right|bottom-left|bottom|bottom-right + margin):\n"
+    + "    text{text,size,color,font,weight,align,stroke,stroke_width,shadow:true|{color,blur,x,y},background,padding,radius,max_width(자동 줄바꿈),line_height,rotate,opacity}\n"
+    + "    image{path,width|height|scale(비율 유지),fit,opacity,blend(multiply|screen|overlay|soft-light|difference…),rotate,shape:circle|rounded,radius,border,chroma_key:{color,tolerance}(배경색 제거),shadow}\n"
+    + "    rect|ellipse{width,height,color,stroke,stroke_width,radius} · line|arrow{x1,y1,x2,y2,color,width,dash} · gradient{from,to,direction:down|up|left|right|radial,width,height}\n"
+    + "  · edit_video(path,out,start,end,width,height) + 선택: speed(0.25~4), rotate(90단위), flipX, fit, filters, layers(+ start,end,fade 초 = 결과 영상 시간 기준 표시 구간), fade_in, fade_out, keep_audio(원본 소리), music(오디오 파일 경로), music_volume. 결과 최대 60초 WebM.\n"
+    + "  · create_video(paths,out,seconds_per_image,width,height) + 선택: paths 에 영상 클립도 가능, durations:[장면별 초], transition:fade, transition_seconds, ken_burns:true(천천히 확대·이동), fit, background, filters, layers(시간 구간), fade_in, fade_out, keep_audio, music. 결과 최대 60초 WebM.\n"
+    + "  · generate_image 는 직접 등록한 Gemini 키가 필요하고 path 를 주면 그 이미지를 AI로 편집한다. 사실적인 생성형 동영상은 지원하지 않는다(사진·텍스트·도형 합성으로 만든다).\n"
+    + "  예시(필요한 호출만 쓴다):\n"
     + F + "tool\n" + [
+      {tool:"media_info",path:"/user/download/photo.jpg"},
       {tool:"convert_image",path:"/user/projects/media/input.jpg",format:"png"},
-      {tool:"edit_image",path:"/user/projects/media/input.png",out:"/user/projects/media/edited.png",width:320,height:240,flipX:true,format:"png"},
-      {tool:"create_video",paths:["/user/projects/media/input.png","/user/projects/media/edited.png"],out:"/user/projects/media/slides.webm",seconds_per_image:1,width:320,height:240},
-      {tool:"edit_video",path:"/user/projects/media/slides.webm",out:"/user/projects/media/trimmed.webm",start:0,end:1,width:160,height:120},
+      {tool:"edit_image",path:"/user/download/photo.jpg",out:"/user/projects/poster/poster.png",width:1080,fit:"cover",filters:{contrast:1.1,saturation:1.2},layers:[{type:"gradient",from:"rgba(0,0,0,0)",to:"rgba(0,0,0,.75)",position:"bottom",height:"40%"},{type:"text",text:"여름 세일 50%",position:"bottom",size:"9%",color:"#fff",weight:"bold",stroke:"#000",shadow:true},{type:"image",path:"/user/download/logo.png",position:"top-right",width:"18%",shape:"circle"}]},
+      {tool:"create_video",paths:["/user/projects/media/a.png","/user/projects/media/b.png"],out:"/user/projects/media/slides.webm",seconds_per_image:2,width:720,height:720,transition:"fade",ken_burns:true,layers:[{type:"text",text:"추억 앨범",position:"top",size:"8%",start:0,end:2,fade:0.5}]},
+      {tool:"edit_video",path:"/user/projects/media/slides.webm",out:"/user/projects/media/trimmed.webm",start:0,end:3,width:480,fade_out:0.5,layers:[{type:"text",text:"© 최미나이",position:"bottom-right",size:"5%"}]},
       {tool:"generate_image",prompt:"빨간 공 일러스트",out:"/user/projects/media/generated.png"}
     ].map(c=>JSON.stringify(c)).join("\n") + "\n" + F + "\n"
     + "■ 사용 가능한 명령(실시간): " + cmds + "\n  모르면 which <명령> / cmds -l 로 확인.\n"
     + "■ 한계(되는 척하지 말고 사실대로): 진짜 리눅스가 아닌 브라우저 구현. python=Pyodide(첫 실행 느림), node=샌드박스(npm 은 esm.sh), curl/wget 은 CORS 제약, git 원격 불가, ps/kill 가상, awk/sed 일부만.\n"
     + SPEED_RULE
-    + "■ 진행: 매 단계 앞에 할 일을 1~2문장(존댓말)으로 말하고 블록을 쓴다(블록만 쓰지 않음). 가능한 작업과 검증, upload는 한 응답에 모은다. 아직 실행 결과를 받지 않은 도구를 성공·완료했다고 말하지 않는다. 실제 결과와 완료 안내는 앱이 표시하고, 다음 AI 호출은 사용자의 예/아니요 선택을 기다린다. 오류가 전달되면 완료된 척하지 말고 원인을 고친다. 블록 내용은 화면에 자동 정리되니 본문에 다시 붙이지 않는다.\n"
+    + "■ 진행: 매 단계 앞에 할 일을 1~2문장(존댓말)으로 말하고 블록을 쓴다(블록만 쓰지 않음). 가능한 작업과 검증, upload는 한 응답에 모은다. 아직 실행 결과를 받지 않은 도구를 성공·완료했다고 말하지 않는다. 실제 결과와 완료 안내는 앱이 표시한다. 오류가 전달되면 완료된 척하지 말고 원인을 고친다.\n"
+    + AGENT_DECISION_RULE + " 블록 내용은 화면에 자동 정리되니 본문에 다시 붙이지 않는다.\n"
     + (mode === "code"
       ? "  · CODE: 첫 답변은 1~2문장 + [[계획: ○○ 계획중...]] 한 줄 뒤 바로 runcmd. 단계마다 [[사고: 지금 하는 일]], 다 만들면 [[테스트: 테스트중...]] 로 검증, 오류면 [[사고: 오류 수정중...]] 후 고쳐 재검증. 프로젝트 구조·빌드·디버깅·git 까지 적극적으로 진행한다.\n"
-      : "  · WORK: [[...]] 상태 태그는 쓰지 않는다. 파일·문서·데이터 처리, 변환, 압축 등 일반 작업. 큰 프로젝트 개발·빌드는 CODE 모드를 권한다.\n");
+      : "  · WORK: [[계획/사고/테스트]] 상태 태그는 쓰지 않는다([[계속]]/[[완료]]만 쓴다). 파일·문서·데이터 처리, 변환, 압축 등 일반 작업. 큰 프로젝트 개발·빌드는 CODE 모드를 권한다.\n");
 }
 
 /* Desktop(Code 모드) / Chrome 확장 / 사고 모드(NO BRAIN·WORK·CODE)에서만 추가 규칙을 붙인다.
@@ -1774,7 +1786,7 @@ function desktopSkillGuide(){
     + "■ question-load — 꼭 필요한 정보가 없을 때만 묻는다(선택지 '- '). 쓰면 답을 기다리며 멈춘다.\n"
     + "■ browser — 크롬 확장이 연결돼 있으면 ```browser 블록으로 사용자의 탭을 읽고 조작한다.\n"
     + SPEED_RULE
-    + "■ 규칙: 매 단계 앞에 할 일 1~2문장 → 블록. 블록을 쓴 답변은 거기서 끝내고 [도구 실행 결과]를 기다린다(결과를 상상해 이어 쓰지 않음). 작업 폴더 밖·위험한 명령은 앱이 막거나 사용자 승인을 받는다. 이 모드에선 runcmd(가상 Linux)를 쓰지 않는다. 끝나면 도구 없이 1~2문장.\n";
+    + "■ 규칙: 매 단계 앞에 할 일 1~2문장 → 블록. 블록을 쓴 답변은 거기서 끝내고 [도구 실행 결과]를 기다린다(결과를 상상해 이어 쓰지 않음). 작업 폴더 밖·위험한 명령은 앱이 막거나 사용자 승인을 받는다. 이 모드에선 runcmd(가상 Linux)를 쓰지 않는다. 끝나면 도구 없이 1~2문장.\n" + AGENT_DECISION_RULE;
 }
 function browserSkillHead(){
   return "[브라우저 스킬]\n이 대화에서 너는 ```browser 스킬로 사용자의 크롬 브라우저(지금 보고 있는 사이트)를 '실제로 볼 수 있고 조작할 수 있다'. \"사이트를 볼 수 없다\"고 말하지 마라. 사용자가 '이 사이트/이 화면/이 페이지'를 물으면 추측하지 말고 먼저 read_text / snapshot / screenshot 으로 확인한 뒤 답해라.\n\n";
@@ -1921,7 +1933,7 @@ function updateExecUI(){
 function checkModules(){
   const problems = [];
   if(!window.LinuxFS) problems.push("choimini-linuxfs.js");
-  else if(typeof LinuxFS.snapshot !== "function") problems.push("choimini-linuxfs.js(구버전)");
+  else if(typeof LinuxFS.snapshot !== "function" || typeof LinuxFS.mediaInfo !== "function") problems.push("choimini-linuxfs.js(구버전)");
   if(!window.ChoiminiShell) problems.push("choimini-shell.js");
   else if(!ChoiminiShell.list || ChoiminiShell.list().length < 20) problems.push("choimini-shell-cmds.js(명령어가 등록되지 않음 — 다른 파일 내용이 올라갔을 수 있어요)");
   if(problems.length){
@@ -2122,6 +2134,7 @@ function parseAiDisplay(text){
   t = t.replace(/```(tool|runcmd|upload|question[-_]load|browser)[ \t]*\r?\n[\s\S]*?(```|$)/g, "");
   let status = null;
   t = t.replace(/\[\[\s*(계획|사고|테스트)\s*[:：]?\s*([^\]]*?)\s*\]\]/g, (m,k,v)=>{ status = { kind:k, text:v }; return ""; });
+  t = t.replace(AGENT_DECISION_RE, "");
   t = t.replace(/\[\[[^\]]*$/, "");
   t = t.replace(/\n{3,}/g, "\n\n").trim();
   return { text:t, status, hasTools };
@@ -2261,7 +2274,8 @@ function renderActivityHtml(m){
   if(m.completionNotice) h += `<div class="q-text">${escapeHtml(m.completionNotice)}</div>`;
   if(m.executionError) h += `<details class="q-card"><summary>실행 오류 보기</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(m.executionError)}</pre></details>`;
   if(m.pendingContinuation){
-    h += `<div class="q-card"><div class="q-text">AI를 추가로 호출할까요?</div><div class="q-opts"><button type="button" data-agent-choice="continue">예</button><button type="button" data-agent-choice="stop">아니요</button></div></div>`;
+    const why = m.pendingContinuation.reason || "자동 진행을 멈췄어요.";
+    h += `<div class="q-card"><div class="q-text">${escapeHtml(why)} 이어서 진행할까요?</div><div class="q-opts"><button type="button" data-agent-choice="continue">계속 진행</button><button type="button" data-agent-choice="stop">여기서 마치기</button></div></div>`;
   }
   if(m.question){
     const questions = Array.isArray(m.question.questions) ? m.question.questions : [m.question];
@@ -2580,7 +2594,7 @@ function renderMessageRow(m, isLast, idx){
     if(!chat || chat.id !== m._chatId) return;
     delete m.pendingContinuation;
     if(btn.dataset.agentChoice === "stop"){
-      chat.messages.push({id:uid(),role:"system",content:"추가 AI 호출 없이 작업을 종료했어요.",ts:Date.now()});
+      chat.messages.push({id:uid(),role:"system",content:"작업을 여기서 마쳤어요.",ts:Date.now()});
       autoLoadChat(chat); return;
     }
     chat.messages.push(pending.feedbackMessage);
@@ -5769,7 +5783,7 @@ function repeatedToolResult(chat, current, feedback){
   const pairs = [];
   for(let i = 0; i < idx; i++){
     if(turn[i].role !== "ai" || !turn[i+1] || !turn[i+1].auto) continue;
-    const previous = String(turn[i+1].content || "").split(marker)[0];
+    const previous = String(turn[i+1].content || "").split(marker)[0].split("\n\n[다음 단계]")[0].split("\n\n[시스템 안내] [[완료]]")[0];
     if(/^\[(?:도구|Linux_Local|브라우저) 실행 결과\]/.test(previous)) pairs.push([signature(turn[i]), previous]);
   }
   const recent = pairs.slice(-2);
@@ -5971,26 +5985,66 @@ async function sandboxGenerateImage(call, signal){
   if(call.path){const st=LinuxFS.stat(call.path);if(!st||st.type!=="file"||!/^image\/(png|jpeg|webp)$/.test(st.mime||"")) throw new Error("PNG/JPEG/WebP 입력 이미지를 찾을 수 없어요."); const m=String(LinuxFS.readFile(call.path)).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);if(!m)throw new Error("이미지 데이터를 읽을 수 없어요.");parts.push({inlineData:{mimeType:m[1],data:m[2]}});}
   const res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseModalities:["IMAGE"]}}),signal});
   if(!res.ok) throw new Error("이미지 생성 요청 실패 (HTTP " + res.status + "). 키와 모델 권한을 확인하세요.");
-  const data=await res.json(), part=(data.candidates?.[0]?.content?.parts||[]).find(p=>p.inlineData?.data && p.inlineData?.mimeType==="image/png");
-  if(!part) throw new Error("이미지 생성 결과가 없거나 PNG가 아니에요.");
-  return LinuxFS.asAI(()=>LinuxFS.writeFile(out,"data:image/png;base64,"+part.inlineData.data,"image/png"));
+  const data=await res.json(), outParts=data.candidates?.[0]?.content?.parts||[], part=outParts.find(p=>p.inlineData?.data && /^image\//.test(p.inlineData?.mimeType||""));
+  if(!part){ const why=data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason || ""; const said=outParts.map(p=>p.text||"").join(" ").trim().slice(0,200); throw new Error("이미지 생성 결과가 없어요." + (why ? " (사유: " + why + ")" : "") + (said ? " 모델 응답: " + said : "")); }
+  let url="data:"+part.inlineData.mimeType+";base64,"+part.inlineData.data;
+  if(part.inlineData.mimeType!=="image/png"){ // JPEG/WebP 로 와도 요청한 PNG 로 바꿔 저장한다
+    url=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>{const c=document.createElement("canvas");c.width=i.naturalWidth;c.height=i.naturalHeight;c.getContext("2d").drawImage(i,0,0);resolve(c.toDataURL("image/png"));};i.onerror=()=>reject(new Error("생성된 이미지를 읽을 수 없어요."));i.src=url;});
+  }
+  return LinuxFS.asAI(()=>LinuxFS.writeFile(out,url,"image/png"));
 }
 
-function offerAdditionalCall(chat, aiMsg, preset, depth, completed){
-  aiMsg.running=false;
-  if(completed) aiMsg.completionNotice="작성을 완료했어요. 파일을 확인할 수 있어요.";
-  aiMsg.pendingContinuation={preset,depth:depth+1,feedbackMessage:{id:uid(),role:"user",auto:true,ts:Date.now(),content:completed?"[사용자 선택] 파일 작성과 전달이 완료됐습니다. 같은 파일을 다시 만들거나 같은 명령을 반복하지 말고 결과를 짧게 설명해 주세요.":"[사용자 선택] AI를 추가로 호출했습니다. 이전 결과를 확인하고 추가로 필요한 작업만 진행해 주세요. 완료된 작업은 반복하지 마세요."}};
+/* ---- 다음 단계 자동 결정 ----
+   AI 가 답변 끝에 [[계속]] / [[완료]] 를 써서 스스로 정한다. (사용자에게 매번 예/아니요를 묻지 않는다)
+   - [[계속]] 또는 결과 확인이 필요한 도구 실행 → 결과를 자동으로 다시 보내 다음 단계를 진행
+   - [[완료]] 또는 upload 성공 → 마무리 · 도구 없는 답변 → 마무리
+   - 실패·잘림은 [[완료]]여도 고치도록 자동 진행
+   - 같은 호출·결과 반복, 연속 실패, 단계 한도에서는 자동 진행을 멈추고 [계속 진행] 버튼만 남긴다 */
+const AGENT_DECISION_RE = /\[\[\s*(?:다음\s*[:：]\s*)?(계속|완료|continue|done)\s*\]\]/gi;
+function agentDecision(text){
+  const all = [...String(text || "").matchAll(AGENT_DECISION_RE)];
+  if(!all.length) return "";
+  const v = all[all.length - 1][1].toLowerCase();
+  return (v === "계속" || v === "continue") ? "continue" : "done";
+}
+const agentLoopState = {}; // chatId → { fails, idle } (저장하지 않음, 새 요청마다 초기화)
+function finishAgentTurn(chat, aiMsg, completed){
+  aiMsg.running = false;
+  if(completed && !aiMsg.completionNotice) aiMsg.completionNotice = "작업을 완료했어요. 파일을 확인할 수 있어요.";
   autoLoadChat(chat);
+}
+function offerManualContinue(chat, aiMsg, preset, depth, fbMsg, reason){
+  aiMsg.running = false;
+  aiMsg.pendingContinuation = { preset, depth:depth+1, reason: reason || "",
+    feedbackMessage: fbMsg || { id:uid(), role:"user", auto:true, ts:Date.now(), content:"[시스템 안내] 사용자가 이어서 진행하기를 선택했습니다. 이전 결과를 확인하고 남은 작업만 진행하세요. 완료된 작업은 반복하지 마세요." } };
+  autoLoadChat(chat);
+}
+async function autoContinue(chat, aiMsg, preset, depth, fbMsg){
+  aiMsg.running = false;
+  const sig = chatSignal(chat);
+  if(sig && sig.aborted) return;
+  chat.messages.push(fbMsg);
+  autoLoadChat(chat);
+  if(!genState[chat.id]){ await runGenerationTurn(chat, preset, depth + 1); return; }
+  Stage.set(STAGE.think);
+  const live = makeLiveRow(STAGE.think, chat.id);
+  genState[chat.id].live = live;
+  try{ await appendAiReply(chat, preset, depth + 1, sig, live); }
+  catch(err){
+    if(err && err.name === "AbortError") chat.messages.push({ id: uid(), role:"system", content:"⏹️ 답변을 중지했어요.", ts: Date.now() });
+    else { console.error("[다음 단계 실패]", err && (err.dev || err.message) || err); chat.messages.push({ id: uid(), role:"system", content: (err && err.message) || String(err), ts: Date.now(), canRetry:true }); }
+    autoLoadChat(chat);
+  }finally{
+    try{ live.remove(); }catch(_){}
+    if(genState[chat.id] && genState[chat.id].live === live) genState[chat.id].live = null;
+  }
 }
 
 async function afterReplyActions(chat, aiMsg, preset, depth){
-  if(depth >= agentMaxSteps()){
-    if(hasToolBlocks(aiMsg.content||"")){
-      chat.messages.push({ id: uid(), role:"system", content:`⏸️ 단계 한도(${agentMaxSteps()})에 도달했어요. "계속해줘"로 이어가기`, ts: Date.now() });
-      autoLoadChat(chat);
-    }
-    return;
-  }
+  depth = depth || 0;
+  if(!depth || !agentLoopState[chat.id]) agentLoopState[chat.id] = { fails:0, idle:0 };
+  const loop = agentLoopState[chat.id];
+  const decision = agentDecision(stripThinkTags(aiMsg.content || ""));
   let feedback = "", lastShot = null;
   // 미완성 도구 호출은 절대 실행하지 않고 새로 작성하도록 요청한다.
   const fenceStarts = (String(aiMsg.content || "").match(/```/g) || []).length;
@@ -6070,7 +6124,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
       }
       aiMsg.activity = { commands, created:[], edited:[], deleted:[], uploaded: localUploaded };
       if(window.__deviceHalt){ window.__deviceHalt = false; aiMsg.running = false; chat.messages.push({ id: uid(), role:"system", content:"🛑 화면 조작 중지됨 (새 요청 전까지 멈춤)", ts: Date.now() }); autoLoadChat(chat); return; }
-      if(uploadsSucceeded && localUploaded.length){ offerAdditionalCall(chat,aiMsg,preset,depth,true); return; }
+      if(uploadsSucceeded && localUploaded.length && decision !== "continue"){ finishAgentTurn(chat, aiMsg, true); return; }
       if(outs.length){ feedback = "[도구 실행 결과]\n" + outs.join("\n\n").slice(0, 100000); Stage.set(STAGE.waiting); }
     }
     // 순수 브라우저(또는 Desktop 이 아닌 경우)에서 WORK/CODE 모드면 가상 Linux_Local 스킬(runcmd / upload / question-load / ```tool)을 실행한다.
@@ -6111,7 +6165,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
           let out, ok=true; try{setRunning("이미지 생성 중...");out="이미지 저장됨: " + await sandboxGenerateImage(c,signal());}catch(e){if(e?.name === "AbortError") throw e;ok=false;out="오류: " + (e.message||e);}
           if(!ok) uploadsSucceeded=false;commands.push({cmd:"generate_image " + (c.out||""),ok,out:shortOut(out)});outs.push("▶ generate_image\n"+out);continue;
         }
-        if(!ChoiminiToolRunner.isFsTool(c.tool)){ uploadsSucceeded = false; const out="오류: 사용할 수 없는 도구예요. 사용 가능: runcmd, upload, question-load, fs_*, convert_image, edit_image, create_video, edit_video, generate_image"; commands.push({cmd:String(c.tool),ok:false,out}); outs.push(`▶ ${c.tool}\n${out}`); continue; }
+        if(!ChoiminiToolRunner.isFsTool(c.tool)){ uploadsSucceeded = false; const out="오류: 사용할 수 없는 도구예요. 사용 가능: runcmd, upload, question-load, fs_*, media_info, convert_image, edit_image, create_video, edit_video, generate_image"; commands.push({cmd:String(c.tool),ok:false,out}); outs.push(`▶ ${c.tool}\n${out}`); continue; }
         const args = Object.assign({}, c); delete args.tool;
         const label = c.tool + (args.command ? " " + String(args.command).split("\n")[0].slice(0, 80) : args.path ? " " + args.path : args.from ? ` ${args.from} → ${args.to}` : args.name ? " " + args.name : "");
         let ok = true, out;
@@ -6130,7 +6184,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
         chat.messages.push({ id: uid(), role:"system", content: tokenShortMsg(agentToolCostInternal(), "도구 사용") + ` 충전 후 "계속해줘"`, ts: Date.now() });
         autoLoadChat(chat); showTokenOutModal(); return;
       }
-      if(uploadsSucceeded && uploaded.length){ offerAdditionalCall(chat,aiMsg,preset,depth,true); return; }
+      if(uploadsSucceeded && uploaded.length && decision !== "continue"){ finishAgentTurn(chat, aiMsg, true); return; }
       if(outs.length) feedback = "[Linux_Local 실행 결과]\n" + outs.join("\n\n").slice(0, 100000);
     }
     if(!feedback && browserAvailable() && hasBrowserBlocks(aiMsg.content)){
@@ -6175,20 +6229,47 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
     feedback = "[실행 오류] " + (e && e.message || e);
   }
   aiMsg.running = false;
-  const failedCommand = aiMsg.activity && aiMsg.activity.commands && aiMsg.activity.commands.some(c=>c.ok === false);
-  if(feedback && (failedCommand || /^\[실행 오류\]/.test(feedback) || fenceStarts % 2 || /^(MAX_TOKENS|LENGTH)$/i.test(aiMsg.finishReason || ""))){
-    aiMsg.completionNotice = "일부 작업을 완료하지 못했어요. 실행 오류를 확인해 주세요.";
+  const failedCommand = !!(aiMsg.activity && aiMsg.activity.commands && aiMsg.activity.commands.some(c=>c.ok === false));
+  const truncated = !!(fenceStarts % 2 || /^(MAX_TOKENS|LENGTH)$/i.test(aiMsg.finishReason || ""));
+  const needFix = !!feedback && (failedCommand || /^\[실행 오류\]/.test(feedback) || truncated);
+  if(needFix){
+    aiMsg.completionNotice = "일부 작업을 완료하지 못했어요. AI가 결과를 확인하고 이어서 고칠게요.";
     aiMsg.executionError = feedback.slice(0, 10000);
   }
+  const agentOn = isWorkMode() || isCodeMode() || browserAvailable() || useLocalTerminal();
+  // 도구 없는 답변: AI 가 [[계속]]을 쓴 경우(한 번만) 또는 만든 파일을 전달하지 않은 경우(한 번만)에만 이어간다.
+  if(!feedback){
+    if(!agentOn || !depth && !decision){ finishAgentTurn(chat, aiMsg, false); return; }
+    let nudge = "";
+    if(decision === "continue" && loop.idle < 1) nudge = "[시스템 안내] [[계속]]으로 이어가기로 했습니다. 남은 작업을 도구 블록으로 바로 진행하세요. 남은 일이 없으면 도구 없이 1~2문장으로 마무리하고 [[완료]]를 쓰세요.";
+    else if(decision !== "done" && loop.idle < 1){
+      const made = [], sent = [];
+      turnMessages(chat).forEach(x=>{ if(x.role === "ai" && x.activity){ (x.activity.created||[]).concat(x.activity.edited||[]).forEach(p=>{ if(!made.includes(p)) made.push(p); }); (x.activity.uploaded||[]).forEach(p=>sent.push(p)); } });
+      const alive = made.filter(p=>window.LinuxFS && LinuxFS.isFile(p) && !/^\/tmp\//.test(p));
+      if(depth > 0 && askedInsteadOfDoing(chat, aiMsg)) nudge = "[시스템 안내] 사용자의 요청은 이미 구체적이에요:\n\"" + lastRealRequest(chat).slice(0, 800) + "\"\n되묻지 말고 지금 바로 그 작업을 하세요. 작업 폴더가 비어 있으면 새 파일을 만들어서 시작하면 됩니다.";
+      else if(alive.length && !sent.length && !useLocalTerminal()) nudge = "[시스템 안내] 파일을 만들었지만 아직 upload 하지 않았습니다. 필요한 결과 파일만 upload 블록으로 전달하고 [[완료]]를 쓰세요.\n후보: " + alive.slice(0, 20).join(", ");
+    }
+    if(!nudge || depth + 1 >= agentMaxSteps()){ finishAgentTurn(chat, aiMsg, false); return; }
+    loop.idle++;
+    await autoContinue(chat, aiMsg, preset, depth, { id: uid(), role:"user", content: nudge, ts: Date.now(), auto: true });
+    return;
+  }
   autoLoadChat(chat); // 실행 결과(명령/파일 변경)를 채팅에 즉시 반영
-  // 도구가 없는 답변은 완료로 처리한다. 코드 답변을 파일 생성 요청으로 바꿔 재호출하지 않는다.
-  if(!feedback){ if(isWorkMode() || isCodeMode()) offerAdditionalCall(chat,aiMsg,preset,depth,false); return; }
-  // 반복과 실패를 포함한 모든 후속 호출은 사용자가 직접 선택한다.
+  // AI 가 [[완료]]라고 했고 실행도 모두 성공했으면 결과를 보여주고 마무리한다.
+  if(!needFix && decision === "done"){
+    const files = aiMsg.activity && ((aiMsg.activity.uploaded||[]).length || (aiMsg.activity.created||[]).length || (aiMsg.activity.edited||[]).length);
+    finishAgentTurn(chat, aiMsg, !!files); return;
+  }
+  loop.idle = 0;
+  loop.fails = needFix ? loop.fails + 1 : 0;
 
   // 화면 조작 캡처: 가장 최근 1장만 다음 단계에 이미지로 함께 보낸다(AI 가 글자로 구분 못하는 아이콘·색·배치를 직접 보게).
   // 저장공간을 아끼려고 이전 자동 메시지의 캡처는 지운다.
   // 원래 요청을 매 단계 다시 붙인다. 빠른 후속 단계(가벼운 모델)는 도구 결과만 보고 원래 요청을 잊고
   // "작업 폴더가 비어 있네요, 무엇을 할까요?" 처럼 되묻는 일이 있었다.
+  const resultOnly = feedback;
+  if(needFix && decision === "done") feedback += "\n\n[시스템 안내] [[완료]]라고 했지만 실패한 작업이 있어 결과를 다시 보냅니다. 원인을 고치세요.";
+  feedback += "\n\n[다음 단계] 결과를 확인해 남은 일만 진행하고, 이미 성공한 작업은 반복하지 마세요. 더 할 일이 있으면 도구 블록 + [[계속]], 이번 블록으로 끝나면 [[완료]], 모두 끝났으면 도구 없이 1~2문장으로 마무리하세요.";
   const origReq = lastRealRequest(chat);
   if(origReq && !/^\[시스템 안내\]/.test(feedback)) feedback += "\n\n[사용자의 원래 요청 — 이걸 끝까지 해내라. 이미 요청에 담긴 내용은 되묻지 말고 바로 진행해라]\n" + origReq.slice(0, 1500);
   const fbMsg = { id: uid(), role:"user", content: feedback, ts: Date.now(), auto: true };
@@ -6200,10 +6281,13 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
       ? `\n\n[첨부: 현재 화면 캡처 ${lastShot.w}x${lastShot.h}. 좌표는 이 이미지 기준 그대로 쓰면 된다. 가능하면 device_click 의 id 를 써라.]`
       : `\n\n[첨부: 현재 화면 캡처 ${lastShot.w}x${lastShot.h} (실제 화면 ${lastShot.sw}x${lastShot.sh}). device_tap 좌표는 실제 화면 기준이므로 이미지 좌표에 ${(lastShot.sw/lastShot.w).toFixed(3)} 을 곱해라. 가능하면 device_click 의 id 를 써라.]`;
   }
-  // 추가 모델 호출은 사용자가 선택한 경우에만 수행한다.
-  aiMsg.pendingContinuation = { feedbackMessage:fbMsg, preset, depth:depth+1 };
-  autoLoadChat(chat);
-  return;
+  // 폭주 방지: 이 경우에만 자동 진행을 멈추고 사용자가 [계속 진행]을 고를 수 있게 한다.
+  let stopReason = "";
+  if(depth + 1 >= agentMaxSteps()) stopReason = `단계 한도(${agentMaxSteps()})에 도달해 자동 진행을 멈췄어요.`;
+  else if(repeatedToolResult(chat, aiMsg, resultOnly)) stopReason = "같은 작업과 결과가 반복돼 자동 진행을 멈췄어요.";
+  else if(loop.fails >= 4) stopReason = "실패가 연속으로 이어져 자동 진행을 멈췄어요.";
+  if(stopReason){ loop.fails = 0; offerManualContinue(chat, aiMsg, preset, depth, fbMsg, stopReason); return; }
+  await autoContinue(chat, aiMsg, preset, depth, fbMsg);
 }
 
 /* 마지막 AI 응답 재요청 (다시 요청) */
@@ -8041,7 +8125,7 @@ window.addEventListener("choimini-perm", function(){ updateExecUI(); });
 /* ---------------- boot ---------------- */
 // Google 로그인 필수: choimini-auth.js가 로그인 게이트를 띄우고,
 /* 자동 테스트용 읽기 창구 (동작에는 영향 없음) */
-window.__chmT = { get settings(){ return settings; }, curEffort, geminiThinkingBudget, geminiThinkingConfig, callGemini, streamSSE, renderContentWithCode, applyMode, renderProviderPill, stripThinkTags, groqScope, groqEligible, nbGroqAvailable, computeNormalCost, agentRequestCostInternal, agentToolCostInternal, attachFee, sanitizeTokens, looksLikeRedeemCode, redeemCode, startRecaptcha, renderMessages, renderActivityHtml, renderTurnActivitySummary, activityEntries, activityTurn, activitySummary, get chats(){return chats;}, get activeChatId(){return activeChatId;}, get tokensInternal(){return tokensInternal;} };
+window.__chmT = { get settings(){ return settings; }, anyGenerating, agentMaxSteps, agentDecision, curEffort, geminiThinkingBudget, geminiThinkingConfig, callGemini, streamSSE, renderContentWithCode, applyMode, renderProviderPill, stripThinkTags, groqScope, groqEligible, nbGroqAvailable, computeNormalCost, agentRequestCostInternal, agentToolCostInternal, attachFee, sanitizeTokens, looksLikeRedeemCode, redeemCode, startRecaptcha, renderMessages, renderActivityHtml, renderTurnActivitySummary, activityEntries, activityTurn, activitySummary, get chats(){return chats;}, get activeChatId(){return activeChatId;}, get tokensInternal(){return tokensInternal;} };
 // 로그인 완료 후에만 앱을 초기화한다.
 if (window.ChoiminiAuth) {
   ChoiminiAuth.onReady(function(){ init(); showAppPromo(); });
