@@ -675,18 +675,127 @@
   };
 
   /* ============================================================================
-     미디어 편집 (브라우저 Canvas · MediaRecorder)
+     미디어 편집 (브라우저 Canvas · MediaRecorder) — v2.9
      ----------------------------------------------------------------------------
      기존 도구 이름과 인자(convert_image / edit_image / create_video / edit_video)는 그대로 두고
      선택 인자만 추가했다. 새 인자를 안 쓰면 예전과 같은 결과가 나온다.
-       · filters  : {brightness, contrast, saturation, grayscale, sepia, invert, hue, blur, sharpen}
-       · layers   : [{type:"text"|"image"|"rect"|"ellipse"|"line"|"gradient", ...}] 위에서부터 순서대로 합성
-       · rotate, fit(stretch|contain|cover), background, vignette, quality
-       · 동영상: speed, fade_in, fade_out, keep_audio, audio(배경음 파일), transition(fade), ken_burns, durations
+       · fonts    : Google Fonts 웹폰트를 필요할 때 불러온다 (한글 30여 종 + 영문)
+       · filters  : 밝기·대비·채도·흑백·세피아·반전·색조·블러·선명·픽셀화·포스터·색온도·틴트·듀오톤·필름 노이즈
+       · preset   : vintage | cinematic | warm | cool | bw | noir | vivid | fade | dreamy | retro
+       · layers   : text | image | rect | ellipse | shape | line | arrow | gradient | pattern | border | particles | progress
+       · 동영상    : 최대 3840×2160 · 60fps · quality/bitrate, 레이어 애니메이션, 장면 전환 9종
      ============================================================================ */
   const BLEND_MODES = { normal:"source-over", "source-over":"source-over", multiply:"multiply", screen:"screen", overlay:"overlay", darken:"darken", lighten:"lighten", "color-dodge":"color-dodge", "color-burn":"color-burn", "hard-light":"hard-light", "soft-light":"soft-light", difference:"difference", exclusion:"exclusion", hue:"hue", saturation:"saturation", color:"color", luminosity:"luminosity" };
   const DEFAULT_FONT = "'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Segoe UI',sans-serif";
-  const MAX_MEDIA_SEC = 60;
+  const MAX_VIDEO_SEC = 120, MAX_IMG = 8192, MAX_VW = 3840, MAX_VH = 2160;
+  // 별명(한글/영문) → Google Fonts 이름
+  const FONT_CATALOG = {
+    // 한글 고딕·본문
+    "noto sans kr":"Noto Sans KR", "본고딕":"Noto Sans KR", "노토산스":"Noto Sans KR",
+    "nanum gothic":"Nanum Gothic", "나눔고딕":"Nanum Gothic",
+    "gothic a1":"Gothic A1", "고딕a1":"Gothic A1",
+    "ibm plex sans kr":"IBM Plex Sans KR", "플렉스":"IBM Plex Sans KR",
+    "gowun dodum":"Gowun Dodum", "고운돋움":"Gowun Dodum",
+    "sunflower":"Sunflower", "해바라기":"Sunflower",
+    "orbit":"Orbit", "오르빗":"Orbit",
+    // 한글 명조·세리프
+    "noto serif kr":"Noto Serif KR", "본명조":"Noto Serif KR", "노토세리프":"Noto Serif KR",
+    "nanum myeongjo":"Nanum Myeongjo", "나눔명조":"Nanum Myeongjo",
+    "gowun batang":"Gowun Batang", "고운바탕":"Gowun Batang",
+    "hahmlet":"Hahmlet", "함렛":"Hahmlet",
+    "song myung":"Song Myung", "송명":"Song Myung",
+    "diphylleia":"Diphylleia", "산하엽":"Diphylleia",
+    // 한글 제목·굵은 디자인
+    "black han sans":"Black Han Sans", "검은고딕":"Black Han Sans", "블랙한산스":"Black Han Sans",
+    "do hyeon":"Do Hyeon", "도현":"Do Hyeon", "배민도현":"Do Hyeon",
+    "jua":"Jua", "주아":"Jua", "배민주아":"Jua",
+    "bagel fat one":"Bagel Fat One", "베이글":"Bagel Fat One",
+    "gasoek one":"Gasoek One", "가석":"Gasoek One",
+    "gugi":"Gugi", "구기":"Gugi",
+    "black and white picture":"Black And White Picture", "흑백사진":"Black And White Picture",
+    "moirai one":"Moirai One", "모이라이":"Moirai One",
+    "dongle":"Dongle", "동글":"Dongle",
+    "stylish":"Stylish", "스타일리시":"Stylish",
+    "yeon sung":"Yeon Sung", "연성":"Yeon Sung",
+    "cute font":"Cute Font", "귀여운":"Cute Font",
+    // 한글 손글씨·붓글씨
+    "nanum pen script":"Nanum Pen Script", "나눔손글씨펜":"Nanum Pen Script", "손글씨":"Nanum Pen Script",
+    "nanum brush script":"Nanum Brush Script", "나눔손글씨붓":"Nanum Brush Script", "붓글씨":"Nanum Brush Script",
+    "gaegu":"Gaegu", "개구":"Gaegu",
+    "hi melody":"Hi Melody", "하이멜로디":"Hi Melody",
+    "poor story":"Poor Story", "푸어스토리":"Poor Story",
+    "gamja flower":"Gamja Flower", "감자꽃":"Gamja Flower",
+    "single day":"Single Day", "싱글데이":"Single Day",
+    "east sea dokdo":"East Sea Dokdo", "동해독도":"East Sea Dokdo",
+    "dokdo":"Dokdo", "독도":"Dokdo",
+    "kirang haerang":"Kirang Haerang", "기랑해랑":"Kirang Haerang",
+    "nanum gothic coding":"Nanum Gothic Coding", "나눔고딕코딩":"Nanum Gothic Coding",
+    // 영문
+    "roboto":"Roboto", "montserrat":"Montserrat", "poppins":"Poppins", "inter":"Inter", "oswald":"Oswald",
+    "bebas neue":"Bebas Neue", "anton":"Anton", "archivo black":"Archivo Black", "russo one":"Russo One", "righteous":"Righteous",
+    "playfair display":"Playfair Display", "abril fatface":"Abril Fatface", "cinzel":"Cinzel", "merriweather":"Merriweather",
+    "lobster":"Lobster", "pacifico":"Pacifico", "dancing script":"Dancing Script", "great vibes":"Great Vibes", "caveat":"Caveat",
+    "permanent marker":"Permanent Marker", "shadows into light":"Shadows Into Light", "bungee":"Bungee", "fredoka":"Fredoka",
+    "comfortaa":"Comfortaa", "orbitron":"Orbitron", "press start 2p":"Press Start 2P", "rubik mono one":"Rubik Mono One",
+    "monoton":"Monoton", "creepster":"Creepster", "fira code":"Fira Code"
+  };
+  const SYSTEM_FONTS = /^(sans-serif|serif|monospace|cursive|fantasy|system-ui|arial|helvetica|times new roman|georgia|courier new|verdana|malgun gothic|apple sd gothic neo|segoe ui)$/i;
+  const fontState = {}; // family → Promise<boolean>
+  function fontFamilyOf(name){
+    const n = String(name || "").trim().replace(/^['"]|['"]$/g, "");
+    if(!n) return null;
+    const k = n.toLowerCase().replace(/\s+/g, " ");
+    return FONT_CATALOG[k] || FONT_CATALOG[k.replace(/\s/g, "")] || n;
+  }
+  // Google Fonts 에서 필요한 글꼴만 불러온다. 실패하면 기본 글꼴로 대신 그린다.
+  function loadFont(family, weight, sample){
+    if(!family || SYSTEM_FONTS.test(family)) return Promise.resolve(true);
+    const key = family;
+    if(!fontState[key]){
+      fontState[key] = new Promise(resolve => {
+        try{
+          if(!document.querySelector(`link[data-chm-font="${CSS.escape(family)}"]`)){
+            const l = document.createElement("link"); l.rel = "stylesheet"; l.dataset.chmFont = family;
+            l.href = "https://fonts.googleapis.com/css2?family=" + encodeURIComponent(family).replace(/%20/g, "+") + ":wght@100;200;300;400;500;600;700;800;900&display=block";
+            l.onerror = () => { // 굵기 목록이 없는 글꼴(한 가지 굵기)은 굵기 지정 없이 다시 시도
+              const l2 = document.createElement("link"); l2.rel = "stylesheet"; l2.dataset.chmFont = family + "#1";
+              l2.href = "https://fonts.googleapis.com/css2?family=" + encodeURIComponent(family).replace(/%20/g, "+") + "&display=block";
+              l2.onload = () => resolve(true); l2.onerror = () => resolve(false); document.head.appendChild(l2);
+            };
+            l.onload = () => resolve(true);
+            document.head.appendChild(l);
+          }else resolve(true);
+        }catch(_){ resolve(false); }
+        setTimeout(() => resolve(false), 10000);
+      });
+    }
+    return fontState[key].then(async ok => {
+      if(!ok) return false;
+      try{
+        await Promise.race([document.fonts.load(`${weight || 400} 48px "${family}"`, sample || "가A1"), new Promise(r => setTimeout(r, 8000))]);
+        return document.fonts.check(`${weight || 400} 48px "${family}"`, sample || "가A1");
+      }catch(_){ return false; }
+    });
+  }
+  async function ensureFonts(layers, notes){
+    const want = new Map();
+    for(const L of layers || []){
+      if(!L || String(L.type || (L.text != null ? "text" : "")).toLowerCase() !== "text") continue;
+      const fam = fontFamilyOf(opt(L, "font", "font_family"));
+      if(!fam) continue;
+      const w = String(opt(L, "weight", "font_weight") || (opt(L, "bold") ? "700" : "400")).replace("bold", "700").replace("normal", "400");
+      want.set(fam + "|" + w, { fam, w, text: String(L.text || "").slice(0, 60) });
+    }
+    for(const { fam, w, text } of want.values()){
+      const ok = await loadFont(fam, w, text);
+      if(!ok) notes.push(`글꼴 '${fam}'을(를) 불러오지 못해 기본 글꼴로 그렸어요`);
+    }
+  }
+  function fontList(){
+    const uniq = {}; Object.entries(FONT_CATALOG).forEach(([k, v]) => { if(/[가-힣]/.test(k)) (uniq[v] = uniq[v] || []).push(k); else uniq[v] = uniq[v] || []; });
+    return Object.entries(uniq).map(([f, ko]) => f + (ko.length ? " (" + ko.join("/") + ")" : "")).join("\n");
+  }
+
   // snake_case / camelCase 둘 다 받는다 (모델이 섞어 쓴다)
   function opt(o, ...keys){ if(!o) return undefined; for(const k of keys){ if(o[k] != null) return o[k]; const c = k.replace(/_([a-z])/g, (_, x) => x.toUpperCase()); if(o[c] != null) return o[c]; } return undefined; }
   // 120 / "50%" / "center" → 픽셀
@@ -699,16 +808,18 @@
     const n = Number(s.replace(/px$/, ""));
     return Number.isFinite(n) ? n : def;
   }
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+  function mulberry(seed){ let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function guessMime(p){
+    const ext = (String(p).match(/\.([a-z0-9]+)$/i) || [])[1] || "";
+    return ({ png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", webp:"image/webp", gif:"image/gif", bmp:"image/bmp", svg:"image/svg+xml", webm:"video/webm", mp4:"video/mp4", mov:"video/quicktime", ogv:"video/ogg", mp3:"audio/mpeg", wav:"audio/wav", ogg:"audio/ogg", m4a:"audio/mp4", aac:"audio/aac", opus:"audio/ogg" })[ext.toLowerCase()] || "";
+  }
   function mediaEntry(path, kind){
     const p = abs(path), e = state.fs[p];
     const re = kind === "image" ? /^image\// : kind === "video" ? /^video\// : kind === "audio" ? /^audio\// : /^(image|video|audio)\//;
     if(!e || e.type !== "file") throw new Error("파일을 찾을 수 없어요: " + p);
     if(!re.test(e.mime || "") && !(kind && guessMime(p).startsWith(kind + "/"))) throw new Error(`${kind === "image" ? "이미지" : kind === "video" ? "동영상" : kind === "audio" ? "오디오" : "미디어"} 파일이 아니에요: ${p} (${e.mime || "형식 모름"})`);
     return { path: p, entry: e };
-  }
-  function guessMime(p){
-    const ext = (String(p).match(/\.([a-z0-9]+)$/i) || [])[1] || "";
-    return ({ png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", webp:"image/webp", gif:"image/gif", bmp:"image/bmp", svg:"image/svg+xml", webm:"video/webm", mp4:"video/mp4", mov:"video/quicktime", ogv:"video/ogg", mp3:"audio/mpeg", wav:"audio/wav", ogg:"audio/ogg", m4a:"audio/mp4", aac:"audio/aac", opus:"audio/ogg" })[ext.toLowerCase()] || "";
   }
   function loadImageEntry(path){
     const { entry, path: p } = mediaEntry(path, "image");
@@ -752,15 +863,87 @@
       el.currentTime = t;
     });
   }
+  function newCanvas(w, h){ const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); const x = c.getContext("2d"); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high"; return c; }
+  function ctx2d(c){ const x = c.getContext("2d"); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high"; return x; }
+  function checkSize(w, h, maxW, maxH){
+    maxW = maxW || MAX_IMG; maxH = maxH || maxW;
+    if(!Number.isFinite(w) || !Number.isFinite(h) || w < 1 || h < 1 || w > maxW || h > maxH || w * h > 40000000) throw new Error(`크기가 올바르지 않아요 (최대 ${maxW}×${maxH}): ${w}×${h}`);
+  }
+  // 크게 줄일 때는 절반씩 단계적으로 줄여 계단 현상 없이 선명하게
+  function prescale(src, sx, sy, sw, sh, tw, th){
+    if(!(sw / tw > 2 || sh / th > 2)) return null;
+    let cw = sw, ch = sh, cur = src, cx = sx, cy = sy;
+    while(cw / 2 >= tw && ch / 2 >= th){
+      const nw = Math.max(1, Math.round(cw / 2)), nh = Math.max(1, Math.round(ch / 2));
+      const c = newCanvas(nw, nh); ctx2d(c).drawImage(cur, cx, cy, cw, ch, 0, 0, nw, nh);
+      cur = c; cx = 0; cy = 0; cw = nw; ch = nh;
+    }
+    return cur === src ? null : cur;
+  }
+  function canvasToImage(c){
+    return new Promise((resolve, reject) => c.toBlob(b => { if(!b){ reject(new Error("blob")); return; } const i = new Image(), u = URL.createObjectURL(b); i.onload = () => { resolve(i); setTimeout(() => URL.revokeObjectURL(u), 60000); }; i.onerror = reject; i.src = u; }, "image/png"));
+  }
   function roundRectPath(ctx, x, y, w, h, r){
     r = Math.max(0, Math.min(r || 0, Math.abs(w) / 2, Math.abs(h) / 2));
     ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + h - r);
     ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath();
   }
-  function newCanvas(w, h){ const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
-  function checkSize(w, h, max){
-    max = max || 4096;
-    if(!Number.isFinite(w) || !Number.isFinite(h) || w < 1 || h < 1 || w > max || h > max || w * h > 16777216) throw new Error(`크기가 올바르지 않아요 (1~${max}px): ${w}×${h}`);
+  // 도형 경로: star, polygon, triangle, diamond, heart, speech(말풍선), burst(폭발), cross, ring, hexagon …
+  const SHAPES = ["rect","rounded","ellipse","circle","star","polygon","hexagon","pentagon","octagon","triangle","diamond","heart","speech","thought","burst","cross","ring","arrow-right","arrow-left","ribbon"];
+  function shapePath(ctx, kind, x, y, w, h, L){
+    kind = String(kind || "rect").toLowerCase();
+    const cx = x + w / 2, cy = y + h / 2, rx = w / 2, ry = h / 2;
+    const poly = (n, inner, rot) => { ctx.beginPath(); const pts = inner ? n * 2 : n; for(let i = 0; i < pts; i++){ const a = rot + i * Math.PI * 2 / pts, f = inner && i % 2 ? inner : 1; const px = cx + Math.cos(a) * rx * f, py = cy + Math.sin(a) * ry * f; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); } ctx.closePath(); };
+    switch(kind){
+      case "ellipse": case "circle": ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); return;
+      case "rounded": roundRectPath(ctx, x, y, w, h, len(opt(L, "radius"), Math.min(w, h), Math.min(w, h) * 0.18)); return;
+      case "star": poly(Number(opt(L, "points") || 5), Number(opt(L, "inner") || 0.45), -Math.PI / 2); return;
+      case "burst": poly(Number(opt(L, "points") || 16), Number(opt(L, "inner") || 0.72), -Math.PI / 2); return;
+      case "polygon": poly(Math.max(3, Number(opt(L, "sides") || 6)), 0, -Math.PI / 2); return;
+      case "hexagon": poly(6, 0, -Math.PI / 2); return;
+      case "pentagon": poly(5, 0, -Math.PI / 2); return;
+      case "octagon": poly(8, 0, -Math.PI / 8 - Math.PI / 2); return;
+      case "triangle": ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(x + w, y + h); ctx.lineTo(x, y + h); ctx.closePath(); return;
+      case "diamond": ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(x + w, cy); ctx.lineTo(cx, y + h); ctx.lineTo(x, cy); ctx.closePath(); return;
+      case "cross": { const t = Math.min(w, h) * 0.32; ctx.beginPath(); ctx.rect(cx - t / 2, y, t, h); ctx.rect(x, cy - t / 2, w, t); return; }
+      case "ring": ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.ellipse(cx, cy, rx * 0.62, ry * 0.62, 0, 0, Math.PI * 2, true); return;
+      case "heart": {
+        ctx.beginPath(); ctx.moveTo(cx, y + h * 0.95);
+        ctx.bezierCurveTo(x - w * 0.05, y + h * 0.55, x + w * 0.05, y - h * 0.05, cx, y + h * 0.27);
+        ctx.bezierCurveTo(x + w * 0.95, y - h * 0.05, x + w * 1.05, y + h * 0.55, cx, y + h * 0.95); ctx.closePath(); return;
+      }
+      case "speech": case "thought": {
+        const tail = String(opt(L, "tail") || "bottom-left"), bh = h * 0.8, r = Math.min(w, bh) * 0.25;
+        if(kind === "thought"){ ctx.beginPath(); ctx.ellipse(cx, y + bh / 2, rx, bh / 2, 0, 0, Math.PI * 2); const tx = /right/.test(tail) ? x + w * 0.78 : x + w * 0.22; ctx.moveTo(tx + h * 0.07, y + bh + h * 0.06); ctx.arc(tx, y + bh + h * 0.06, h * 0.07, 0, Math.PI * 2); ctx.moveTo(tx + (/right/.test(tail) ? 1 : -1) * w * 0.06 + h * 0.04, y + h * 0.96); ctx.arc(tx + (/right/.test(tail) ? 1 : -1) * w * 0.06, y + h * 0.96, h * 0.04, 0, Math.PI * 2); return; }
+        roundRectPath(ctx, x, y, w, bh, r);
+        const tx = /right/.test(tail) ? x + w * 0.72 : /center|middle/.test(tail) ? cx - w * 0.06 : x + w * 0.16;
+        ctx.moveTo(tx, y + bh - 1); ctx.lineTo(tx + (/right/.test(tail) ? w * 0.14 : -w * 0.02), y + h); ctx.lineTo(tx + w * 0.12, y + bh - 1); ctx.closePath(); return;
+      }
+      case "arrow-right": case "arrow-left": {
+        const d = kind === "arrow-left" ? -1 : 1, sx = d > 0 ? x : x + w, hx = sx + d * w * 0.6, ex = sx + d * w;
+        ctx.beginPath(); ctx.moveTo(sx, cy - h * 0.2); ctx.lineTo(hx, cy - h * 0.2); ctx.lineTo(hx, y); ctx.lineTo(ex, cy); ctx.lineTo(hx, y + h); ctx.lineTo(hx, cy + h * 0.2); ctx.lineTo(sx, cy + h * 0.2); ctx.closePath(); return;
+      }
+      case "ribbon": { const n = w * 0.08; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w - n, cy); ctx.lineTo(x + w, y + h); ctx.lineTo(x, y + h); ctx.lineTo(x + n, cy); ctx.closePath(); return; }
+      default: roundRectPath(ctx, x, y, w, h, len(opt(L, "radius"), Math.min(w, h), 0));
+    }
+  }
+  // 칠하기: "#fff" / ["#f00","#00f"] (그라디언트) / {colors:[…], direction:"down|up|left|right|diagonal|radial"}
+  function makeFill(ctx, spec, x, y, w, h, defDir){
+    if(spec == null) return null;
+    let colors = null, dir = defDir || "down";
+    if(Array.isArray(spec)) colors = spec;
+    else if(typeof spec === "object"){ colors = spec.colors || [spec.from || "rgba(0,0,0,0)", spec.to || "rgba(0,0,0,.7)"]; dir = spec.direction || dir; }
+    else return String(spec);
+    if(colors.length < 2) return String(colors[0] || "#000");
+    dir = String(dir).toLowerCase();
+    let g;
+    if(dir === "radial") g = ctx.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, Math.hypot(w, h) / 2);
+    else{
+      const v = { down:[0,0,0,1], up:[0,1,0,0], right:[0,0,1,0], left:[1,0,0,0], diagonal:[0,0,1,1], "diagonal-up":[0,1,1,0] }[dir] || [0,0,0,1];
+      g = ctx.createLinearGradient(x + v[0] * w, y + v[1] * h, x + v[2] * w, y + v[3] * h);
+    }
+    colors.forEach((c, i) => g.addColorStop(i / (colors.length - 1), String(c)));
+    return g;
   }
   // 대상 상자(dw×dh)에 소스(sw×sh)를 맞춘 그리기 영역
   function fitRect(sw, sh, dw, dh, fit){
@@ -781,21 +964,23 @@
     }else{ x = 0; y = 0; }
     if(opt(L, "x") != null) x = len(opt(L, "x"), W, x);
     if(opt(L, "y") != null) y = len(opt(L, "y"), H, y);
+    if(opt(L, "center_x", "cx") != null) x = len(opt(L, "center_x", "cx"), W, x + w / 2) - w / 2;
+    if(opt(L, "center_y", "cy") != null) y = len(opt(L, "center_y", "cy"), H, y + h / 2) - h / 2;
     return { x, y };
   }
   function shadowOf(v){
     if(!v) return null;
-    if(v === true) return { color:"rgba(0,0,0,.6)", blur:6, x:2, y:2 };
-    return { color: v.color || "rgba(0,0,0,.6)", blur: Number(v.blur != null ? v.blur : 6), x: Number(v.x != null ? v.x : 2), y: Number(v.y != null ? v.y : 2) };
+    if(v === true) return { color:"rgba(0,0,0,.6)", blur:8, x:3, y:3 };
+    return { color: v.color || "rgba(0,0,0,.6)", blur: Number(v.blur != null ? v.blur : 8), x: Number(v.x != null ? v.x : 3), y: Number(v.y != null ? v.y : 3) };
   }
+  function setShadow(ctx, sh){ if(sh){ ctx.shadowColor = sh.color; ctx.shadowBlur = sh.blur; ctx.shadowOffsetX = sh.x; ctx.shadowOffsetY = sh.y; } else { ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0; } }
   // 줄바꿈: 공백 기준, 너무 긴 단어(한글 포함)는 글자 단위
   function wrapText(ctx, text, maxW){
     const out = [];
     String(text).split(/\r?\n/).forEach(par => {
       if(!maxW || ctx.measureText(par).width <= maxW){ out.push(par); return; }
       let line = "";
-      const words = par.split(/(\s+)/);
-      for(const word of words){
+      for(const word of par.split(/(\s+)/)){
         const test = line + word;
         if(ctx.measureText(test).width <= maxW){ line = test; continue; }
         if(line.trim()) out.push(line.trimEnd());
@@ -809,18 +994,60 @@
     });
     return out;
   }
-  // 레이어의 시간창(동영상): start~end 사이에만 보이고 fade 초만큼 서서히 나타나고 사라진다
-  function layerAlpha(L, t){
+  /* ---- 레이어 애니메이션 (동영상) ----
+     animation_in / animation(들어올 때), animation_out(나갈 때), animation_duration(초), loop(반복)
+     in/out: fade, slide-up, slide-down, slide-left, slide-right, zoom-in, zoom-out, pop, bounce, spin, typewriter, blur-in, wipe
+     loop: pulse, float, wiggle, blink, spin, shake, sway */
+  const ANIMS = ["fade","slide-up","slide-down","slide-left","slide-right","zoom-in","zoom-out","pop","bounce","spin","typewriter","wipe","drop"];
+  const easeOut = p => 1 - Math.pow(1 - p, 3);
+  const easeBack = p => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
+  const easeBounce = p => { const n = 7.5625, d = 2.75; if(p < 1 / d) return n * p * p; if(p < 2 / d) return n * (p -= 1.5 / d) * p + 0.75; if(p < 2.5 / d) return n * (p -= 2.25 / d) * p + 0.9375; return n * (p -= 2.625 / d) * p + 0.984375; };
+  function animState(L, t, W, H, total){
+    const st = { dx:0, dy:0, s:1, a:1, rot:0, reveal:1, wipe:1 };
     const base = Number(opt(L, "opacity") != null ? opt(L, "opacity") : 1);
-    if(t == null) return base;
-    const s = Number(opt(L, "start") || 0), e = opt(L, "end") != null ? Number(opt(L, "end")) : Infinity;
-    if(t < s || t > e) return 0;
+    if(t == null){ st.a = base; return st; }
+    const s0 = Number(opt(L, "start") || 0), e0 = opt(L, "end") != null ? Number(opt(L, "end")) : (total || Infinity);
+    if(t < s0 || t > e0 + 1e-6){ st.a = 0; return st; }
     const f = Number(opt(L, "fade") || 0);
-    let a = 1; if(f > 0){ a = Math.min(1, (t - s) / f); if(Number.isFinite(e)) a = Math.min(a, (e - t) / f); }
-    return base * Math.max(0, Math.min(1, a));
+    let a = 1; if(f > 0){ a = Math.min(1, (t - s0) / f); if(Number.isFinite(e0)) a = Math.min(a, (e0 - t) / f); }
+    const apply = (name, p) => {
+      if(!name) return;
+      const q = easeOut(p);
+      switch(String(name).toLowerCase()){
+        case "fade": a *= q; break;
+        case "slide-up": st.dy += (1 - q) * H * 0.15; a *= q; break;
+        case "slide-down": st.dy -= (1 - q) * H * 0.15; a *= q; break;
+        case "slide-left": st.dx += (1 - q) * W * 0.2; a *= q; break;
+        case "slide-right": st.dx -= (1 - q) * W * 0.2; a *= q; break;
+        case "zoom-in": st.s *= 0.4 + 0.6 * q; a *= q; break;
+        case "zoom-out": st.s *= 1.6 - 0.6 * q; a *= q; break;
+        case "pop": st.s *= Math.max(0, easeBack(p)); a *= Math.min(1, p * 3); break;
+        case "bounce": case "drop": st.dy -= (1 - easeBounce(p)) * H * 0.35; a *= Math.min(1, p * 4); break;
+        case "spin": st.rot += (1 - q) * Math.PI * 2; st.s *= Math.max(0.01, q); break;
+        case "typewriter": st.reveal = Math.min(st.reveal, p); break;
+        case "wipe": st.wipe = Math.min(st.wipe, q); break;
+      }
+    };
+    const dIn = Number(opt(L, "animation_duration") || 0.6);
+    const nIn = opt(L, "animation_in", "animation", "animate");
+    if(nIn){ const d = String(nIn) === "typewriter" && opt(L, "animation_duration") == null ? Math.max(0.6, String(L.text || "").length * 0.06) : dIn; apply(nIn, clamp01((t - s0) / d)); }
+    const nOut = opt(L, "animation_out");
+    if(nOut && Number.isFinite(e0)) apply(nOut === "typewriter" ? "fade" : nOut, clamp01((e0 - t) / dIn));
+    const loop = opt(L, "loop"), sp = Number(opt(L, "loop_speed") || 1), lt = (t - s0) * sp * Math.PI * 2;
+    switch(String(loop || "").toLowerCase()){
+      case "pulse": st.s *= 1 + 0.06 * Math.sin(lt); break;
+      case "float": st.dy += Math.sin(lt * 0.5) * H * 0.015; break;
+      case "wiggle": st.rot += Math.sin(lt * 2) * 0.07; break;
+      case "sway": st.rot += Math.sin(lt * 0.5) * 0.12; break;
+      case "blink": a *= Math.sin(lt) > -0.3 ? 1 : 0.1; break;
+      case "spin": st.rot += lt / 4; break;
+      case "shake": st.dx += Math.sin(lt * 9) * W * 0.006; st.dy += Math.cos(lt * 7) * H * 0.004; break;
+    }
+    st.a = base * clamp01(a);
+    return st;
   }
   function chromaKey(img, keyColor, tol){
-    const c = newCanvas(img.naturalWidth || img.width, img.naturalHeight || img.height), x = c.getContext("2d");
+    const c = newCanvas(img.naturalWidth || img.width, img.naturalHeight || img.height), x = ctx2d(c);
     x.drawImage(img, 0, 0);
     const rgb = parseColor(keyColor || "#00ff00"); tol = Number(tol != null ? tol : 60);
     const d = x.getImageData(0, 0, c.width, c.height), a = d.data;
@@ -834,122 +1061,308 @@
     const c = newCanvas(1, 1).getContext("2d"); c.fillStyle = "#000"; c.fillStyle = String(s); c.fillRect(0, 0, 1, 1);
     const d = c.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3]];
   }
-  // 레이어 합성 (이미지·동영상 공용). images: path → 미리 읽어 둔 이미지(크로마키 적용본 포함)
-  function drawLayers(ctx, W, H, layers, images, t){
+  // 동영상 필름 노이즈용 타일 (미리 만들어 두고 매 프레임 위치만 바꾼다)
+  let grainTiles = null;
+  function grainTile(i){
+    if(!grainTiles){
+      grainTiles = [0, 1, 2].map(k => { const c = newCanvas(256, 256), x = c.getContext("2d"), d = x.createImageData(256, 256), r = mulberry(99 + k); for(let j = 0; j < d.data.length; j += 4){ const v = r() * 255; d.data[j] = d.data[j+1] = d.data[j+2] = v; d.data[j+3] = 255; } x.putImageData(d, 0, 0); return c; });
+    }
+    return grainTiles[i % 3];
+  }
+  function drawGrain(ctx, W, H, amount, t){
+    amount = Number(amount); if(!(amount > 0)) return;
+    ctx.save(); ctx.globalAlpha = Math.min(0.6, amount); ctx.globalCompositeOperation = "overlay";
+    const k = t == null ? 0 : Math.max(0, Math.floor(t * 24)), tile = grainTile(k), ox = (k * 73) % 256, oy = (k * 151) % 256;
+    ctx.translate(-ox, -oy); ctx.fillStyle = ctx.createPattern(tile, "repeat"); ctx.fillRect(0, 0, W + 256, H + 256); ctx.restore();
+  }
+  /* ---- 레이어 그리기 (이미지·동영상 공용) ---- */
+  function drawLayers(ctx, W, H, layers, images, t, total){
     for(const L of layers || []){
       if(!L || typeof L !== "object") continue;
-      const alpha = layerAlpha(L, t); if(alpha <= 0) continue;
-      const type = String(L.type || (L.text != null ? "text" : L.path ? "image" : "rect")).toLowerCase();
+      const A = animState(L, t, W, H, total);
+      if(A.a <= 0 || A.s <= 0) continue;
+      const type = layerType(L);
       ctx.save();
-      ctx.globalAlpha = alpha;
+      ctx.globalAlpha = A.a;
       const blend = BLEND_MODES[String(opt(L, "blend") || "normal").toLowerCase()];
       if(blend) ctx.globalCompositeOperation = blend;
       const sh = shadowOf(opt(L, "shadow"));
-      const rot = Number(opt(L, "rotate") || 0) * Math.PI / 180;
-      const withRotate = (x, y, w, h, fn) => { if(rot){ ctx.translate(x + w / 2, y + h / 2); ctx.rotate(rot); fn(-w / 2, -h / 2); } else fn(x, y); };
-      if(type === "text"){
-        const size = len(opt(L, "size", "font_size"), Math.min(W, H), Math.round(Math.min(W, H) * 0.07));
-        const fam = opt(L, "font", "font_family") ? String(opt(L, "font", "font_family")) + "," + DEFAULT_FONT : DEFAULT_FONT;
-        const weight = opt(L, "weight", "font_weight") || (opt(L, "bold") ? "bold" : "normal");
-        ctx.font = `${opt(L, "italic") ? "italic " : ""}${weight} ${size}px ${fam}`;
-        const maxW = opt(L, "max_width") != null ? len(opt(L, "max_width"), W) : W - 2 * len(opt(L, "margin"), Math.min(W, H), Math.round(Math.min(W, H) * 0.04));
-        const lines = wrapText(ctx, String(L.text == null ? "" : L.text), maxW);
-        const lh = size * Number(opt(L, "line_height") || 1.25);
-        const tw = Math.max(1, ...lines.map(l => ctx.measureText(l).width)), th = lh * lines.length;
-        const pad = len(opt(L, "padding"), size, opt(L, "background") ? Math.round(size * 0.35) : 0);
-        const box = place(L, W, H, tw + pad * 2, th + pad * 2);
-        const align = String(opt(L, "align") || (/(^|-)left/.test(String(opt(L, "position") || "")) ? "left" : /right/.test(String(opt(L, "position") || "")) ? "right" : opt(L, "position") ? "center" : "left")).toLowerCase();
-        withRotate(box.x, box.y, tw + pad * 2, th + pad * 2, (bx, by) => {
-          if(opt(L, "background")){
-            ctx.save(); ctx.fillStyle = String(opt(L, "background")); roundRectPath(ctx, bx, by, tw + pad * 2, th + pad * 2, len(opt(L, "radius"), size, Math.round(size * 0.25))); ctx.fill(); ctx.restore();
+      const rot = Number(opt(L, "rotate") || 0) * Math.PI / 180 + A.rot;
+      // 상자 기준 변환: 가운데를 기준으로 이동·회전·확대, 그리고 wipe(왼쪽→오른쪽으로 드러남)
+      const xf = (x, y, w, h, fn) => {
+        ctx.translate(x + w / 2 + A.dx, y + h / 2 + A.dy);
+        if(rot) ctx.rotate(rot);
+        if(A.s !== 1) ctx.scale(A.s, A.s);
+        if(A.wipe < 1){ ctx.beginPath(); ctx.rect(-w / 2 - 2, -h / 2 - H, (w + 4) * A.wipe, h + 2 * H); ctx.clip(); }
+        fn(-w / 2, -h / 2);
+      };
+      try{
+        if(type === "text") drawText(ctx, L, W, H, A, sh, xf, t, total);
+        else if(type === "image"){
+          const src = images[L._key || L.path];
+          if(src){
+            const iw = src.naturalWidth || src.videoWidth || src.width, ih = src.naturalHeight || src.videoHeight || src.height;
+            let w = opt(L, "width") != null ? len(opt(L, "width"), W) : null, h = opt(L, "height") != null ? len(opt(L, "height"), H) : null;
+            const sc = opt(L, "scale") != null ? Number(opt(L, "scale")) : null;
+            if(w == null && h == null){ w = iw * (sc || 1); h = ih * (sc || 1); }
+            else if(w == null) w = iw * h / ih; else if(h == null) h = ih * w / iw;
+            const pos = place(L, W, H, w, h);
+            xf(pos.x, pos.y, w, h, (x, y) => {
+              let shape = String(opt(L, "shape", "mask") || "").toLowerCase();
+              if((!shape || shape === "rect") && opt(L, "radius") != null) shape = "rounded";
+              const masked = !!shape && shape !== "rect";
+              if(sh && masked){ // 마스크가 있으면 그림자를 모양으로 먼저 그린다
+                ctx.save(); setShadow(ctx, sh); ctx.fillStyle = "#000"; shapePath(ctx, shape, x, y, w, h, L); ctx.fill(); ctx.restore();
+              }
+              ctx.save();
+              if(masked){ shapePath(ctx, shape, x, y, w, h, L); ctx.clip(); }
+              else if(sh) setShadow(ctx, sh); // 투명 PNG 도 모양대로 그림자가 생긴다
+              const r = fitRect(iw, ih, w, h, String(opt(L, "fit") || "stretch"));
+              if(opt(L, "flip_x")){ ctx.translate(x * 2 + w, 0); ctx.scale(-1, 1); }
+              ctx.drawImage(src, x + r.x, y + r.y, r.w, r.h);
+              ctx.restore();
+              const bw = Number(opt(L, "border_width") || (opt(L, "border") ? Math.max(3, Math.min(w, h) * 0.03) : 0));
+              if(bw > 0){ ctx.lineWidth = bw; ctx.strokeStyle = makeFill(ctx, opt(L, "border", "border_color") || "#fff", x, y, w, h); shapePath(ctx, masked ? shape : "rect", x + bw / 2, y + bw / 2, w - bw, h - bw, L); ctx.stroke(); }
+            });
           }
-          ctx.textBaseline = "top"; ctx.textAlign = align === "right" ? "right" : align === "center" ? "center" : "left";
-          const ax = align === "right" ? bx + pad + tw : align === "center" ? bx + pad + tw / 2 : bx + pad;
-          const sw = Number(opt(L, "stroke_width") || (opt(L, "stroke", "stroke_color") ? Math.max(2, size / 12) : 0));
-          lines.forEach((line, i) => {
-            const ly = by + pad + i * lh + (lh - size) / 2;
-            if(sw > 0){ ctx.save(); ctx.lineJoin = "round"; ctx.lineWidth = sw; ctx.strokeStyle = String(opt(L, "stroke", "stroke_color") || "#000"); ctx.strokeText(line, ax, ly); ctx.restore(); }
-            if(sh){ ctx.shadowColor = sh.color; ctx.shadowBlur = sh.blur; ctx.shadowOffsetX = sh.x; ctx.shadowOffsetY = sh.y; }
-            ctx.fillStyle = String(opt(L, "color") || "#ffffff"); ctx.fillText(line, ax, ly);
+        }else if(type === "shape"){
+          const lt = String(L.type || "rect").toLowerCase(), old = lt === "rect" || lt === "ellipse" || lt === "circle";
+          const kind = lt === "shape" ? String(opt(L, "shape", "kind") || "star").toLowerCase() : lt === "circle" ? "ellipse" : lt;
+          const ww = old ? len(opt(L, "width"), W, W) : len(opt(L, "width", "size"), W, Math.min(W, H) * 0.25);
+          const h = old ? len(opt(L, "height"), H, lt === "circle" ? ww : H) : len(opt(L, "height"), H, ww);
+          const pos = place(L, W, H, ww, h, old ? 0 : undefined);
+          xf(pos.x, pos.y, ww, h, (x, y) => {
+            shapePath(ctx, kind === "rect" && opt(L, "radius") != null ? "rounded" : kind, x, y, ww, h, L);
+            setShadow(ctx, sh);
+            const fill = opt(L, "color", "fill");
+            if(fill !== "none" && (fill != null || !opt(L, "stroke"))){ ctx.fillStyle = makeFill(ctx, fill || "rgba(0,0,0,.5)", x, y, ww, h); ctx.fill(kind === "ring" ? "evenodd" : "nonzero"); }
+            if(opt(L, "stroke")){ setShadow(ctx, null); ctx.lineWidth = Number(opt(L, "stroke_width") || 3); ctx.lineJoin = "round"; if(opt(L, "dash")) ctx.setLineDash([].concat(opt(L, "dash")).map(Number)); ctx.strokeStyle = makeFill(ctx, opt(L, "stroke"), x, y, ww, h); ctx.stroke(); }
           });
+        }else if(type === "line"){
+          ctx.translate(A.dx, A.dy);
+          const pts = Array.isArray(L.points) && L.points.length > 1 ? L.points.map(p => [len(p[0], W, 0), len(p[1], H, 0)]) : [[len(opt(L, "x1"), W, 0), len(opt(L, "y1"), H, 0)], [len(opt(L, "x2"), W, W), len(opt(L, "y2"), H, H)]];
+          const lw = Number(opt(L, "width", "stroke_width") || Math.max(3, Math.min(W, H) * 0.008));
+          ctx.strokeStyle = ctx.fillStyle = makeFill(ctx, opt(L, "color") || "#ff3b30", 0, 0, W, H, "right"); ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.lineJoin = "round";
+          setShadow(ctx, sh);
+          if(opt(L, "dash")) ctx.setLineDash([].concat(opt(L, "dash")).map(Number));
+          // 동영상에서 선이 그려지는 효과: wipe/typewriter 진행도만큼만 그린다
+          const prog = Math.min(A.wipe, A.reveal);
+          ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+          let endPt = pts[0], prevPt = pts[0];
+          if(opt(L, "curve") && pts.length === 2){ const [a, b] = pts, mx = (a[0] + b[0]) / 2 - (b[1] - a[1]) * Number(opt(L, "curve")), my = (a[1] + b[1]) / 2 + (b[0] - a[0]) * Number(opt(L, "curve")); ctx.quadraticCurveTo(mx, my, b[0], b[1]); endPt = b; prevPt = [mx, my]; }
+          else{
+            const segs = pts.length - 1, upto = prog * segs;
+            for(let i = 1; i < pts.length; i++){
+              if(i - 1 >= upto) break;
+              const f = Math.min(1, upto - (i - 1)), p = [pts[i-1][0] + (pts[i][0] - pts[i-1][0]) * f, pts[i-1][1] + (pts[i][1] - pts[i-1][1]) * f];
+              ctx.lineTo(p[0], p[1]); prevPt = pts[i-1]; endPt = p;
+            }
+          }
+          ctx.stroke();
+          if(L.type === "arrow" || opt(L, "arrow")){
+            const a = Math.atan2(endPt[1] - prevPt[1], endPt[0] - prevPt[0]), s = lw * 4;
+            ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(endPt[0], endPt[1]); ctx.lineTo(endPt[0] - s * Math.cos(a - 0.45), endPt[1] - s * Math.sin(a - 0.45)); ctx.lineTo(endPt[0] - s * Math.cos(a + 0.45), endPt[1] - s * Math.sin(a + 0.45)); ctx.closePath(); ctx.fill();
+          }
+        }else if(type === "gradient"){
+          const w = len(opt(L, "width"), W, W), h = len(opt(L, "height"), H, H), pos = place(L, W, H, w, h, 0);
+          ctx.translate(A.dx, A.dy);
+          const colors = Array.isArray(L.colors) && L.colors.length > 1 ? L.colors : [opt(L, "from") || "rgba(0,0,0,0)", opt(L, "to") || "rgba(0,0,0,.7)"];
+          ctx.fillStyle = makeFill(ctx, { colors, direction: opt(L, "direction") || "down" }, pos.x, pos.y, w, h);
+          ctx.fillRect(pos.x, pos.y, w, h);
+        }else if(type === "pattern") drawPattern(ctx, L, W, H, A);
+        else if(type === "border") drawBorder(ctx, L, W, H);
+        else if(type === "particles") drawParticles(ctx, L, W, H, t);
+        else if(type === "progress"){
+          const h = len(opt(L, "height"), H, Math.max(4, H * 0.012)), pos = String(opt(L, "position") || "bottom");
+          const y = /top/.test(pos) ? 0 : H - h, v = t != null && total ? clamp01(t / total) : clamp01(Number(opt(L, "value") || 0));
+          if(opt(L, "background")){ ctx.fillStyle = makeFill(ctx, opt(L, "background"), 0, y, W, h, "right"); ctx.fillRect(0, y, W, h); }
+          ctx.fillStyle = makeFill(ctx, opt(L, "color") || "#ff3b30", 0, y, W, h, "right"); ctx.fillRect(0, y, W * v, h);
+        }else if(type === "grain") drawGrain(ctx, W, H, opt(L, "amount") || 0.2, t);
+      }finally{ ctx.restore(); }
+    }
+  }
+  function layerType(L){
+    const t = String(L.type || (L.text != null ? "text" : L.path ? "image" : "rect")).toLowerCase();
+    if(t === "rect" || t === "ellipse" || t === "circle" || t === "shape" || t === "emoji_shape") return "shape";
+    if(t === "line" || t === "arrow" || t === "path") return "line";
+    if(t === "sticker" || t === "emoji") return "text";
+    return t;
+  }
+  function drawText(ctx, L, W, H, A, sh, xf, t, total){
+    const size = len(opt(L, "size", "font_size"), Math.min(W, H), Math.round(Math.min(W, H) * (L.type === "emoji" || L.type === "sticker" ? 0.18 : 0.07)));
+    const fam = fontFamilyOf(opt(L, "font", "font_family"));
+    const famCss = fam ? `"${fam}",${DEFAULT_FONT}` : DEFAULT_FONT;
+    const weight = String(opt(L, "weight", "font_weight") || (opt(L, "bold") ? "bold" : "normal"));
+    ctx.font = `${opt(L, "italic") ? "italic " : ""}${weight} ${size}px ${famCss}`;
+    const ls = opt(L, "letter_spacing");
+    if(ls != null && "letterSpacing" in ctx) ctx.letterSpacing = len(ls, size, 0) + "px";
+    let raw = String(L.text == null ? "" : L.text);
+    if(t != null){ const fmt = s => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0"); raw = raw.replace(/\{time\}/g, fmt(t)).replace(/\{remaining\}/g, fmt(Math.max(0, (total || 0) - t))); }
+    if(opt(L, "uppercase")) raw = raw.toUpperCase();
+    const pos0 = String(opt(L, "position") || "");
+    const maxW = opt(L, "max_width") != null ? len(opt(L, "max_width"), W) : W - 2 * len(opt(L, "margin"), Math.min(W, H), Math.round(Math.min(W, H) * 0.04));
+    const curve = Number(opt(L, "curve") || 0);
+    const lines = curve ? [raw.replace(/\n/g, " ")] : wrapText(ctx, raw, maxW);
+    const lh = size * Number(opt(L, "line_height") || 1.25);
+    const tw = Math.max(1, ...lines.map(l => ctx.measureText(l).width)), th = lh * lines.length;
+    const pad = len(opt(L, "padding"), size, opt(L, "background") ? Math.round(size * 0.35) : 0);
+    const bw0 = curve ? Math.abs(curve) * 2 : tw + pad * 2, bh0 = curve ? Math.abs(curve) + size : th + pad * 2;
+    const box = place(L, W, H, bw0, bh0);
+    const align = String(opt(L, "align") || (/(^|-)left/.test(pos0) ? "left" : /right/.test(pos0) ? "right" : pos0 ? "center" : "left")).toLowerCase();
+    const total_chars = lines.reduce((s, l) => s + [...l].length, 0);
+    let budget = A.reveal >= 1 ? Infinity : Math.floor(total_chars * A.reveal);
+    const fillFor = (x, y, w, h) => makeFill(ctx, opt(L, "color", "fill") || "#ffffff", x, y, w, h, opt(L, "gradient_direction") || "down");
+    const glow = opt(L, "glow"), outlines = [];
+    const sw = Number(opt(L, "stroke_width") || (opt(L, "stroke", "stroke_color") ? Math.max(2, size / 10) : 0));
+    if(sw > 0) outlines.push({ color: opt(L, "stroke", "stroke_color") || "#000", width: sw });
+    if(Array.isArray(opt(L, "outlines"))) opt(L, "outlines").forEach(o => outlines.push({ color: o.color || "#000", width: Number(o.width || 4) }));
+    outlines.sort((a, b) => b.width - a.width);
+    const paintRun = (s, px, py, fill) => { // 외곽선(두꺼운 것부터) → 빛 → 그림자 → 채우기
+      for(const o of outlines){ ctx.save(); setShadow(ctx, null); ctx.lineJoin = "round"; ctx.miterLimit = 2; ctx.lineWidth = o.width; ctx.strokeStyle = o.color; ctx.strokeText(s, px, py); ctx.restore(); }
+      if(glow){ const g = glow === true ? { color: typeof opt(L, "color") === "string" ? opt(L, "color") : "#fff", blur: size * 0.5 } : { color: glow.color || "#fff", blur: Number(glow.blur || size * 0.5) }; ctx.save(); ctx.shadowColor = g.color; ctx.shadowBlur = g.blur; ctx.fillStyle = fill; ctx.fillText(s, px, py); ctx.fillText(s, px, py); ctx.restore(); }
+      ctx.save(); setShadow(ctx, sh); ctx.fillStyle = fill; ctx.fillText(s, px, py); ctx.restore();
+    };
+    xf(box.x, box.y, bw0, bh0, (bx, by) => {
+      if(opt(L, "background") && !curve){
+        ctx.save(); setShadow(ctx, opt(L, "box_shadow") ? shadowOf(opt(L, "box_shadow")) : null);
+        shapePath(ctx, opt(L, "background_shape") || "rounded", bx, by, tw + pad * 2, th + pad * 2, { radius: opt(L, "radius") != null ? opt(L, "radius") : Math.round(size * 0.3) });
+        ctx.fillStyle = makeFill(ctx, opt(L, "background"), bx, by, tw + pad * 2, th + pad * 2); ctx.fill();
+        if(opt(L, "background_border")){ ctx.lineWidth = Math.max(2, size / 14); ctx.strokeStyle = String(opt(L, "background_border")); ctx.stroke(); }
+        ctx.restore();
+      }
+      ctx.textBaseline = "alphabetic";
+      if(curve){ // 원호를 따라 쓰는 글자 (curve>0: 위로 볼록, <0: 아래로 볼록)
+        const r = Math.abs(curve), cx = bx + bw0 / 2, cy = curve > 0 ? by + r + size : by, txt = [...lines[0]];
+        const widths = txt.map(ch => ctx.measureText(ch).width), total2 = widths.reduce((a, b) => a + b, 0);
+        let ang = -total2 / r / 2;
+        ctx.textAlign = "center";
+        const fill = fillFor(bx, by, bw0, bh0);
+        txt.forEach((ch, i) => {
+          if(budget-- <= 0) return;
+          const a = ang + widths[i] / r / 2; ang += widths[i] / r;
+          ctx.save();
+          if(curve > 0){ ctx.translate(cx + Math.sin(a) * r, cy - Math.cos(a) * r); ctx.rotate(a); }
+          else{ ctx.translate(cx + Math.sin(a) * r, cy + Math.cos(a) * r); ctx.rotate(-a); }
+          paintRun(ch, 0, 0, fill); ctx.restore();
         });
-      }else if(type === "image"){
-        const src = images[L._key || L.path];
-        if(src){
-          const iw = src.naturalWidth || src.videoWidth || src.width, ih = src.naturalHeight || src.videoHeight || src.height;
-          let w = opt(L, "width") != null ? len(opt(L, "width"), W) : null, h = opt(L, "height") != null ? len(opt(L, "height"), H) : null;
-          const sc = opt(L, "scale") != null ? Number(opt(L, "scale")) : null;
-          if(w == null && h == null){ w = iw * (sc || 1); h = ih * (sc || 1); }
-          else if(w == null) w = iw * h / ih; else if(h == null) h = ih * w / iw;
-          const pos = place(L, W, H, w, h);
-          withRotate(pos.x, pos.y, w, h, (x, y) => {
-            const shape = String(opt(L, "shape", "mask") || "").toLowerCase();
-            if(sh && !shape){ ctx.shadowColor = sh.color; ctx.shadowBlur = sh.blur; ctx.shadowOffsetX = sh.x; ctx.shadowOffsetY = sh.y; }
-            if(shape === "circle" || shape === "ellipse"){ ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.clip(); }
-            else if(shape === "rounded" || opt(L, "radius") != null){ roundRectPath(ctx, x, y, w, h, len(opt(L, "radius"), Math.min(w, h), Math.min(w, h) * 0.12)); ctx.clip(); }
-            const r = fitRect(iw, ih, w, h, String(opt(L, "fit") || "stretch"));
-            if(opt(L, "flip_x")){ ctx.translate(x * 2 + w, 0); ctx.scale(-1, 1); }
-            ctx.drawImage(src, x + r.x, y + r.y, r.w, r.h);
-            const bw = Number(opt(L, "border_width") || (opt(L, "border") ? 4 : 0));
-            if(bw > 0){ ctx.lineWidth = bw; ctx.strokeStyle = String(opt(L, "border", "border_color") || "#fff"); if(shape === "circle" || shape === "ellipse"){ ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, w / 2 - bw / 2, h / 2 - bw / 2, 0, 0, Math.PI * 2); } else roundRectPath(ctx, x + bw / 2, y + bw / 2, w - bw, h - bw, opt(L, "radius") != null || shape === "rounded" ? len(opt(L, "radius"), Math.min(w, h), Math.min(w, h) * 0.12) : 0); ctx.stroke(); }
-          });
-        }
-      }else if(type === "rect" || type === "ellipse" || type === "circle"){
-        const w = len(opt(L, "width"), W, W), h = len(opt(L, "height"), H, type === "circle" ? w : H);
-        const pos = place(L, W, H, w, h, 0);
-        withRotate(pos.x, pos.y, w, h, (x, y) => {
-          if(type === "rect") roundRectPath(ctx, x, y, w, h, len(opt(L, "radius"), Math.min(w, h), 0));
-          else { ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); }
-          if(sh){ ctx.shadowColor = sh.color; ctx.shadowBlur = sh.blur; ctx.shadowOffsetX = sh.x; ctx.shadowOffsetY = sh.y; }
-          const fill = opt(L, "color", "fill");
-          if(fill !== "none" && (fill != null || !opt(L, "stroke"))){ ctx.fillStyle = String(fill || "rgba(0,0,0,.5)"); ctx.fill(); }
-          if(opt(L, "stroke")){ ctx.shadowColor = "transparent"; ctx.lineWidth = Number(opt(L, "stroke_width") || 3); ctx.strokeStyle = String(opt(L, "stroke")); ctx.stroke(); }
-        });
-      }else if(type === "line" || type === "arrow"){
-        const x1 = len(opt(L, "x1"), W, 0), y1 = len(opt(L, "y1"), H, 0), x2 = len(opt(L, "x2"), W, W), y2 = len(opt(L, "y2"), H, H);
-        const lw = Number(opt(L, "width", "stroke_width") || 4);
-        ctx.strokeStyle = ctx.fillStyle = String(opt(L, "color") || "#ff3b30"); ctx.lineWidth = lw; ctx.lineCap = "round";
-        if(opt(L, "dash")) ctx.setLineDash([].concat(opt(L, "dash")).map(Number));
-        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-        if(type === "arrow" || opt(L, "arrow")){
-          const a = Math.atan2(y2 - y1, x2 - x1), s = lw * 4;
-          ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - s * Math.cos(a - 0.45), y2 - s * Math.sin(a - 0.45)); ctx.lineTo(x2 - s * Math.cos(a + 0.45), y2 - s * Math.sin(a + 0.45)); ctx.closePath(); ctx.fill();
-        }
-      }else if(type === "gradient"){
-        const w = len(opt(L, "width"), W, W), h = len(opt(L, "height"), H, H), pos = place(L, W, H, w, h, 0);
-        const dir = String(opt(L, "direction") || "down").toLowerCase();
-        const g = dir === "radial" ? ctx.createRadialGradient(pos.x + w / 2, pos.y + h / 2, 0, pos.x + w / 2, pos.y + h / 2, Math.max(w, h) / 2)
-          : ctx.createLinearGradient(dir === "right" ? pos.x : dir === "left" ? pos.x + w : pos.x, dir === "down" ? pos.y : dir === "up" ? pos.y + h : pos.y, dir === "right" ? pos.x + w : dir === "left" ? pos.x : pos.x, dir === "down" ? pos.y + h : dir === "up" ? pos.y : pos.y);
-        const stops = Array.isArray(L.colors) && L.colors.length > 1 ? L.colors : [opt(L, "from") || "rgba(0,0,0,0)", opt(L, "to") || "rgba(0,0,0,.7)"];
-        stops.forEach((c, i) => g.addColorStop(i / (stops.length - 1), String(c)));
-        ctx.fillStyle = g; ctx.fillRect(pos.x, pos.y, w, h);
+        return;
+      }
+      ctx.textAlign = align === "right" ? "right" : align === "center" ? "center" : "left";
+      const ax = align === "right" ? bx + pad + tw : align === "center" ? bx + pad + tw / 2 : bx + pad;
+      const fill = fillFor(bx + pad, by + pad, tw, th);
+      const hl = opt(L, "highlight"), ul = opt(L, "underline");
+      lines.forEach((line0, i) => {
+        if(budget <= 0) return;
+        const chars = [...line0], line = budget === Infinity ? line0 : chars.slice(0, Math.max(0, budget)).join("");
+        if(budget !== Infinity) budget -= chars.length;
+        const lw = ctx.measureText(line0).width, lx = align === "right" ? ax - lw : align === "center" ? ax - lw / 2 : ax;
+        const top = by + pad + i * lh, base = top + (lh - size) / 2 + size * 0.86;
+        if(hl){ ctx.save(); setShadow(ctx, null); ctx.fillStyle = makeFill(ctx, hl, lx, top, lw, lh, "right"); ctx.fillRect(lx - size * 0.08, top + lh * 0.5, ctx.measureText(line).width + size * 0.16, lh * 0.42); ctx.restore(); }
+        paintRun(line, ax - (align === "center" ? (lw - ctx.measureText(line).width) / 2 : align === "right" ? lw - ctx.measureText(line).width : 0), base, fill);
+        if(ul){ ctx.save(); setShadow(ctx, null); ctx.fillStyle = typeof ul === "string" ? ul : (typeof opt(L, "color") === "string" ? opt(L, "color") : "#fff"); ctx.fillRect(lx, base + size * 0.1, ctx.measureText(line).width, Math.max(2, size * 0.07)); ctx.restore(); }
+      });
+    });
+  }
+  function drawPattern(ctx, L, W, H, A){
+    const kind = String(opt(L, "kind", "pattern") || "dots").toLowerCase(), gap = len(opt(L, "spacing", "size"), Math.min(W, H), Math.max(12, Math.min(W, H) * 0.05));
+    const w = len(opt(L, "width"), W, W), h = len(opt(L, "height"), H, H), pos = place(L, W, H, w, h, 0);
+    ctx.translate(A.dx, A.dy);
+    ctx.beginPath(); ctx.rect(pos.x, pos.y, w, h); ctx.clip();
+    ctx.fillStyle = ctx.strokeStyle = String(opt(L, "color") || "rgba(255,255,255,.25)");
+    ctx.lineWidth = Number(opt(L, "line_width") || Math.max(1, gap * 0.12));
+    if(kind === "dots"){ const r = Number(opt(L, "dot_size") || gap * 0.18); for(let y = pos.y; y < pos.y + h + gap; y += gap) for(let x = pos.x + ((Math.round((y - pos.y) / gap) % 2) ? gap / 2 : 0); x < pos.x + w + gap; x += gap){ ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); } }
+    else if(kind === "stripes" || kind === "diagonal"){ ctx.save(); ctx.translate(pos.x + w / 2, pos.y + h / 2); ctx.rotate(kind === "diagonal" ? -Math.PI / 4 : 0); const R = Math.hypot(w, h); for(let x = -R; x < R; x += gap){ ctx.fillRect(x, -R, gap / 2, 2 * R); } ctx.restore(); }
+    else if(kind === "grid"){ ctx.beginPath(); for(let x = pos.x; x <= pos.x + w; x += gap){ ctx.moveTo(x, pos.y); ctx.lineTo(x, pos.y + h); } for(let y = pos.y; y <= pos.y + h; y += gap){ ctx.moveTo(pos.x, y); ctx.lineTo(pos.x + w, y); } ctx.stroke(); }
+    else if(kind === "checker"){ for(let y = 0; y < h; y += gap) for(let x = 0; x < w; x += gap) if(((x / gap) + (y / gap)) % 2 < 1) ctx.fillRect(pos.x + x, pos.y + y, gap, gap); }
+    else if(kind === "waves"){ ctx.beginPath(); for(let y = pos.y; y < pos.y + h + gap; y += gap){ ctx.moveTo(pos.x, y); for(let x = pos.x; x <= pos.x + w; x += 4) ctx.lineTo(x, y + Math.sin((x - pos.x) / gap * Math.PI) * gap * 0.25); } ctx.stroke(); }
+    else if(kind === "halftone"){ for(let y = pos.y; y < pos.y + h + gap; y += gap) for(let x = pos.x; x < pos.x + w + gap; x += gap){ const r = gap * 0.45 * ((y - pos.y) / h); if(r > 0.3){ ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); } } }
+  }
+  function drawBorder(ctx, L, W, H){
+    const bw = len(opt(L, "width", "thickness"), Math.min(W, H), Math.max(6, Math.min(W, H) * 0.025)), inset = len(opt(L, "inset", "margin"), Math.min(W, H), 0);
+    const r = len(opt(L, "radius"), Math.min(W, H), 0), style = String(opt(L, "style") || "solid").toLowerCase();
+    const x = inset + bw / 2, y = inset + bw / 2, w = W - 2 * inset - bw, h = H - 2 * inset - bw;
+    ctx.strokeStyle = makeFill(ctx, opt(L, "color") || "#ffffff", 0, 0, W, H, "diagonal"); ctx.lineWidth = bw;
+    if(style === "dashed") ctx.setLineDash([bw * 3, bw * 2]); else if(style === "dotted"){ ctx.setLineDash([0.1, bw * 2]); ctx.lineCap = "round"; }
+    if(style === "double"){ ctx.lineWidth = bw / 3; roundRectPath(ctx, x - bw / 3, y - bw / 3, w + bw / 1.5, h + bw / 1.5, r); ctx.stroke(); roundRectPath(ctx, x + bw / 3, y + bw / 3, w - bw / 1.5, h - bw / 1.5, Math.max(0, r - bw / 2)); ctx.stroke(); return; }
+    if(style === "polaroid"){ ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.rect(bw, bw, W - 2 * bw, H - bw * 4); ctx.fill("evenodd"); return; }
+    roundRectPath(ctx, x, y, w, h, r); ctx.stroke();
+  }
+  function drawParticles(ctx, L, W, H, t){
+    const kind = String(opt(L, "kind") || "confetti").toLowerCase(), n = Math.min(600, Number(opt(L, "count") || 60));
+    const rnd = mulberry(Number(opt(L, "seed") || 7)), colors = [].concat(opt(L, "colors") || (kind === "snow" || kind === "bubbles" ? ["#ffffff"] : kind === "bokeh" ? ["#ffd27a", "#ff9ec7", "#9ad7ff", "#ffffff"] : kind === "hearts" ? ["#ff4d6d", "#ff8fa3", "#ffccd5"] : kind === "stars" || kind === "sparkle" ? ["#fff7c2", "#ffffff", "#ffe066"] : ["#ff595e", "#ffca3a", "#8ac926", "#1982c4", "#6a4c93"]));
+    const base = len(opt(L, "size"), Math.min(W, H), Math.min(W, H) * (kind === "bokeh" ? 0.06 : kind === "snow" ? 0.008 : 0.015));
+    const T = t == null ? 0 : t, speed = Number(opt(L, "speed") || 1);
+    for(let i = 0; i < n; i++){
+      const px = rnd(), py = rnd(), s = base * (0.5 + rnd()), c = colors[Math.floor(rnd() * colors.length)], ph = rnd() * Math.PI * 2, rs = rnd();
+      let x = px * W, y = py * H;
+      if(kind === "confetti" || kind === "snow" || kind === "hearts"){ const v = (kind === "snow" ? 0.06 : 0.18) * (0.5 + rs) * speed; y = ((py + T * v) % 1.05) * H - s; x += Math.sin(T * 1.5 + ph) * W * (kind === "snow" ? 0.02 : 0.01); }
+      else if(kind === "bubbles"){ y = (1.05 - ((py + T * 0.08 * (0.5 + rs) * speed) % 1.1)) * H; x += Math.sin(T * 2 + ph) * W * 0.01; }
+      else if(kind === "bokeh"){ x += Math.sin(T * 0.4 + ph) * W * 0.02; y += Math.cos(T * 0.3 + ph) * H * 0.02; }
+      ctx.save(); ctx.fillStyle = c; ctx.strokeStyle = c;
+      const tw = kind === "stars" || kind === "sparkle" ? 0.35 + 0.65 * Math.abs(Math.sin(T * 3 * speed + ph)) : 1;
+      ctx.globalAlpha *= tw;
+      ctx.translate(x, y);
+      if(kind === "confetti"){ ctx.rotate(ph + T * 4 * (rs - 0.5)); ctx.fillRect(-s / 2, -s / 4, s, s / 2); }
+      else if(kind === "snow"){ ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.fill(); }
+      else if(kind === "bokeh"){ ctx.globalAlpha *= 0.35; ctx.shadowColor = c; ctx.shadowBlur = s; ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.fill(); }
+      else if(kind === "bubbles"){ ctx.globalAlpha *= 0.6; ctx.lineWidth = Math.max(1, s * 0.12); ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.stroke(); }
+      else if(kind === "hearts"){ shapePath(ctx, "heart", -s, -s, s * 2, s * 2, {}); ctx.fill(); }
+      else{ // stars / sparkle: 반짝이는 십자 별
+        ctx.shadowColor = c; ctx.shadowBlur = s * 2; shapePath(ctx, "star", -s, -s, s * 2, s * 2, { points: 4, inner: 0.3 }); ctx.fill();
       }
       ctx.restore();
     }
   }
-  // 레이어에 쓰인 이미지들을 미리 읽는다 (크로마키 적용본은 별도 키)
+  // 레이어에 쓰인 이미지들을 미리 읽는다 (크로마키·필터 적용본은 별도 키)
   async function preloadLayerImages(layers){
     const map = {};
     for(const L of layers || []){
-      if(!L || !L.path || String(L.type || "image").toLowerCase() !== "image") continue;
-      const ck = opt(L, "chroma_key", "remove_color");
-      const key = L.path + (ck ? "#ck" + JSON.stringify(ck) : "");
+      if(!L || !L.path || layerType(L) !== "image") continue;
+      const ck = opt(L, "chroma_key", "remove_color"), lf = opt(L, "filters", "filter"), lp = opt(L, "preset");
+      const key = L.path + (ck ? "#ck" + JSON.stringify(ck) : "") + (lf || lp ? "#f" + JSON.stringify([lf, lp]) : "");
       L._key = key;
       if(map[key]) continue;
       const img = await loadImageEntry(L.path);
-      map[key] = ck ? chromaKey(img, typeof ck === "object" ? ck.color : ck, typeof ck === "object" ? ck.tolerance : undefined) : img;
+      let out = ck ? chromaKey(img, typeof ck === "object" ? ck.color : ck, typeof ck === "object" ? ck.tolerance : undefined) : img;
+      if(lf || lp){ const c = newCanvas(out.naturalWidth || out.width, out.naturalHeight || out.height), x = ctx2d(c); x.drawImage(out, 0, 0); applyFilters(x, c.width, c.height, mergedFilters(lf, lp)); out = c; }
+      if(out !== img){ try{ out = await canvasToImage(out); }catch(_){} }
+      map[key] = out;
     }
     return map;
   }
+  const LAYER_TYPES = ["text","emoji","sticker","image","rect","ellipse","circle","shape","line","arrow","path","gradient","pattern","border","particles","progress","grain"];
   function validateLayers(layers){
     if(layers == null) return [];
     if(!Array.isArray(layers)) throw new Error("layers 는 배열이어야 해요");
-    if(layers.length > 50) throw new Error("layers 는 최대 50개예요");
-    const types = ["text","image","rect","ellipse","circle","line","arrow","gradient"];
-    layers.forEach((L, i) => { const t = String(L && (L.type || (L.text != null ? "text" : L.path ? "image" : "rect"))).toLowerCase(); if(!types.includes(t)) throw new Error(`layers[${i}].type 은 ${types.join(", ")} 중 하나예요`); if(t === "image" && !L.path) throw new Error(`layers[${i}] 이미지 레이어에는 path 가 필요해요`); });
+    if(layers.length > 80) throw new Error("layers 는 최대 80개예요");
+    layers.forEach((L, i) => {
+      const t = String(L && (L.type || (L.text != null ? "text" : L.path ? "image" : "rect"))).toLowerCase();
+      if(!LAYER_TYPES.includes(t)) throw new Error(`layers[${i}].type '${t}' 은 지원하지 않아요. 사용 가능: ${LAYER_TYPES.join(", ")}`);
+      if(t === "image" && !L.path) throw new Error(`layers[${i}] 이미지 레이어에는 path 가 필요해요`);
+      if(t === "shape" && opt(L, "shape", "kind") && !SHAPES.includes(String(opt(L, "shape", "kind")).toLowerCase())) throw new Error(`layers[${i}].shape 는 ${SHAPES.join(", ")} 중 하나예요`);
+      for(const k of ["animation_in","animation","animation_out"]) if(L[k] && !ANIMS.includes(String(L[k]).toLowerCase())) throw new Error(`layers[${i}].${k} 는 ${ANIMS.join(", ")} 중 하나예요`);
+    });
     return layers;
   }
-  // 픽셀 필터 (모든 브라우저에서 같은 결과). 값: brightness·contrast·saturation 1=원본, grayscale·sepia·invert 0~1, hue 도, blur px, sharpen 0~2
+  /* ---- 필터 ---- */
+  const PRESETS = {
+    vintage:{ sepia:0.35, contrast:1.05, saturation:0.85, brightness:1.05, vignette:0.35, grain:0.12 },
+    retro:{ sepia:0.2, saturation:1.2, contrast:1.1, tint:{ color:"#ff9a3c", amount:0.12 }, grain:0.15, vignette:0.25 },
+    cinematic:{ contrast:1.15, saturation:0.9, tint:{ color:"#0f4c5c", amount:0.12 }, vignette:0.3 },
+    warm:{ temperature:0.25, saturation:1.08 },
+    cool:{ temperature:-0.25, saturation:1.02 },
+    bw:{ grayscale:1, contrast:1.1 },
+    noir:{ grayscale:1, contrast:1.4, brightness:0.92, vignette:0.5, grain:0.1 },
+    vivid:{ saturation:1.35, contrast:1.1 },
+    fade:{ contrast:0.85, brightness:1.08, saturation:0.8 },
+    dreamy:{ brightness:1.08, saturation:1.1, blur:1, tint:{ color:"#ffb3d9", amount:0.1 } }
+  };
+  function mergedFilters(f, preset){
+    const p = preset ? PRESETS[String(preset).toLowerCase()] : null;
+    if(preset && !p) throw new Error("preset 은 " + Object.keys(PRESETS).join(", ") + " 중 하나예요");
+    return Object.assign({}, p || {}, f && typeof f === "object" ? f : {});
+  }
+  // 픽셀 필터 (모든 브라우저에서 같은 결과)
   function applyFilters(ctx, w, h, f){
     if(!f || typeof f !== "object") return;
     const num = (k, d) => { const v = opt(f, k); return v == null ? d : Number(v); };
@@ -960,32 +1373,46 @@
       if("filter" in tx && (tx.filter = `blur(${blur}px)`, tx.filter !== "none")){ ctx.save(); ctx.clearRect(0, 0, w, h); ctx.filter = `blur(${blur}px)`; ctx.drawImage(tmp, 0, 0); ctx.restore(); }
       else boxBlur(ctx, w, h, Math.min(25, Math.round(blur)));
     }
-    const br = num("brightness", 1), ct = num("contrast", 1), sat = num("saturation", num("saturate", 1)), gs = num("grayscale", 0), sp = num("sepia", 0), inv = num("invert", 0), hue = num("hue", num("hue_rotate", 0)), shp = num("sharpen", 0);
-    if(br === 1 && ct === 1 && sat === 1 && !gs && !sp && !inv && !hue && !shp) return;
+    const pix = num("pixelate", 0);
+    if(pix > 1){ const sw = Math.max(1, Math.round(w / pix)), sh = Math.max(1, Math.round(h / pix)), tmp = newCanvas(sw, sh); ctx2d(tmp).drawImage(ctx.canvas, 0, 0, sw, sh); ctx.save(); ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, w, h); ctx.drawImage(tmp, 0, 0, w, h); ctx.restore(); }
+    const br = num("brightness", 1) * num("exposure", 1), ct = num("contrast", 1), sat = num("saturation", num("saturate", 1)), gs = num("grayscale", 0), sp = num("sepia", 0), inv = num("invert", 0), hue = num("hue", num("hue_rotate", 0)), shp = num("sharpen", 0);
+    const temp = num("temperature", 0), post = num("posterize", 0), noise = num("noise", 0);
+    const tint = opt(f, "tint"), duo = opt(f, "duotone");
+    const tintRGB = tint ? parseColor(typeof tint === "object" ? tint.color : tint) : null, tintA = tint ? Number(typeof tint === "object" && tint.amount != null ? tint.amount : 0.25) : 0;
+    const duoA = Array.isArray(duo) && duo.length >= 2 ? parseColor(duo[0]) : null, duoB = duoA ? parseColor(duo[1]) : null;
+    if(br === 1 && ct === 1 && sat === 1 && !gs && !sp && !inv && !hue && !shp && !temp && !post && !noise && !tintRGB && !duoA){ vignette(ctx, w, h, opt(f, "vignette")); drawGrain(ctx, w, h, opt(f, "grain"), null); return; }
     const d = ctx.getImageData(0, 0, w, h), a = d.data;
     const cos = Math.cos(hue * Math.PI / 180), sin = Math.sin(hue * Math.PI / 180);
     const hm = hue ? [0.213 + cos * 0.787 - sin * 0.213, 0.715 - cos * 0.715 - sin * 0.715, 0.072 - cos * 0.072 + sin * 0.928,
       0.213 - cos * 0.213 + sin * 0.143, 0.715 + cos * 0.285 + sin * 0.140, 0.072 - cos * 0.072 - sin * 0.283,
       0.213 - cos * 0.213 - sin * 0.787, 0.715 - cos * 0.715 + sin * 0.715, 0.072 + cos * 0.928 + sin * 0.072] : null;
+    const rnd = mulberry(5), lv = post > 1 ? 255 / (Math.round(post) - 1) : 0;
     for(let i = 0; i < a.length; i += 4){
       let r = a[i], g = a[i+1], b = a[i+2];
       if(hm){ const R = r * hm[0] + g * hm[1] + b * hm[2], G = r * hm[3] + g * hm[4] + b * hm[5], B = r * hm[6] + g * hm[7] + b * hm[8]; r = R; g = G; b = B; }
       if(sat !== 1){ const l = 0.2126 * r + 0.7152 * g + 0.0722 * b; r = l + (r - l) * sat; g = l + (g - l) * sat; b = l + (b - l) * sat; }
       if(gs){ const l = 0.2126 * r + 0.7152 * g + 0.0722 * b; r += (l - r) * gs; g += (l - g) * gs; b += (l - b) * gs; }
       if(sp){ const R = 0.393 * r + 0.769 * g + 0.189 * b, G = 0.349 * r + 0.686 * g + 0.168 * b, B = 0.272 * r + 0.534 * g + 0.131 * b; r += (R - r) * sp; g += (G - g) * sp; b += (B - b) * sp; }
+      if(temp){ r += temp * 40; b -= temp * 40; g += temp * 8; }
+      if(tintRGB){ r += (tintRGB[0] - r) * tintA; g += (tintRGB[1] - g) * tintA; b += (tintRGB[2] - b) * tintA; }
+      if(duoA){ const l = clamp01((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255); r = duoA[0] + (duoB[0] - duoA[0]) * l; g = duoA[1] + (duoB[1] - duoA[1]) * l; b = duoA[2] + (duoB[2] - duoA[2]) * l; }
       if(br !== 1){ r *= br; g *= br; b *= br; }
       if(ct !== 1){ r = (r - 128) * ct + 128; g = (g - 128) * ct + 128; b = (b - 128) * ct + 128; }
       if(inv){ r += (255 - 2 * r) * inv; g += (255 - 2 * g) * inv; b += (255 - 2 * b) * inv; }
+      if(lv){ r = Math.round(r / lv) * lv; g = Math.round(g / lv) * lv; b = Math.round(b / lv) * lv; }
+      if(noise){ const n = (rnd() - 0.5) * 255 * noise; r += n; g += n; b += n; }
       a[i] = r; a[i+1] = g; a[i+2] = b; // Uint8ClampedArray 가 0~255 로 자른다
     }
     if(shp > 0){
       const src = new Uint8ClampedArray(a), k = shp;
       for(let y = 1; y < h - 1; y++) for(let x = 1; x < w - 1; x++){
         const i = (y * w + x) * 4;
-        for(let c = 0; c < 3; c++){ const v = src[i + c] * (1 + 4 * k) - k * (src[i + c - 4] + src[i + c + 4] + src[i + c - w * 4] + src[i + c + w * 4]); a[i + c] = v; }
+        for(let c = 0; c < 3; c++){ a[i + c] = src[i + c] * (1 + 4 * k) - k * (src[i + c - 4] + src[i + c + 4] + src[i + c - w * 4] + src[i + c + w * 4]); }
       }
     }
     ctx.putImageData(d, 0, 0);
+    vignette(ctx, w, h, opt(f, "vignette"));
+    drawGrain(ctx, w, h, opt(f, "grain"), null);
   }
   function boxBlur(ctx, w, h, r){
     if(r < 1) return;
@@ -1000,11 +1427,12 @@
     }
     ctx.putImageData(d, 0, 0);
   }
-  // 동영상 프레임용 CSS 필터 문자열 (픽셀 필터는 실시간으로 너무 느리다)
+  // 동영상 프레임용: CSS 필터 문자열 + 색 덧칠(색온도·틴트) + 비네트·노이즈 (픽셀 연산은 실시간으로 너무 느리다)
   function cssFilter(f){
     if(!f || typeof f !== "object") return "none";
     const p = [], v = k => opt(f, k);
-    if(v("brightness") != null) p.push(`brightness(${Number(v("brightness"))})`);
+    const br = (v("brightness") != null ? Number(v("brightness")) : 1) * (v("exposure") != null ? Number(v("exposure")) : 1);
+    if(br !== 1) p.push(`brightness(${br})`);
     if(v("contrast") != null) p.push(`contrast(${Number(v("contrast"))})`);
     const s = v("saturation") != null ? v("saturation") : v("saturate"); if(s != null) p.push(`saturate(${Number(s)})`);
     if(v("grayscale") != null) p.push(`grayscale(${Number(v("grayscale"))})`);
@@ -1014,11 +1442,36 @@
     if(v("blur") != null) p.push(`blur(${Number(v("blur"))}px)`);
     return p.join(" ") || "none";
   }
+  function frameOverlays(ctx, w, h, f, t, noColor){
+    if(!f) return;
+    if(!noColor) colorOverlay(ctx, w, h, f);
+    vignette(ctx, w, h, opt(f, "vignette"));
+    drawGrain(ctx, w, h, opt(f, "grain"), t);
+  }
+  function colorOverlay(ctx, w, h, f){
+    const temp = Number(opt(f, "temperature") || 0), tint = opt(f, "tint");
+    if(temp){ ctx.save(); ctx.globalCompositeOperation = "soft-light"; ctx.globalAlpha = Math.min(0.8, Math.abs(temp) * 1.6); ctx.fillStyle = temp > 0 ? "#ff9a2e" : "#2e7bff"; ctx.fillRect(0, 0, w, h); ctx.restore(); }
+    if(tint){ ctx.save(); ctx.globalCompositeOperation = "color"; ctx.globalAlpha = Number(typeof tint === "object" && tint.amount != null ? tint.amount : 0.25); ctx.fillStyle = typeof tint === "object" ? tint.color : tint; ctx.fillRect(0, 0, w, h); ctx.restore(); }
+  }
+  // 비네트는 한 번 그려 두고 재사용한다 (영상에서 매 프레임 방사형 그라디언트를 그리면 느리다)
+  let vignetteCache = null;
   function vignette(ctx, w, h, amount){
     amount = Number(amount); if(!(amount > 0)) return;
-    const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.hypot(w, h) / 2);
-    g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, `rgba(0,0,0,${Math.min(1, amount)})`);
-    ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); ctx.restore();
+    const key = w + "x" + h + ":" + amount;
+    if(!vignetteCache || vignetteCache.key !== key){
+      const c = newCanvas(w, h), x = c.getContext("2d");
+      const g = x.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.hypot(w, h) / 2);
+      g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, `rgba(0,0,0,${Math.min(1, amount)})`);
+      x.fillStyle = g; x.fillRect(0, 0, w, h); vignetteCache = { key, c };
+    }
+    ctx.drawImage(vignetteCache.c, 0, 0);
+  }
+  // 시네마 비율 검은 띠: letterbox:true(2.35:1) 또는 숫자 비율
+  function letterbox(ctx, w, h, v){
+    if(!v) return;
+    const ratio = v === true ? 2.35 : Number(v); if(!(ratio > 0)) return;
+    const ih = Math.min(h, w / ratio), bar = (h - ih) / 2; if(bar < 1) return;
+    ctx.save(); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, w, bar); ctx.fillRect(0, h - bar, w, bar); ctx.restore();
   }
   function outFormat(call, fallback){
     const ext = (String(call.out || "").match(/\.([a-z0-9]+)$/i) || [])[1];
@@ -1028,7 +1481,7 @@
   }
   function canvasToFile(canvas, out, format, quality){
     const mime = "image/" + format;
-    const q = quality != null ? Math.max(0.1, Math.min(1, Number(quality) > 1 ? Number(quality) / 100 : Number(quality))) : 0.92;
+    const q = quality != null ? Math.max(0.1, Math.min(1, Number(quality) > 1 ? Number(quality) / 100 : Number(quality))) : 0.95;
     const data = canvas.toDataURL(mime, q);
     if(!data.startsWith("data:" + mime + ";")) throw new Error("브라우저에서 지원하지 않는 형식이에요: " + format);
     const ext = format === "jpeg" ? "jpg" : format;
@@ -1039,7 +1492,7 @@
   async function editImage(call){
     const layers = validateLayers(opt(call, "layers"));
     if(!call.out) throw new Error("결과 파일 경로 out이 필요해요");
-    const format = outFormat(call, "png");
+    const format = outFormat(call, "png"), notes = [];
     let img = null;
     if(call.path) img = await loadImageEntry(call.path);
     else if(!(call.width && call.height)) throw new Error("path(원본 이미지) 또는 빈 캔버스용 width·height 가 필요해요");
@@ -1049,42 +1502,58 @@
     // 회전: 90/180/270 은 정확히, 그 밖의 각도는 잘리지 않게 캔버스를 넓힌다
     const deg = ((Number(call.rotate || 0) % 360) + 360) % 360, rad = deg * Math.PI / 180;
     const rw = Math.round(Math.abs(sw * Math.cos(rad)) + Math.abs(sh * Math.sin(rad))), rh = Math.round(Math.abs(sw * Math.sin(rad)) + Math.abs(sh * Math.cos(rad)));
+    const scale = Number(opt(call, "scale") || 1);
     let w = Number(call.width || 0), h = Number(call.height || 0);
     if(!img){ w = iw; h = ih; }
     else if(w && !h) h = Math.round(rh * w / rw);
     else if(h && !w) w = Math.round(rw * h / rh);
-    w = w || rw; h = h || rh;
+    w = Math.round((w || rw) * (img ? scale : 1)); h = Math.round((h || rh) * (img ? scale : 1));
     checkSize(w, h);
-    const canvas = newCanvas(w, h), ctx = canvas.getContext("2d");
+    await ensureFonts(layers, notes);
+    const canvas = newCanvas(w, h), ctx = ctx2d(canvas);
     const bg = opt(call, "background") || (format === "jpeg" ? "#ffffff" : null);
-    if(bg){ ctx.fillStyle = String(bg); ctx.fillRect(0, 0, w, h); }
+    if(bg){ ctx.fillStyle = makeFill(ctx, bg, 0, 0, w, h); ctx.fillRect(0, 0, w, h); }
     if(img){
       const r = fitRect(rw, rh, w, h, String(call.fit || "stretch"));
+      // 크게 줄이는 경우 단계적으로 미리 줄여서 선명도를 지킨다
+      const ratio = Math.min(r.w / rw, r.h / rh), pre = prescale(img, x, y, sw, sh, Math.max(1, Math.round(sw * ratio)), Math.max(1, Math.round(sh * ratio)));
       ctx.save();
       ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
       ctx.scale(r.w / rw, r.h / rh);
       ctx.rotate(rad);
       ctx.scale(call.flipX || call.flip_x ? -1 : 1, call.flipY || call.flip_y ? -1 : 1);
-      ctx.drawImage(img, x, y, sw, sh, -sw / 2, -sh / 2, sw, sh);
+      if(pre) ctx.drawImage(pre, 0, 0, pre.width, pre.height, -sw / 2, -sh / 2, sw, sh);
+      else ctx.drawImage(img, x, y, sw, sh, -sw / 2, -sh / 2, sw, sh);
       ctx.restore();
     }
-    applyFilters(ctx, w, h, opt(call, "filters", "filter"));
+    const f = mergedFilters(opt(call, "filters", "filter"), opt(call, "preset"));
+    if(Object.keys(f).length) applyFilters(ctx, w, h, f);
     if(layers.length) drawLayers(ctx, w, h, layers, await preloadLayerImages(layers), null);
     vignette(ctx, w, h, opt(call, "vignette"));
+    letterbox(ctx, w, h, opt(call, "letterbox"));
     const out = canvasToFile(canvas, call.out, format, opt(call, "quality"));
-    return `${out} (${w}×${h}, ${format}${layers.length ? ", 레이어 " + layers.length + "개" : ""})`;
+    return `${out} (${w}×${h}, ${format}${layers.length ? ", 레이어 " + layers.length + "개" : ""})` + (notes.length ? "\n참고: " + notes.join(" / ") : "");
   }
 
   /* ---- 동영상 공통: 캔버스 녹화 ---- */
   function recorderSupport(){
     if(typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream || !MediaRecorder.isTypeSupported("video/webm")) throw new Error("이 브라우저는 WebM 동영상 제작을 지원하지 않아요 (Chrome·Edge·Firefox 권장)");
   }
-  function pickMime(withAudio){
-    const c = withAudio ? ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"] : ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+  function pickMime(withAudio, codec){
+    const v = String(codec || "").toLowerCase();
+    const order = v === "vp8" ? ["vp8"] : v === "av1" ? ["av01", "vp9", "vp8"] : ["vp9", "vp8"];
+    const c = order.map(x => "video/webm;codecs=" + x + (withAudio ? ",opus" : "")).concat(["video/webm"]);
     return c.find(m => MediaRecorder.isTypeSupported(m)) || "video/webm";
   }
+  // 화질: quality(standard|high|max) 또는 bitrate(Mbps)
+  function bitrateFor(call, w, h, fps){
+    const mb = Number(opt(call, "bitrate", "video_bitrate"));
+    if(mb > 0) return Math.round(Math.min(80, Math.max(0.3, mb)) * 1e6);
+    const q = String(opt(call, "quality") || "high").toLowerCase(), k = q === "max" ? 0.32 : q === "standard" || q === "low" ? 0.08 : 0.16;
+    return Math.round(Math.min(60e6, Math.max(1.5e6, w * h * fps * k)));
+  }
   // 탭이 숨겨지면 requestAnimationFrame 이 멈춰 녹화가 끝나지 않던 문제 → 숨김 상태에선 타이머로 진행
-  function nextFrame(cb){ if(document.hidden) setTimeout(() => cb(performance.now()), 33); else requestAnimationFrame(cb); }
+  function nextFrame(cb){ if(document.hidden) setTimeout(() => cb(performance.now()), 16); else requestAnimationFrame(cb); }
   function makeAudioMix(){
     let ac = null;
     try{ const AC = global.AudioContext || global.webkitAudioContext; if(AC) ac = new AC(); }catch(_){}
@@ -1092,24 +1561,32 @@
     const dest = ac.createMediaStreamDestination();
     return {
       ac, dest, used: false,
-      add(el, volume){ try{ el.muted = false; el.volume = 1; const src = ac.createMediaElementSource(el), g = ac.createGain(); g.gain.value = volume == null ? 1 : Math.max(0, Math.min(2, Number(volume))); src.connect(g); g.connect(dest); this.used = true; return true; }catch(e){ return false; } },
+      add(el, volume){ try{ el.muted = false; el.volume = 1; const src = ac.createMediaElementSource(el), g = ac.createGain(); g.gain.value = volume == null ? 1 : Math.max(0, Math.min(2, Number(volume))); src.connect(g); g.connect(dest); this.used = true; el._gain = g; return true; }catch(e){ return false; } },
       async resume(){ try{ if(ac.state === "suspended") await ac.resume(); }catch(_){} },
       close(){ try{ ac.close(); }catch(_){} }
     };
   }
-  async function record(canvas, fps, mix, render){
-    const vstream = canvas.captureStream(fps);
+  // fps 에 맞춰 그린 프레임만 정확히 보낸다 (captureStream(0) + requestFrame)
+  async function record(canvas, fps, mix, bitrate, codec, render){
+    let vstream = canvas.captureStream(0), track = vstream.getVideoTracks()[0];
+    if(!track || typeof track.requestFrame !== "function"){ vstream.getTracks().forEach(t => t.stop()); vstream = canvas.captureStream(fps); track = null; }
     const tracks = vstream.getVideoTracks().slice();
     if(mix && mix.used) tracks.push(...mix.dest.stream.getAudioTracks());
-    const stream = new MediaStream(tracks), mimeType = pickMime(mix && mix.used), chunks = [];
-    const rec = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 4_000_000 });
+    const stream = new MediaStream(tracks), mimeType = pickMime(mix && mix.used, codec), chunks = [];
+    const rec = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate, audioBitsPerSecond: 192000 });
     rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
     const stopped = new Promise((resolve, reject) => { rec.onstop = resolve; rec.onerror = () => reject(new Error("영상 인코딩 실패")); });
+    let frames = 0, last = -1e9;
+    const interval = 1000 / fps;
+    // 그릴 차례인지: 목표 fps 보다 빨리 그리지 않는다
+    const due = now => now - last >= interval - 2;
+    const emit = now => { last = now; frames++; if(track) track.requestFrame(); };
     try{
       if(mix) await mix.resume();
-      rec.start(250);
-      await render();
-      await new Promise(r => setTimeout(r, 120)); // 마지막 프레임이 담기도록 잠깐 기다린다
+      rec.start(500);
+      await render(due, emit);
+      if(track) track.requestFrame();
+      await new Promise(r => setTimeout(r, 150)); // 마지막 프레임이 담기도록 잠깐 기다린다
       rec.stop(); await stopped;
     }finally{
       if(rec.state !== "inactive") try{ rec.stop(); }catch(_){}
@@ -1117,7 +1594,8 @@
     }
     const blob = new Blob(chunks, { type: "video/webm" });
     if(!blob.size) throw new Error("녹화된 영상이 비어 있어요 (탭을 띄워 둔 채로 다시 시도해 주세요)");
-    return await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error("영상 저장 실패")); r.readAsDataURL(blob); });
+    const data = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error("영상 저장 실패")); r.readAsDataURL(blob); });
+    return { data, frames, codec: mimeType.replace("video/webm;codecs=", "") };
   }
   function fadeOverlay(ctx, w, h, t, total, fin, fout, color){
     let a = 0;
@@ -1132,7 +1610,7 @@
     let w = Number(call.width || 0), h = Number(call.height || 0);
     if(w && !h) h = Math.round(bh * w / bw / 2) * 2; else if(h && !w) w = Math.round(bw * h / bh / 2) * 2;
     w = w || bw; h = h || bh;
-    if(!Number.isInteger(w) || !Number.isInteger(h) || w < 2 || h < 2 || w > 1920 || h > 1080) throw new Error(`영상 크기가 올바르지 않아요 (최대 1920×1080): ${w}×${h}`);
+    if(!Number.isInteger(w) || !Number.isInteger(h) || w < 2 || h < 2 || w > MAX_VW || h > MAX_VW || w * h > MAX_VW * MAX_VH) throw new Error(`영상 크기가 올바르지 않아요 (최대 ${MAX_VW}×${MAX_VH}): ${w}×${h}`);
     return { w, h };
   }
   function drawSource(ctx, src, sw, sh, w, h, o){
@@ -1149,9 +1627,10 @@
     ctx.drawImage(src, -dw / 2, -dh / 2, dw, dh);
     ctx.restore();
   }
-  function normRotate(v){ const d = ((Math.round(Number(v || 0) / 90) * 90) % 360 + 360) % 360; return d; }
+  function normRotate(v){ return ((Math.round(Number(v || 0) / 90) * 90) % 360 + 360) % 360; }
+  function videoFps(call){ const f = Number(opt(call, "fps") || 30); if(!(f >= 1 && f <= 60)) throw new Error("fps 는 1~60 이에요"); return f; }
 
-  // 영상 구간 편집: 자르기·속도·크기·회전·필터·텍스트/이미지 레이어·페이드·소리 유지
+  // 영상 구간 편집: 자르기·속도·크기·회전·필터·텍스트/이미지 레이어(애니메이션)·페이드·소리 유지·배경음
   async function editVideo(call){
     if(!call.out || !/\.webm$/i.test(call.out)) throw new Error("출력 경로는 .webm이어야 해요");
     recorderSupport();
@@ -1165,23 +1644,26 @@
       if(!(speed >= 0.25 && speed <= 4)) throw new Error("speed 는 0.25~4 사이예요");
       if(!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) throw new Error(`편집 구간을 확인하세요 (영상 길이 ${v.duration.toFixed(2)}초)`);
       const total = (end - start) / speed;
-      if(total > MAX_MEDIA_SEC) throw new Error(`결과 영상은 최대 ${MAX_MEDIA_SEC}초예요 (현재 ${total.toFixed(1)}초)`);
+      if(total > MAX_VIDEO_SEC) throw new Error(`결과 영상은 최대 ${MAX_VIDEO_SEC}초예요 (현재 ${total.toFixed(1)}초)`);
       const rotate = normRotate(call.rotate), { w, h } = videoSize(call, v.videoWidth, v.videoHeight, rotate);
-      const filter = cssFilter(opt(call, "filters", "filter"));
+      const fps = videoFps(call), bitrate = bitrateFor(call, w, h, fps);
+      const fset = mergedFilters(opt(call, "filters", "filter"), opt(call, "preset"));
+      const filter = cssFilter(fset);
       const probe = newCanvas(1, 1).getContext("2d");
-      if(filter !== "none" && !("filter" in probe)){ notes.push("이 브라우저는 동영상 필터를 지원하지 않아 필터 없이 만들었어요"); }
+      if(filter !== "none" && !("filter" in probe)) notes.push("이 브라우저는 동영상 필터를 지원하지 않아 일부 필터 없이 만들었어요");
+      await ensureFonts(layers, notes);
       const imgs = await preloadLayerImages(layers);
-      if(opt(call, "keep_audio", "audio") || opt(call, "music")){ mix = makeAudioMix(); if(!mix) notes.push("오디오 합성을 지원하지 않아 무음으로 만들었어요"); }
-      if(mix && opt(call, "keep_audio") && !mix.add(v, opt(call, "volume"))) notes.push("원본 소리를 가져오지 못했어요");
       const musicPath = opt(call, "music") || (typeof call.audio === "string" ? call.audio : null);
+      if(opt(call, "keep_audio") || musicPath){ mix = makeAudioMix(); if(!mix) notes.push("오디오 합성을 지원하지 않아 무음으로 만들었어요"); }
+      if(mix && opt(call, "keep_audio") && !mix.add(v, opt(call, "volume"))) notes.push("원본 소리를 가져오지 못했어요");
       if(mix && musicPath){ music = await loadMediaEl(musicPath, "audio"); music.loop = true; if(!mix.add(music, opt(call, "music_volume", "audio_volume"))) notes.push("배경음을 넣지 못했어요"); }
       v.playbackRate = speed; try{ v.preservesPitch = true; }catch(_){}
       await seekTo(v, start);
-      const canvas = newCanvas(w, h), ctx = canvas.getContext("2d");
-      const bg = String(opt(call, "background") || "#000");
+      const canvas = newCanvas(w, h), ctx = ctx2d(canvas);
+      const bg = opt(call, "background") || "#000";
       const fin = Number(opt(call, "fade_in") || 0), fout = Number(opt(call, "fade_out") || 0);
-      const fps = Math.max(10, Math.min(60, Number(opt(call, "fps") || 30)));
-      const data = await record(canvas, fps, mix, async () => {
+      const mfade = Number(opt(call, "music_fade") || 1);
+      const res = await record(canvas, fps, mix, bitrate, opt(call, "codec"), async (due, emit) => {
         try{ await v.play(); }
         catch(e){
           if(v.muted) throw new Error("영상 재생 실패: " + (e && e.message || e));
@@ -1190,30 +1672,38 @@
         }
         if(music){ music.currentTime = 0; music.play().catch(() => notes.push("배경음 재생 실패")); }
         await new Promise((resolve, reject) => {
-          const guard = setTimeout(() => resolve(), (total + 15) * 1000);
-          const step = () => {
+          const guard = setTimeout(() => resolve(), (total + 20) * 1000);
+          const step = now => {
             if(v.error){ clearTimeout(guard); reject(new Error("영상 재생 실패")); return; }
             const t = Math.max(0, (v.currentTime - start) / speed);
-            ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-            drawSource(ctx, v, v.videoWidth, v.videoHeight, w, h, { rotate, fit: String(call.fit || "stretch"), flipX: call.flipX || call.flip_x, flipY: call.flipY || call.flip_y, filter });
-            if(layers.length) drawLayers(ctx, w, h, layers, imgs, t);
-            fadeOverlay(ctx, w, h, t, total, fin, fout);
+            if(due(now)){
+              ctx.fillStyle = makeFill(ctx, bg, 0, 0, w, h); ctx.fillRect(0, 0, w, h);
+              drawSource(ctx, v, v.videoWidth, v.videoHeight, w, h, { rotate, fit: String(call.fit || "stretch"), flipX: call.flipX || call.flip_x, flipY: call.flipY || call.flip_y, filter });
+              frameOverlays(ctx, w, h, fset, t);
+              if(layers.length) drawLayers(ctx, w, h, layers, imgs, t, total);
+              letterbox(ctx, w, h, opt(call, "letterbox"));
+              fadeOverlay(ctx, w, h, t, total, fin, fout);
+              if(music && music._gain && mfade > 0) music._gain.gain.value = Number(opt(call, "music_volume") ?? 1) * clamp01(Math.min(t / mfade, (total - t) / mfade));
+              emit(now);
+            }
             if(v.currentTime >= end - 0.01 || v.ended){ clearTimeout(guard); resolve(); return; }
             nextFrame(step);
           };
-          step();
+          nextFrame(step);
         });
         v.pause(); if(music) music.pause();
       });
-      const out = writeFile(call.out, data, "video/webm");
-      return `${out} (${w}×${h}, ${total.toFixed(1)}초${mix && mix.used ? ", 소리 포함" : ", 무음"})` + (notes.length ? "\n참고: " + notes.join(" / ") : "");
+      const out = writeFile(call.out, res.data, "video/webm");
+      return `${out} (${w}×${h}, ${total.toFixed(1)}초, ${fps}fps, ${(bitrate / 1e6).toFixed(1)}Mbps ${res.codec}${mix && mix.used ? ", 소리 포함" : ", 무음"})` + (notes.length ? "\n참고: " + notes.join(" / ") : "");
     }finally{ v._revoke(); if(music) music._revoke(); if(mix) mix.close(); }
   }
 
-  // 이미지·영상 클립을 이어 붙여 영상 만들기: 장면 전환(fade)·켄 번스 효과·텍스트/이미지 레이어·배경음
+  /* ---- 장면 전환 ---- */
+  const TRANSITIONS = ["none","fade","slide-left","slide-right","slide-up","slide-down","zoom","wipe-left","wipe-right","circle","blur","flash"];
+  // create_video: 이미지·영상 클립을 이어 붙이고 전환·켄 번스·레이어 애니메이션·배경음
   async function createVideo(call){
     const paths = Array.isArray(call.paths) ? call.paths : [];
-    if(!paths.length || paths.length > 30) throw new Error("이미지·영상 1~30개가 필요해요 (paths)");
+    if(!paths.length || paths.length > 60) throw new Error("이미지·영상 1~60개가 필요해요 (paths)");
     if(!call.out || !/\.webm$/i.test(call.out)) throw new Error("WebM 출력 경로(out)가 필요해요");
     recorderSupport();
     const layers = validateLayers(opt(call, "layers"));
@@ -1221,11 +1711,19 @@
     const durs = Array.isArray(call.durations) ? call.durations.map(Number) : [];
     if(!Number.isFinite(per) || per < 0.2) throw new Error("seconds_per_image 는 0.2초 이상이어야 해요");
     const w = Number(call.width || 720), h = Number(call.height || 720);
-    if(!Number.isInteger(w) || !Number.isInteger(h) || w < 2 || h < 2 || w > 1920 || h > 1080) throw new Error("올바른 크기가 필요해요 (최대 1920×1080)");
+    if(!Number.isInteger(w) || !Number.isInteger(h) || w < 2 || h < 2 || w > MAX_VW || h > MAX_VW || w * h > MAX_VW * MAX_VH) throw new Error(`올바른 크기가 필요해요 (최대 ${MAX_VW}×${MAX_VH})`);
+    const fps = videoFps(call), bitrate = bitrateFor(call, w, h, fps);
+    const trans = String(opt(call, "transition") || "none").toLowerCase();
+    const transList = Array.isArray(opt(call, "transitions")) ? opt(call, "transitions").map(x => String(x).toLowerCase()) : null;
+    [trans].concat(transList || []).forEach(t => { if(!TRANSITIONS.includes(t)) throw new Error("transition 은 " + TRANSITIONS.join(", ") + " 중 하나예요"); });
     const notes = [], clips = [];
+    const fset = mergedFilters(opt(call, "filters", "filter"), opt(call, "preset"));
+    // 사진 장면은 색 보정을 미리 한 번만 적용해 둔다 (매 프레임 필터는 느려서 프레임이 빠진다). 비네트·노이즈는 화면 전체에 프레임마다.
+    const pixelSet = Object.assign({}, fset); delete pixelSet.vignette; delete pixelSet.grain;
+    const hasPixel = Object.keys(pixelSet).length > 0;
     let mix = null, music = null;
-    const wantAudio = !!(opt(call, "keep_audio") || opt(call, "music") || typeof call.audio === "string");
-    if(wantAudio){ mix = makeAudioMix(); if(!mix) notes.push("오디오 합성을 지원하지 않아 무음으로 만들었어요"); }
+    const musicPath = opt(call, "music") || (typeof call.audio === "string" ? call.audio : null);
+    if(opt(call, "keep_audio") || musicPath){ mix = makeAudioMix(); if(!mix) notes.push("오디오 합성을 지원하지 않아 무음으로 만들었어요"); }
     try{
       for(let i = 0; i < paths.length; i++){
         const p = abs(paths[i]), e = state.fs[p];
@@ -1238,39 +1736,78 @@
           clips.push({ kind:"video", el, d, sw: el.videoWidth, sh: el.videoHeight });
         }else if(/^image\//.test(mime)){
           const img = await loadImageEntry(p);
-          clips.push({ kind:"image", el: img, d: Number.isFinite(durs[i]) && durs[i] > 0 ? durs[i] : per, sw: img.naturalWidth, sh: img.naturalHeight });
+          // 큰 사진은 영상 크기에 맞게 미리 고품질로 줄여 둔다 (매 프레임 축소 품질 저하 방지)
+          const s = Math.max(w / img.naturalWidth, h / img.naturalHeight) * 1.25;
+          let pre = s < 0.5 ? prescale(img, 0, 0, img.naturalWidth, img.naturalHeight, Math.round(img.naturalWidth * s), Math.round(img.naturalHeight * s)) : null;
+          if(hasPixel){
+            const src = pre || img, cw = Math.min(src.naturalWidth || src.width, Math.ceil(img.naturalWidth * Math.min(1, s))), chh = Math.min(src.naturalHeight || src.height, Math.ceil(img.naturalHeight * Math.min(1, s)));
+            const c = newCanvas(cw, chh), x = ctx2d(c); x.drawImage(src, 0, 0, cw, chh); applyFilters(x, cw, chh, pixelSet); pre = c;
+          }
+          // 미리 처리한 캔버스는 다시 이미지로 바꿔 둔다 (매 프레임 그리기가 더 빠르다)
+          let el = img; if(pre){ try{ el = await canvasToImage(pre); }catch(_){ el = pre; } }
+          clips.push({ kind:"image", el, d: Number.isFinite(durs[i]) && durs[i] > 0 ? durs[i] : per, sw: img.naturalWidth, sh: img.naturalHeight });
         }else throw new Error("이미지나 동영상이 아니에요: " + p);
       }
       const total = clips.reduce((s, c) => s + c.d, 0);
-      if(total > MAX_MEDIA_SEC) throw new Error(`결과 영상은 최대 ${MAX_MEDIA_SEC}초예요 (현재 ${total.toFixed(1)}초)`);
-      const musicPath = opt(call, "music") || (typeof call.audio === "string" ? call.audio : null);
+      if(total > MAX_VIDEO_SEC) throw new Error(`결과 영상은 최대 ${MAX_VIDEO_SEC}초예요 (현재 ${total.toFixed(1)}초)`);
       if(mix && musicPath){ music = await loadMediaEl(musicPath, "audio"); music.loop = true; if(!mix.add(music, opt(call, "music_volume", "audio_volume"))) notes.push("배경음을 넣지 못했어요"); }
+      await ensureFonts(layers, notes);
       const imgs = await preloadLayerImages(layers);
-      const trans = String(opt(call, "transition") || "none").toLowerCase();
-      const td = trans === "fade" ? Math.max(0.1, Math.min(2, Number(opt(call, "transition_seconds") || 0.5))) : 0;
-      const kb = opt(call, "ken_burns", "zoom"), fit = String(call.fit || "contain"), bg = String(opt(call, "background") || "#000");
-      const filter = cssFilter(opt(call, "filters", "filter"));
+      const td = trans !== "none" || transList ? Math.max(0.1, Math.min(2, Number(opt(call, "transition_seconds") || 0.6))) : 0;
+      const kb = opt(call, "ken_burns", "zoom"), fit = String(call.fit || "contain"), bg = opt(call, "background") || "#000";
+      const filter = cssFilter(fset);
       const fin = Number(opt(call, "fade_in") || 0), fout = Number(opt(call, "fade_out") || 0);
-      const fps = Math.max(10, Math.min(60, Number(opt(call, "fps") || 30)));
-      const canvas = newCanvas(w, h), ctx = canvas.getContext("2d");
+      const mfade = Number(opt(call, "music_fade") || 1);
+      const canvas = newCanvas(w, h), ctx = ctx2d(canvas);
       const starts = []; clips.reduce((s, c, i) => (starts[i] = s, s + c.d), 0);
-      const drawClip = (c, i, t, alpha) => {
-        if(alpha <= 0) return;
-        const local = t - starts[i], p = Math.max(0, Math.min(1, local / c.d));
-        const zoom = kb && c.kind === "image" ? 1 + 0.12 * (i % 2 ? 1 - p : p) : 1;
-        const pan = kb && c.kind === "image" ? [(i % 3 - 1) * 0.03 * w * p, 0] : null;
-        ctx.save(); ctx.globalAlpha = alpha;
-        drawSource(ctx, c.el, c.sw, c.sh, w, h, { fit, zoom, pan, filter });
-        ctx.restore();
+      // 켄 번스: true(자동 번갈아) | "in" | "out" | "left" | "right" | "up" | "down"
+      const kbFor = (i, p) => {
+        if(!kb) return { zoom:1, pan:null };
+        const mode = kb === true ? ["in","out","left","right"][i % 4] : String(kb).toLowerCase(), q = p;
+        if(mode === "out") return { zoom: 1.15 - 0.15 * q, pan:null };
+        if(mode === "left") return { zoom: 1.12, pan:[(0.5 - q) * w * 0.08, 0] };
+        if(mode === "right") return { zoom: 1.12, pan:[(q - 0.5) * w * 0.08, 0] };
+        if(mode === "up") return { zoom: 1.12, pan:[0, (0.5 - q) * h * 0.08] };
+        if(mode === "down") return { zoom: 1.12, pan:[0, (q - 0.5) * h * 0.08] };
+        return { zoom: 1 + 0.15 * q, pan:null };
       };
-      const data = await record(canvas, fps, mix, async () => {
+      const drawClip = (c, i, t) => {
+        const p = clamp01((t - starts[i]) / c.d), k = c.kind === "image" ? kbFor(i, p) : { zoom:1, pan:null };
+        if(c.kind === "image"){ drawSource(ctx, c.el, c.el.width || c.sw, c.el.height || c.sh, w, h, { fit, zoom: k.zoom, pan: k.pan, rotate:0 }); return; }
+        drawSource(ctx, c.el, c.sw, c.sh, w, h, { fit, rotate:0, filter });
+        if(hasPixel) colorOverlay(ctx, w, h, fset);
+      };
+      const drawFrame = (t, i) => {
+        ctx.fillStyle = makeFill(ctx, bg, 0, 0, w, h); ctx.fillRect(0, 0, w, h);
+        const c = clips[i], nxt = clips[i + 1], tr = (transList && transList[i]) || trans;
+        const tStart = nxt ? starts[i + 1] - td : Infinity;
+        if(nxt && td && tr !== "none" && t > tStart && nxt.kind === "image"){
+          const q = easeOut(clamp01((t - tStart) / td));
+          ctx.save();
+          if(tr === "fade" || tr === "blur"){ drawClip(c, i, t); ctx.globalAlpha = q; if(tr === "blur" && "filter" in ctx) ctx.filter = `blur(${(1 - q) * 12}px)`; drawClip(nxt, i + 1, t); }
+          else if(/^slide/.test(tr)){
+            const dx = tr === "slide-left" ? -w : tr === "slide-right" ? w : 0, dy = tr === "slide-up" ? -h : tr === "slide-down" ? h : 0;
+            ctx.save(); ctx.translate(dx * q, dy * q); drawClip(c, i, t); ctx.restore();
+            ctx.translate(-dx * (1 - q), -dy * (1 - q)); drawClip(nxt, i + 1, t);
+          }else if(tr === "zoom"){ ctx.save(); ctx.globalAlpha = 1 - q; ctx.translate(w / 2, h / 2); ctx.scale(1 + q * 0.6, 1 + q * 0.6); ctx.translate(-w / 2, -h / 2); drawClip(c, i, t); ctx.restore(); ctx.globalAlpha = q; drawClip(nxt, i + 1, t); }
+          else if(tr === "wipe-left" || tr === "wipe-right"){ drawClip(c, i, t); ctx.beginPath(); if(tr === "wipe-left") ctx.rect(w * (1 - q), 0, w * q, h); else ctx.rect(0, 0, w * q, h); ctx.clip(); drawClip(nxt, i + 1, t); }
+          else if(tr === "circle"){ drawClip(c, i, t); ctx.beginPath(); ctx.arc(w / 2, h / 2, Math.hypot(w, h) / 2 * q, 0, Math.PI * 2); ctx.clip(); drawClip(nxt, i + 1, t); }
+          else if(tr === "flash"){ (q < 0.5 ? drawClip(c, i, t) : drawClip(nxt, i + 1, t)); ctx.globalAlpha = 1 - Math.abs(q - 0.5) * 2; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); }
+          ctx.restore();
+        }else drawClip(c, i, t);
+        frameOverlays(ctx, w, h, fset, t, true);
+        if(layers.length) drawLayers(ctx, w, h, layers, imgs, t, total);
+        letterbox(ctx, w, h, opt(call, "letterbox"));
+        fadeOverlay(ctx, w, h, t, total, fin, fout);
+      };
+      const res = await record(canvas, fps, mix, bitrate, opt(call, "codec"), async (due, emit) => {
         if(music){ music.currentTime = 0; music.play().catch(() => notes.push("배경음 재생 실패")); }
         let cur = -1;
         const began = performance.now();
         await new Promise((resolve, reject) => {
           const frame = async now => {
             try{
-              const t = (now - began) / 1000;
+              const t = Math.max(0, (now - began) / 1000); // rAF 시각은 시작 시각보다 조금 이를 수 있다
               if(t >= total){ resolve(); return; }
               let i = clips.length - 1; while(i > 0 && t < starts[i]) i--;
               const c = clips[i];
@@ -1279,12 +1816,11 @@
                 cur = i;
                 if(c.kind === "video"){ await seekTo(c.el, 0); await c.el.play().catch(() => {}); }
               }
-              ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-              drawClip(c, i, t, 1);
-              // 다음 장면이 겹쳐 나타나는 페이드 전환
-              if(td && i + 1 < clips.length && t > starts[i + 1] - td && clips[i + 1].kind === "image") drawClip(clips[i + 1], i + 1, t, (t - (starts[i + 1] - td)) / td);
-              if(layers.length) drawLayers(ctx, w, h, layers, imgs, t);
-              fadeOverlay(ctx, w, h, t, total, fin, fout);
+              if(due(now)){
+                drawFrame(t, i);
+                if(music && music._gain && mfade > 0) music._gain.gain.value = Number(opt(call, "music_volume") ?? 1) * clamp01(Math.min(t / mfade, (total - t) / mfade));
+                emit(now);
+              }
               nextFrame(frame);
             }catch(e){ reject(e); }
           };
@@ -1293,16 +1829,18 @@
         clips.forEach(c => { if(c.kind === "video") c.el.pause(); });
         if(music) music.pause();
       });
-      const out = writeFile(call.out, data, "video/webm");
-      return `${out} (${w}×${h}, ${total.toFixed(1)}초, 장면 ${clips.length}개${mix && mix.used ? ", 소리 포함" : ", 무음"})` + (notes.length ? "\n참고: " + notes.join(" / ") : "");
+      const out = writeFile(call.out, res.data, "video/webm");
+      return `${out} (${w}×${h}, ${total.toFixed(1)}초, 장면 ${clips.length}개, ${fps}fps, ${(bitrate / 1e6).toFixed(1)}Mbps ${res.codec}${mix && mix.used ? ", 소리 포함" : ", 무음"})` + (notes.length ? "\n참고: " + notes.join(" / ") : "");
     }finally{
       clips.forEach(c => { if(c.kind === "video" && c.el._revoke) c.el._revoke(); });
       if(music) music._revoke(); if(mix) mix.close();
     }
   }
 
-  // 이미지·영상·오디오 정보 (크기·길이) — 레이어 위치를 정하기 전에 확인용
+  // 이미지·영상·오디오 정보 (크기·길이) — 레이어 위치를 정하기 전에 확인용. path 없이 {fonts:true} 면 글꼴 목록
   async function mediaInfo(call){
+    if(!call.path && (call.fonts || call.list === "fonts")) return "사용 가능한 글꼴(font 에 이름 또는 괄호 안 별명):\n" + fontList() + "\n그 밖의 Google Fonts 이름도 시도해요.";
+    if(!call.path && (call.list === "shapes" || call.shapes)) return "shape: " + SHAPES.join(", ") + "\nlayer type: " + LAYER_TYPES.join(", ") + "\nanimation: " + ANIMS.join(", ") + "\ntransition: " + TRANSITIONS.join(", ") + "\npreset: " + Object.keys(PRESETS).join(", ");
     const p = abs(call.path), e = state.fs[p];
     if(!e || e.type !== "file") throw new Error("파일을 찾을 수 없어요: " + p);
     const mime = e.mime && e.mime !== "application/octet-stream" ? e.mime : guessMime(p);
@@ -1316,7 +1854,7 @@
     throw new Error("미디어 파일이 아니에요: " + p + " (" + mime + ")");
   }
 
-  Object.assign(api, { editImage, editVideo, createVideo, mediaInfo });
+  Object.assign(api, { editImage, editVideo, createVideo, mediaInfo, loadFont, fontFamilyOf });
 
   /* ============================================================================
      ChoiminiToolRunner
@@ -1373,6 +1911,7 @@
       case "create_video": return "영상 생성 완료 (WebM): " + await createVideo(call);
       case "edit_video": return "영상 편집 완료 (WebM): " + await editVideo(call);
       case "media_info": return await mediaInfo(call);
+      case "font_list": return await mediaInfo({ fonts:true });
       case "edit_image": return "편집 완료: " + await editImage(call);
       case "convert_image": {
         const out = await convertImage(call.path, call.format);
@@ -1384,7 +1923,7 @@
   }
 
   global.ChoiminiToolRunner = {
-    isFsTool(name){ return SHELL_TOOLS.has(name) || FS_TOOLS.has(name) || CODE_ONLY_TOOLS.has(name) || (["convert_image","edit_image","edit_video","create_video","media_info","pkg_install","pkg_list"].includes(name)); },
+    isFsTool(name){ return SHELL_TOOLS.has(name) || FS_TOOLS.has(name) || CODE_ONLY_TOOLS.has(name) || (["convert_image","edit_image","edit_video","create_video","media_info","font_list","pkg_install","pkg_list"].includes(name)); },
     run: (call, mode) => global.LinuxFS.asAI(() => runToolCall(call, mode))
   };
 

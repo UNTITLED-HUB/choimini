@@ -854,7 +854,7 @@ html.choimini-locked, html.choimini-locked body { overflow: hidden !important; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./choimini-auth.js?v=20261028b"></script>
 <script src="./choimini-browser.js?v=20261019"></script>
-<script src="./choimini-linuxfs.js?v=20261031-media2"></script>
+<script src="./choimini-linuxfs.js?v=20261031-media3"></script>
 <script src="./choimini-shell.js?v=20261005"></script>
 <script src="./choimini-shell-cmds.js?v=20261011"></script>
 <script src="./choimini-apk.js?v=20261004"></script>
@@ -1495,7 +1495,7 @@ const LS = {
   redeemed: "choimini.redeemed",
   deviceId: "choimini.deviceId"
 };
-const APP_VERSION = "2.8.0";
+const APP_VERSION = "2.9.0";
 const TOKEN_MULT = 10; // internal = display * 10
 const DEFAULT_INTERNAL_TOKENS = 3000; // 하루 기본 지급 300 토큰
 
@@ -1687,24 +1687,26 @@ function fsToolPrompt(mode){
     + "■ question-load — 진행에 꼭 필요한 정보가 없을 때만 묻는다(선택지는 '- ' 줄). 쓰면 답을 기다리며 멈춘다. 요청이 충분히 구체적이면 묻지 말고 합리적으로 정해 진행:\n"
     + F + "question-load\n난이도는 어떻게 할까요?\n- 쉬움\n- 보통\n" + F + "\n"
     + "■ 테스트(필수): htmltest 파일.html [-t 대기ms] [-k ArrowLeft,Space] [-e 'JS식'] — 격리 브라우저에서 실제 실행해 콘솔 에러·캔버스·키 입력 뒤 상태 확인 / jscheck 파일 — JS 문법 검사. 통과를 확인한 뒤 upload. localStorage 는 try/catch, 외부 CDN 의존 금지.\n"
-    + "■ 보조 도구(" + F + "tool, JSON 한 줄에 하나): fs_ls fs_read fs_write(path,content) fs_rm fs_mv fs_cp fs_find fs_grep fs_head fs_tail fs_mkdir fs_touch fs_cd fs_pwd media_info(path) convert_image(path,format) edit_image edit_video create_video generate_image(prompt,out,path?) pkg_install(name) pkg_list(). 긴 코드는 runcmd 히어독이 안전하다.\n"
-    + "■ 미디어 도구는 셸 명령이 아니다. runcmd 안에 쓰지 말고 tool 블록에 JSON으로 쓴다. 위치를 정하기 전에 media_info 로 크기·길이를 확인한다.\n"
-    + "  · edit_image(path,out,width,height,crop:{x,y,width,height},flipX,flipY,format) + 선택: rotate(도), fit(stretch|contain|cover), background, quality, vignette(0~1), filters:{brightness,contrast,saturation(1=원본),grayscale,sepia,invert(0~1),hue(도),blur(px),sharpen(0~2)}, layers:[…]. path 없이 width·height·background 만 주면 빈 캔버스에서 새로 만든다. 순서: 자르기→회전·뒤집기→크기→필터→layers→vignette.\n"
-    + "  · layers(아래부터 위로 합성, 좌표는 결과 크기 기준, 숫자 px 또는 \"50%\"; x,y 대신 position:top-left|top|top-right|left|center|right|bottom-left|bottom|bottom-right + margin):\n"
-    + "    text{text,size,color,font,weight,align,stroke,stroke_width,shadow:true|{color,blur,x,y},background,padding,radius,max_width(자동 줄바꿈),line_height,rotate,opacity}\n"
-    + "    image{path,width|height|scale(비율 유지),fit,opacity,blend(multiply|screen|overlay|soft-light|difference…),rotate,shape:circle|rounded,radius,border,chroma_key:{color,tolerance}(배경색 제거),shadow}\n"
-    + "    rect|ellipse{width,height,color,stroke,stroke_width,radius} · line|arrow{x1,y1,x2,y2,color,width,dash} · gradient{from,to,direction:down|up|left|right|radial,width,height}\n"
-    + "  · edit_video(path,out,start,end,width,height) + 선택: speed(0.25~4), rotate(90단위), flipX, fit, filters, layers(+ start,end,fade 초 = 결과 영상 시간 기준 표시 구간), fade_in, fade_out, keep_audio(원본 소리), music(오디오 파일 경로), music_volume. 결과 최대 60초 WebM.\n"
-    + "  · create_video(paths,out,seconds_per_image,width,height) + 선택: paths 에 영상 클립도 가능, durations:[장면별 초], transition:fade, transition_seconds, ken_burns:true(천천히 확대·이동), fit, background, filters, layers(시간 구간), fade_in, fade_out, keep_audio, music. 결과 최대 60초 WebM.\n"
-    + "  · generate_image 는 직접 등록한 Gemini 키가 필요하고 path 를 주면 그 이미지를 AI로 편집한다. 사실적인 생성형 동영상은 지원하지 않는다(사진·텍스트·도형 합성으로 만든다).\n"
+    + "■ 보조 도구(" + F + "tool, JSON 한 줄에 하나): fs_ls fs_read fs_write(path,content) fs_rm fs_mv fs_cp fs_find fs_grep fs_head fs_tail fs_mkdir fs_touch fs_cd fs_pwd media_info(path) font_list() convert_image(path,format) edit_image edit_video create_video generate_image(prompt,out,path?) pkg_install(name) pkg_list(). 긴 코드는 runcmd 히어독이 안전하다.\n"
+    + "■ 미디어 도구는 셸 명령이 아니다. runcmd 안에 쓰지 말고 tool 블록에 JSON으로 쓴다. 위치를 정하기 전에 media_info 로 크기·길이를 확인한다. 결과물은 디자이너 수준으로: 여백·대비·계층(제목>부제>본문)·색 조화를 신경 쓰고, 글자는 외곽선/그림자/배경 상자로 항상 읽히게 한다.\n"
+    + "  · edit_image(path,out,width,height,crop:{x,y,width,height},flipX,flipY,format) + 선택: rotate(도), fit(stretch|contain|cover), scale(배율), background(색 또는 [\"색1\",\"색2\"] 그라디언트), quality, preset(vintage|retro|cinematic|warm|cool|bw|noir|vivid|fade|dreamy), filters:{brightness,contrast,saturation,exposure(1=원본),grayscale,sepia,invert(0~1),hue(도),temperature(-1~1),tint:{color,amount},duotone:[어두운색,밝은색],blur,sharpen,pixelate,posterize,noise,grain,vignette}, letterbox(true=2.35:1), layers:[…]. path 없이 width·height·background 만 주면 빈 캔버스(최대 8192px). 순서: 자르기→회전→크기→필터→layers.\n"
+    + "  · layers(아래→위로 합성, 좌표는 결과 크기 기준 px 또는 \"50%\"; x,y 또는 cx,cy 대신 position:top-left|top|top-right|left|center|right|bottom-left|bottom|bottom-right + margin). 공통: opacity, blend(multiply|screen|overlay|soft-light…), rotate, shadow:true|{color,blur,x,y}. 색 자리에는 [\"#f00\",\"#00f\"] 그라디언트도 된다.\n"
+    + "    text{text,font,size,color,weight(100~900|bold),italic,align,letter_spacing,line_height,max_width(자동 줄바꿈),uppercase,stroke,stroke_width,outlines:[{color,width}],glow:true|{color,blur},highlight(형광펜색),underline,background(+padding,radius,background_shape,background_border),curve(반지름; +위로 휜 글자 / -아래로)} · emoji/sticker{text:\"🎉\",size}\n"
+    + "    font: 한글 Noto Sans KR(본고딕) Noto Serif KR(본명조) Nanum Gothic Nanum Myeongjo Gothic A1 IBM Plex Sans KR Gowun Dodum Gowun Batang Hahmlet Black Han Sans(검은고딕) Do Hyeon(도현) Jua(주아) Bagel Fat One Gasoek One Gugi Dongle Stylish Yeon Sung Cute Font Black And White Picture Song Myung Orbit Diphylleia Nanum Pen Script(손글씨) Nanum Brush Script(붓글씨) Gaegu Hi Melody Poor Story Gamja Flower Single Day East Sea Dokdo Dokdo Kirang Haerang / 영문 Montserrat Poppins Inter Bebas Neue Anton Oswald Playfair Display Abril Fatface Cinzel Lobster Pacifico Dancing Script Great Vibes Caveat Permanent Marker Bungee Fredoka Orbitron Press Start 2P Monoton Creepster 등(그 밖의 Google Fonts 이름도 가능, font_list 도구로 목록)\n"
+    + "    image{path,width|height|scale(비율 유지),fit,shape:circle|rounded|star|heart|hexagon…(모양으로 오리기),radius,border(색),border_width,chroma_key:{color,tolerance}(배경색 제거),filters,preset}\n"
+    + "    shape{shape:star|burst|heart|polygon(sides)|hexagon|triangle|diamond|cross|ring|speech|thought(말풍선, tail:bottom-left|bottom-right)|arrow-right|arrow-left|ribbon|rounded|circle,size|width,height,color,stroke,stroke_width,dash} · rect|ellipse{width,height,color,radius,stroke} · line|arrow{x1,y1,x2,y2 또는 points:[[x,y]…],color,width,dash,curve}\n"
+    + "    gradient{from,to 또는 colors,direction:down|up|left|right|diagonal|radial,width,height} · pattern{kind:dots|stripes|diagonal|grid|checker|waves|halftone,color,spacing} · border{width,color,style:solid|double|dashed|dotted|polaroid,radius,inset} · particles{kind:confetti|snow|stars|sparkle|bokeh|hearts|bubbles,count,colors,size,seed} · grain{amount} · progress{color,height,position}(영상 진행 막대)\n"
+    + "  · 동영상 레이어 시간·움직임: start,end(초),fade, animation_in(fade|slide-up|slide-down|slide-left|slide-right|zoom-in|zoom-out|pop|bounce|drop|spin|typewriter|wipe), animation_out, animation_duration, loop(pulse|float|wiggle|sway|blink|spin|shake), text 에 {time}/{remaining} 쓰면 시계. particles 는 영상에서 실제로 움직인다.\n"
+    + "  · edit_video(path,out,start,end,width,height) + 선택: speed(0.25~4), rotate(90단위), flipX, fit, preset, filters, layers, fade_in, fade_out, letterbox, keep_audio(원본 소리), music(오디오 경로), music_volume, fps(1~60, 기본 30), quality(standard|high|max) 또는 bitrate(Mbps), codec(vp9|vp8|av1). 최대 3840×2160, 결과 최대 120초 WebM.\n"
+    + "  · create_video(paths,out,seconds_per_image,width,height) + 선택: paths 에 영상 클립도 가능, durations:[장면별 초], transition(fade|slide-left|slide-right|slide-up|slide-down|zoom|wipe-left|wipe-right|circle|blur|flash) 또는 transitions:[장면마다], transition_seconds, ken_burns(true|in|out|left|right|up|down), fit, background, preset, filters, layers, fade_in, fade_out, letterbox, keep_audio, music, fps, quality, bitrate. 고화질은 1920×1080·60fps·quality:\"max\" 를 쓴다(브라우저에서 실시간으로 녹화되므로 결과 길이만큼 시간이 걸린다).\n"
+    + "  · generate_image(prompt,out,width,height,aspect_ratio,seed,model,negative,path?): API 키 없이도 된다(무료 생성 서비스, 최대 2048px). prompt 는 영어로 주제·구도·조명·화풍을 구체적으로. 개인 Gemini 키가 있으면 Gemini 를 먼저 쓰고, path(기존 사진 AI 편집)는 개인 키가 있을 때만. 생성 이미지 위 글자는 edit_image 의 text 레이어로 정확하게 넣는다. 사실적인 생성형 동영상은 지원하지 않는다(생성 이미지 + create_video 로 만든다).\n"
     + "  예시(필요한 호출만 쓴다):\n"
     + F + "tool\n" + [
       {tool:"media_info",path:"/user/download/photo.jpg"},
-      {tool:"convert_image",path:"/user/projects/media/input.jpg",format:"png"},
-      {tool:"edit_image",path:"/user/download/photo.jpg",out:"/user/projects/poster/poster.png",width:1080,fit:"cover",filters:{contrast:1.1,saturation:1.2},layers:[{type:"gradient",from:"rgba(0,0,0,0)",to:"rgba(0,0,0,.75)",position:"bottom",height:"40%"},{type:"text",text:"여름 세일 50%",position:"bottom",size:"9%",color:"#fff",weight:"bold",stroke:"#000",shadow:true},{type:"image",path:"/user/download/logo.png",position:"top-right",width:"18%",shape:"circle"}]},
-      {tool:"create_video",paths:["/user/projects/media/a.png","/user/projects/media/b.png"],out:"/user/projects/media/slides.webm",seconds_per_image:2,width:720,height:720,transition:"fade",ken_burns:true,layers:[{type:"text",text:"추억 앨범",position:"top",size:"8%",start:0,end:2,fade:0.5}]},
-      {tool:"edit_video",path:"/user/projects/media/slides.webm",out:"/user/projects/media/trimmed.webm",start:0,end:3,width:480,fade_out:0.5,layers:[{type:"text",text:"© 최미나이",position:"bottom-right",size:"5%"}]},
-      {tool:"generate_image",prompt:"빨간 공 일러스트",out:"/user/projects/media/generated.png"}
+      {tool:"generate_image",prompt:"cozy summer beach at sunset, warm golden light, wide shot, cinematic photography",out:"/user/projects/poster/bg.png",width:1080,height:1350},
+      {tool:"edit_image",path:"/user/projects/poster/bg.png",out:"/user/projects/poster/poster.png",preset:"warm",layers:[{type:"gradient",from:"rgba(0,0,0,0)",to:"rgba(0,0,0,.8)",position:"bottom",height:"45%"},{type:"text",text:"SUMMER SALE",font:"Bebas Neue",size:"16%",color:["#ffe259","#ffa751"],position:"bottom",margin:"14%",letter_spacing:"4%",shadow:true},{type:"text",text:"최대 50% 할인",font:"Black Han Sans",size:"6%",color:"#fff",position:"bottom",margin:"6%",background:"#ff3b30",padding:"40%"},{type:"shape",shape:"burst",size:"22%",position:"top-right",color:"#ff3b30",rotate:12},{type:"text",text:"NEW",font:"Bungee",size:"5%",color:"#fff",cx:"84%",cy:"15%",rotate:12},{type:"particles",kind:"sparkle",count:40}]},
+      {tool:"create_video",paths:["/user/projects/media/a.png","/user/projects/media/b.png"],out:"/user/projects/media/slides.webm",seconds_per_image:3,width:1920,height:1080,fps:60,quality:"max",transition:"slide-left",ken_burns:true,layers:[{type:"text",text:"추억 앨범",font:"Nanum Brush Script",size:"12%",position:"center",animation_in:"pop",animation_out:"fade",start:0,end:2.5,stroke:"#000"},{type:"particles",kind:"confetti",count:80},{type:"progress",color:"#ff3b30"}]},
+      {tool:"edit_video",path:"/user/projects/media/slides.webm",out:"/user/projects/media/trimmed.webm",start:0,end:3,preset:"cinematic",letterbox:true,fade_out:0.5,layers:[{type:"text",text:"© 최미나이",position:"bottom-right",size:"4%",animation_in:"typewriter"}]}
     ].map(c=>JSON.stringify(c)).join("\n") + "\n" + F + "\n"
     + "■ 사용 가능한 명령(실시간): " + cmds + "\n  모르면 which <명령> / cmds -l 로 확인.\n"
     + "■ 한계(되는 척하지 말고 사실대로): 진짜 리눅스가 아닌 브라우저 구현. python=Pyodide(첫 실행 느림), node=샌드박스(npm 은 esm.sh), curl/wget 은 CORS 제약, git 원격 불가, ps/kill 가상, awk/sed 일부만.\n"
@@ -1933,7 +1935,7 @@ function updateExecUI(){
 function checkModules(){
   const problems = [];
   if(!window.LinuxFS) problems.push("choimini-linuxfs.js");
-  else if(typeof LinuxFS.snapshot !== "function" || typeof LinuxFS.mediaInfo !== "function") problems.push("choimini-linuxfs.js(구버전)");
+  else if(typeof LinuxFS.snapshot !== "function" || typeof LinuxFS.loadFont !== "function") problems.push("choimini-linuxfs.js(구버전)");
   if(!window.ChoiminiShell) problems.push("choimini-shell.js");
   else if(!ChoiminiShell.list || ChoiminiShell.list().length < 20) problems.push("choimini-shell-cmds.js(명령어가 등록되지 않음 — 다른 파일 내용이 올라갔을 수 있어요)");
   if(problems.length){
@@ -5976,22 +5978,71 @@ function termTool(c){
   api.close(t); return "터미널을 닫았어요: " + t.name;
 }
 
-async function sandboxGenerateImage(call, signal){
-  const key = resolveApiKey("gemini");
-  if(!key) throw new Error("이미지 생성에는 설정에 직접 등록한 Gemini API 키와 이미지 생성 모델 사용 권한이 필요해요.");
-  const prompt=String(call.prompt||"").trim(), out=String(call.out||"").trim();
-  if(!prompt || !out || !/\.png$/i.test(out)) throw new Error("prompt와 PNG 출력 경로 out이 필요해요.");
+/* ---- generate_image ----
+   1) 설정에 개인 Gemini 키가 있으면 Gemini 이미지 모델 (path 를 주면 그 사진을 AI로 편집)
+   2) 키가 없거나 Gemini 가 실패하면 키가 필요 없는 무료 이미지 생성 서비스(Pollinations)로 만든다.
+      프롬프트만 외부 서비스로 보내고, 사용자의 파일은 보내지 않는다. */
+const FREE_IMAGE_ENDPOINT = "https://image.pollinations.ai/prompt/";
+function readBlobAsDataUrl(b){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=()=>reject(new Error("이미지 데이터를 읽을 수 없어요.")); r.readAsDataURL(b); }); }
+function imageInfoOf(url){ return new Promise((resolve,reject)=>{ const i=new Image(); i.onload=()=>resolve(i); i.onerror=()=>reject(new Error("생성된 이미지를 읽을 수 없어요.")); i.src=url; }); }
+async function convertDataUrl(url, mime){
+  if(url.startsWith("data:"+mime+";")) return url;
+  const i = await imageInfoOf(url), c = document.createElement("canvas"); c.width=i.naturalWidth; c.height=i.naturalHeight;
+  const x = c.getContext("2d"); if(mime==="image/jpeg"){ x.fillStyle="#fff"; x.fillRect(0,0,c.width,c.height); } x.drawImage(i,0,0);
+  return c.toDataURL(mime, 0.95);
+}
+function withTimeout(signal, ms){
+  const t = AbortSignal.timeout ? AbortSignal.timeout(ms) : null;
+  if(!signal) return t || undefined; if(!t) return signal;
+  return AbortSignal.any ? AbortSignal.any([signal, t]) : signal;
+}
+async function geminiImage(key, call, prompt, signal){
   const parts=[{text:prompt}];
   if(call.path){const st=LinuxFS.stat(call.path);if(!st||st.type!=="file"||!/^image\/(png|jpeg|webp)$/.test(st.mime||"")) throw new Error("PNG/JPEG/WebP 입력 이미지를 찾을 수 없어요."); const m=String(LinuxFS.readFile(call.path)).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);if(!m)throw new Error("이미지 데이터를 읽을 수 없어요.");parts.push({inlineData:{mimeType:m[1],data:m[2]}});}
-  const res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseModalities:["IMAGE"]}}),signal});
-  if(!res.ok) throw new Error("이미지 생성 요청 실패 (HTTP " + res.status + "). 키와 모델 권한을 확인하세요.");
+  const model = /^gemini-[\w.-]*image[\w.-]*$/.test(String(call.model||"")) ? call.model : "gemini-2.5-flash-image";
+  const res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseModalities:["IMAGE"]}}),signal:withTimeout(signal,120000)});
+  if(!res.ok) throw new Error("Gemini 이미지 생성 실패 (HTTP " + res.status + ")");
   const data=await res.json(), outParts=data.candidates?.[0]?.content?.parts||[], part=outParts.find(p=>p.inlineData?.data && /^image\//.test(p.inlineData?.mimeType||""));
-  if(!part){ const why=data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason || ""; const said=outParts.map(p=>p.text||"").join(" ").trim().slice(0,200); throw new Error("이미지 생성 결과가 없어요." + (why ? " (사유: " + why + ")" : "") + (said ? " 모델 응답: " + said : "")); }
-  let url="data:"+part.inlineData.mimeType+";base64,"+part.inlineData.data;
-  if(part.inlineData.mimeType!=="image/png"){ // JPEG/WebP 로 와도 요청한 PNG 로 바꿔 저장한다
-    url=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>{const c=document.createElement("canvas");c.width=i.naturalWidth;c.height=i.naturalHeight;c.getContext("2d").drawImage(i,0,0);resolve(c.toDataURL("image/png"));};i.onerror=()=>reject(new Error("생성된 이미지를 읽을 수 없어요."));i.src=url;});
+  if(!part){ const why=data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason || ""; const said=outParts.map(p=>p.text||"").join(" ").trim().slice(0,200); throw new Error("Gemini 이미지 결과가 없어요." + (why ? " (사유: " + why + ")" : "") + (said ? " 모델 응답: " + said : "")); }
+  return { url:"data:"+part.inlineData.mimeType+";base64,"+part.inlineData.data, via:"Gemini " + model };
+}
+async function freeImage(call, prompt, signal){
+  const dim = v => Math.max(256, Math.min(2048, Math.round(Number(v) || 1024)));
+  let w = dim(call.width), h = dim(call.height);
+  const ar = String(call.aspect_ratio || call.aspectRatio || "").match(/^(\d+(?:\.\d+)?)\s*[:x×]\s*(\d+(?:\.\d+)?)$/);
+  if(ar && !call.width && !call.height){ const r = Number(ar[1]) / Number(ar[2]); if(r >= 1){ w = 1024; h = dim(1024 / r); } else { h = 1024; w = dim(1024 * r); } }
+  const seed = Number.isFinite(Number(call.seed)) && call.seed !== "" && call.seed != null ? Math.floor(Number(call.seed)) : Math.floor(Math.random() * 1e9);
+  const model = /^[a-z0-9-]{2,30}$/i.test(String(call.model || "")) && !/^gemini/i.test(call.model) ? String(call.model) : "flux";
+  const q = new URLSearchParams({ width:String(w), height:String(h), seed:String(seed), model, nologo:"true", private:"true", safe:"true", enhance: call.enhance ? "true" : "false" });
+  if(call.negative || call.negative_prompt) q.set("negative_prompt", String(call.negative || call.negative_prompt).slice(0, 500));
+  const url = FREE_IMAGE_ENDPOINT + encodeURIComponent(prompt.slice(0, 1800)) + "?" + q;
+  let last = "";
+  for(let attempt = 0; attempt < 2; attempt++){
+    try{
+      const res = await fetch(url, { signal: withTimeout(signal, 100000) });
+      const type = res.headers.get("content-type") || "";
+      if(res.ok && /^image\//.test(type)){ const blob = await res.blob(); if(blob.size > 1000) return { url: await readBlobAsDataUrl(blob), via:"무료 생성 서비스 Pollinations(" + model + ", seed " + seed + ")" }; last = "빈 이미지"; }
+      else last = "HTTP " + res.status + " " + (await res.text().catch(()=>"")).slice(0, 160);
+    }catch(e){ if(signal && signal.aborted) throw e; last = e && e.name === "TimeoutError" ? "시간 초과" : String(e && e.message || e); }
   }
-  return LinuxFS.asAI(()=>LinuxFS.writeFile(out,url,"image/png"));
+  throw new Error("무료 이미지 생성 서비스 응답 실패 (" + last + "). 잠시 뒤 다시 시도하거나 설정에 개인 Gemini 키를 등록하세요.");
+}
+async function sandboxGenerateImage(call, signal){
+  const prompt=String(call.prompt||"").trim(), out=String(call.out||"").trim();
+  const ext=(out.match(/\.(png|jpe?g|webp)$/i)||[])[1];
+  if(!prompt || !out || !ext) throw new Error("prompt 와 출력 경로 out(.png/.jpg/.webp)이 필요해요.");
+  const mime = "image/" + (ext.toLowerCase()==="jpg" ? "jpeg" : ext.toLowerCase());
+  const key = resolveApiKey("gemini");
+  let r = null, note = "";
+  if(key){ try{ r = await geminiImage(key, call, prompt, signal); }catch(e){ if(e && e.name === "AbortError") throw e; note = e.message || String(e); } }
+  if(!r){
+    if(call.path) throw new Error((note ? note + " / " : "") + "기존 사진을 AI로 고치는 기능(path)은 설정에 개인 Gemini 키가 있어야 해요. 키 없이 하려면 generate_image 로 새 이미지를 만들고 edit_image 의 layers·filters 로 합성·보정하세요.");
+    r = await freeImage(call, prompt, signal);
+    if(note) note = "Gemini 실패로 무료 서비스 사용: " + note;
+  }
+  const data = await convertDataUrl(r.url, mime), info = await imageInfoOf(data);
+  const path = LinuxFS.asAI(()=>LinuxFS.writeFile(out, data, mime));
+  return `${path} (${info.naturalWidth}×${info.naturalHeight}, ${r.via})` + (note ? "\n참고: " + note : "");
 }
 
 /* ---- 다음 단계 자동 결정 ----
@@ -6165,7 +6216,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
           let out, ok=true; try{setRunning("이미지 생성 중...");out="이미지 저장됨: " + await sandboxGenerateImage(c,signal());}catch(e){if(e?.name === "AbortError") throw e;ok=false;out="오류: " + (e.message||e);}
           if(!ok) uploadsSucceeded=false;commands.push({cmd:"generate_image " + (c.out||""),ok,out:shortOut(out)});outs.push("▶ generate_image\n"+out);continue;
         }
-        if(!ChoiminiToolRunner.isFsTool(c.tool)){ uploadsSucceeded = false; const out="오류: 사용할 수 없는 도구예요. 사용 가능: runcmd, upload, question-load, fs_*, media_info, convert_image, edit_image, create_video, edit_video, generate_image"; commands.push({cmd:String(c.tool),ok:false,out}); outs.push(`▶ ${c.tool}\n${out}`); continue; }
+        if(!ChoiminiToolRunner.isFsTool(c.tool)){ uploadsSucceeded = false; const out="오류: 사용할 수 없는 도구예요. 사용 가능: runcmd, upload, question-load, fs_*, media_info, font_list, convert_image, edit_image, create_video, edit_video, generate_image"; commands.push({cmd:String(c.tool),ok:false,out}); outs.push(`▶ ${c.tool}\n${out}`); continue; }
         const args = Object.assign({}, c); delete args.tool;
         const label = c.tool + (args.command ? " " + String(args.command).split("\n")[0].slice(0, 80) : args.path ? " " + args.path : args.from ? ` ${args.from} → ${args.to}` : args.name ? " " + args.name : "");
         let ok = true, out;
@@ -8125,7 +8176,7 @@ window.addEventListener("choimini-perm", function(){ updateExecUI(); });
 /* ---------------- boot ---------------- */
 // Google 로그인 필수: choimini-auth.js가 로그인 게이트를 띄우고,
 /* 자동 테스트용 읽기 창구 (동작에는 영향 없음) */
-window.__chmT = { get settings(){ return settings; }, anyGenerating, agentMaxSteps, agentDecision, curEffort, geminiThinkingBudget, geminiThinkingConfig, callGemini, streamSSE, renderContentWithCode, applyMode, renderProviderPill, stripThinkTags, groqScope, groqEligible, nbGroqAvailable, computeNormalCost, agentRequestCostInternal, agentToolCostInternal, attachFee, sanitizeTokens, looksLikeRedeemCode, redeemCode, startRecaptcha, renderMessages, renderActivityHtml, renderTurnActivitySummary, activityEntries, activityTurn, activitySummary, get chats(){return chats;}, get activeChatId(){return activeChatId;}, get tokensInternal(){return tokensInternal;} };
+window.__chmT = { get settings(){ return settings; }, sandboxGenerateImage, anyGenerating, agentMaxSteps, agentDecision, curEffort, geminiThinkingBudget, geminiThinkingConfig, callGemini, streamSSE, renderContentWithCode, applyMode, renderProviderPill, stripThinkTags, groqScope, groqEligible, nbGroqAvailable, computeNormalCost, agentRequestCostInternal, agentToolCostInternal, attachFee, sanitizeTokens, looksLikeRedeemCode, redeemCode, startRecaptcha, renderMessages, renderActivityHtml, renderTurnActivitySummary, activityEntries, activityTurn, activitySummary, get chats(){return chats;}, get activeChatId(){return activeChatId;}, get tokensInternal(){return tokensInternal;} };
 // 로그인 완료 후에만 앱을 초기화한다.
 if (window.ChoiminiAuth) {
   ChoiminiAuth.onReady(function(){ init(); showAppPromo(); });
