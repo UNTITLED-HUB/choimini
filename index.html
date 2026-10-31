@@ -1699,7 +1699,7 @@ function fsToolPrompt(mode){
     + "  · 동영상 레이어 시간·움직임: start,end(초),fade, animation_in(fade|slide-up|slide-down|slide-left|slide-right|zoom-in|zoom-out|pop|bounce|drop|spin|typewriter|wipe), animation_out, animation_duration, loop(pulse|float|wiggle|sway|blink|spin|shake), text 에 {time}/{remaining} 쓰면 시계. particles 는 영상에서 실제로 움직인다.\n"
     + "  · edit_video(path,out,start,end,width,height) + 선택: speed(0.25~4), rotate(90단위), flipX, fit, preset, filters, layers, fade_in, fade_out, letterbox, keep_audio(원본 소리), music(오디오 경로), music_volume, fps(1~60, 기본 30), quality(standard|high|max) 또는 bitrate(Mbps), codec(vp9|vp8|av1). 최대 3840×2160, 결과 최대 120초 WebM.\n"
     + "  · create_video(paths,out,seconds_per_image,width,height) + 선택: paths 에 영상 클립도 가능, durations:[장면별 초], transition(fade|slide-left|slide-right|slide-up|slide-down|zoom|wipe-left|wipe-right|circle|blur|flash) 또는 transitions:[장면마다], transition_seconds, ken_burns(true|in|out|left|right|up|down), fit, background, preset, filters, layers, fade_in, fade_out, letterbox, keep_audio, music, fps, quality, bitrate. 고화질은 1920×1080·60fps·quality:\"max\" 를 쓴다(브라우저에서 실시간으로 녹화되므로 결과 길이만큼 시간이 걸린다).\n"
-    + "  · generate_image(prompt,out,width,height,aspect_ratio,seed,model,negative,path?): API 키 없이도 된다(무료 생성 서비스, 최대 2048px). prompt 는 영어로 주제·구도·조명·화풍을 구체적으로. 개인 Gemini 키가 있으면 Gemini 를 먼저 쓰고, path(기존 사진 AI 편집)는 개인 키가 있을 때만. 생성 이미지 위 글자는 edit_image 의 text 레이어로 정확하게 넣는다. 사실적인 생성형 동영상은 지원하지 않는다(생성 이미지 + create_video 로 만든다).\n"
+    + "  · generate_image(prompt,out,width,height,aspect_ratio,seed,model,negative,path?): API 키 없이도 된다(무료 생성 서비스, 최대 2048px, 약 45초에 1장 제한이라 꼭 필요한 장수만 만든다). prompt 는 영어로 주제·구도·조명·화풍을 구체적으로. 개인 Gemini 키가 있으면 Gemini 를 먼저 쓰고, path(기존 사진 AI 편집)는 개인 키가 있을 때만. 생성 이미지 위 글자는 edit_image 의 text 레이어로 정확하게 넣는다. 사실적인 생성형 동영상은 지원하지 않는다(생성 이미지 + create_video 로 만든다).\n"
     + "  예시(필요한 호출만 쓴다):\n"
     + F + "tool\n" + [
       {tool:"media_info",path:"/user/download/photo.jpg"},
@@ -5983,6 +5983,19 @@ function termTool(c){
    2) 키가 없거나 Gemini 가 실패하면 키가 필요 없는 무료 이미지 생성 서비스(Pollinations)로 만든다.
       프롬프트만 외부 서비스로 보내고, 사용자의 파일은 보내지 않는다. */
 const FREE_IMAGE_ENDPOINT = "https://image.pollinations.ai/prompt/";
+// 무료 서비스는 IP 당 약 45초에 1장 제한이 있다 → 이전 요청 시각을 기억해 기다렸다가 보낸다
+const FREE_IMAGE_GAP_MS = 46000;
+let freeImageLastAt = 0;
+function abortableSleep(ms, signal){ return new Promise((resolve, reject)=>{ const t = setTimeout(resolve, ms); if(signal) signal.addEventListener("abort", ()=>{ clearTimeout(t); reject(Object.assign(new Error("aborted"), { name:"AbortError" })); }, { once:true }); }); }
+async function waitFreeImageSlot(signal, onStatus, extraMs){
+  const wait = Math.max(extraMs || 0, freeImageLastAt + FREE_IMAGE_GAP_MS - Date.now());
+  if(wait <= 0) return;
+  const end = Date.now() + wait;
+  while(Date.now() < end){
+    if(onStatus) onStatus("무료 이미지 생성 대기 중... " + Math.ceil((end - Date.now()) / 1000) + "초");
+    await abortableSleep(Math.min(1000, end - Date.now()), signal);
+  }
+}
 function readBlobAsDataUrl(b){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=()=>reject(new Error("이미지 데이터를 읽을 수 없어요.")); r.readAsDataURL(b); }); }
 function imageInfoOf(url){ return new Promise((resolve,reject)=>{ const i=new Image(); i.onload=()=>resolve(i); i.onerror=()=>reject(new Error("생성된 이미지를 읽을 수 없어요.")); i.src=url; }); }
 async function convertDataUrl(url, mime){
@@ -6006,7 +6019,7 @@ async function geminiImage(key, call, prompt, signal){
   if(!part){ const why=data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason || ""; const said=outParts.map(p=>p.text||"").join(" ").trim().slice(0,200); throw new Error("Gemini 이미지 결과가 없어요." + (why ? " (사유: " + why + ")" : "") + (said ? " 모델 응답: " + said : "")); }
   return { url:"data:"+part.inlineData.mimeType+";base64,"+part.inlineData.data, via:"Gemini " + model };
 }
-async function freeImage(call, prompt, signal){
+async function freeImage(call, prompt, signal, onStatus){
   const dim = v => Math.max(256, Math.min(2048, Math.round(Number(v) || 1024)));
   let w = dim(call.width), h = dim(call.height);
   const ar = String(call.aspect_ratio || call.aspectRatio || "").match(/^(\d+(?:\.\d+)?)\s*[:x×]\s*(\d+(?:\.\d+)?)$/);
@@ -6016,18 +6029,30 @@ async function freeImage(call, prompt, signal){
   const q = new URLSearchParams({ width:String(w), height:String(h), seed:String(seed), model, nologo:"true", private:"true", safe:"true", enhance: call.enhance ? "true" : "false" });
   if(call.negative || call.negative_prompt) q.set("negative_prompt", String(call.negative || call.negative_prompt).slice(0, 500));
   const url = FREE_IMAGE_ENDPOINT + encodeURIComponent(prompt.slice(0, 1800)) + "?" + q;
-  let last = "";
-  for(let attempt = 0; attempt < 2; attempt++){
+  let last = "", extra = 0;
+  const deadline = Date.now() + 180000; // 혼잡할 때는 안내된 시간만큼 기다리며 최대 3분까지 다시 시도
+  for(let attempt = 0; attempt < 6 && Date.now() < deadline; attempt++){
+    await waitFreeImageSlot(signal, onStatus, extra); extra = 0;
+    if(onStatus) onStatus("이미지 생성 중... (무료 서비스, 보통 10~30초)");
     try{
+      freeImageLastAt = Date.now();
       const res = await fetch(url, { signal: withTimeout(signal, 100000) });
+      if(res.status === 503) freeImageLastAt = 0; // 혼잡 응답은 장수 제한에 포함되지 않는다
       const type = res.headers.get("content-type") || "";
       if(res.ok && /^image\//.test(type)){ const blob = await res.blob(); if(blob.size > 1000) return { url: await readBlobAsDataUrl(blob), via:"무료 생성 서비스 Pollinations(" + model + ", seed " + seed + ")" }; last = "빈 이미지"; }
-      else last = "HTTP " + res.status + " " + (await res.text().catch(()=>"")).slice(0, 160);
+      else{
+        const body = (await res.text().catch(()=>"")).slice(0, 300);
+        last = "HTTP " + res.status + " " + body.slice(0, 160);
+        const m = body.match(/retry after\s*(\d+)\s*s/i);
+        if(res.status === 402 || res.status === 429 || res.status === 503 || res.status === 502) extra = Math.min(70000, ((m ? Number(m[1]) : (res.status === 402 ? 45 : 15)) + 2) * 1000); // 사용량 제한·혼잡: 안내된 시간만큼 기다렸다 다시
+        if(res.status === 503) last = "무료 서비스가 지금 혼잡해요";
+        else if(res.status === 402) last = "무료 사용량 제한(약 45초에 1장)";
+      }
     }catch(e){ if(signal && signal.aborted) throw e; last = e && e.name === "TimeoutError" ? "시간 초과" : String(e && e.message || e); }
   }
   throw new Error("무료 이미지 생성 서비스 응답 실패 (" + last + "). 잠시 뒤 다시 시도하거나 설정에 개인 Gemini 키를 등록하세요.");
 }
-async function sandboxGenerateImage(call, signal){
+async function sandboxGenerateImage(call, signal, onStatus){
   const prompt=String(call.prompt||"").trim(), out=String(call.out||"").trim();
   const ext=(out.match(/\.(png|jpe?g|webp)$/i)||[])[1];
   if(!prompt || !out || !ext) throw new Error("prompt 와 출력 경로 out(.png/.jpg/.webp)이 필요해요.");
@@ -6037,7 +6062,7 @@ async function sandboxGenerateImage(call, signal){
   if(key){ try{ r = await geminiImage(key, call, prompt, signal); }catch(e){ if(e && e.name === "AbortError") throw e; note = e.message || String(e); } }
   if(!r){
     if(call.path) throw new Error((note ? note + " / " : "") + "기존 사진을 AI로 고치는 기능(path)은 설정에 개인 Gemini 키가 있어야 해요. 키 없이 하려면 generate_image 로 새 이미지를 만들고 edit_image 의 layers·filters 로 합성·보정하세요.");
-    r = await freeImage(call, prompt, signal);
+    r = await freeImage(call, prompt, signal, onStatus);
     if(note) note = "Gemini 실패로 무료 서비스 사용: " + note;
   }
   const data = await convertDataUrl(r.url, mime), info = await imageInfoOf(data);
@@ -6213,7 +6238,7 @@ async function afterReplyActions(chat, aiMsg, preset, depth){
           continue;
         }
         if(c.tool === "generate_image"){
-          let out, ok=true; try{setRunning("이미지 생성 중...");out="이미지 저장됨: " + await sandboxGenerateImage(c,signal());}catch(e){if(e?.name === "AbortError") throw e;ok=false;out="오류: " + (e.message||e);}
+          let out, ok=true; try{setRunning("이미지 생성 중...");out="이미지 저장됨: " + await sandboxGenerateImage(c,signal(),msg=>setRunning(msg));}catch(e){if(e?.name === "AbortError") throw e;ok=false;out="오류: " + (e.message||e);}
           if(!ok) uploadsSucceeded=false;commands.push({cmd:"generate_image " + (c.out||""),ok,out:shortOut(out)});outs.push("▶ generate_image\n"+out);continue;
         }
         if(!ChoiminiToolRunner.isFsTool(c.tool)){ uploadsSucceeded = false; const out="오류: 사용할 수 없는 도구예요. 사용 가능: runcmd, upload, question-load, fs_*, media_info, font_list, convert_image, edit_image, create_video, edit_video, generate_image"; commands.push({cmd:String(c.tool),ok:false,out}); outs.push(`▶ ${c.tool}\n${out}`); continue; }

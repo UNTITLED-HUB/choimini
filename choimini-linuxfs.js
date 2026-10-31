@@ -1698,6 +1698,79 @@
     }finally{ v._revoke(); if(music) music._revoke(); if(mix) mix.close(); }
   }
 
+  /* ---- 고화질 오프라인 인코딩 (WebCodecs) ----
+     사진만으로 만드는 영상은 실시간 녹화(MediaRecorder) 대신 프레임을 하나씩 정확한 시각에 그려 인코딩한다.
+     → 인코더가 느려도 프레임이 빠지지 않고(60fps 그대로), 탭이 숨겨져도 멈추지 않는다. WebM 컨테이너는 직접 만든다. */
+  function ebml(id, ...parts){
+    const idb = []; for(let v = id; v > 0; v = Math.floor(v / 256)) idb.unshift(v & 255);
+    const body = concatBytes(parts.map(p => p instanceof Uint8Array ? p : typeof p === "string" ? new TextEncoder().encode(p) : new Uint8Array(p)));
+    const size = [0x01]; for(let i = 6; i >= 0; i--) size.push(Math.floor(body.length / Math.pow(256, i)) & 255);
+    return concatBytes([new Uint8Array(idb), new Uint8Array(size), body]);
+  }
+  function concatBytes(arr){ let n = 0; arr.forEach(a => n += a.length); const out = new Uint8Array(n); let o = 0; arr.forEach(a => { out.set(a, o); o += a.length; }); return out; }
+  function ebUint(n, fixed){ const b = []; if(fixed){ for(let i = fixed - 1; i >= 0; i--) b.push(Math.floor(n / Math.pow(256, i)) & 255); return new Uint8Array(b); } do{ b.unshift(n & 255); n = Math.floor(n / 256); }while(n > 0); return new Uint8Array(b); }
+  function ebFloat(x){ const b = new Uint8Array(8); new DataView(b.buffer).setFloat64(0, x); return b; }
+  function muxWebM(frames, codecId, w, h, durationMs){
+    const info = ebml(0x1549A966, ebml(0x2AD7B1, ebUint(1000000)), ebml(0x4D80, "Choimini"), ebml(0x5741, "Choimini"), ebml(0x4489, ebFloat(durationMs)));
+    const tracks = ebml(0x1654AE6B, ebml(0xAE, ebml(0xD7, ebUint(1)), ebml(0x73C5, ebUint(1)), ebml(0x9C, ebUint(0)), ebml(0x86, codecId), ebml(0x83, ebUint(1)), ebml(0xE0, ebml(0xB0, ebUint(w)), ebml(0xBA, ebUint(h)))));
+    const clusters = [], cueList = [];
+    let cur = null;
+    const flush = () => { if(cur){ clusters.push({ t: cur.t, bytes: ebml(0x1F43B675, ebml(0xE7, ebUint(cur.t)), ...cur.blocks) }); cur = null; } };
+    for(const f of frames){
+      const ms = Math.round(f.t / 1000);
+      if(!cur || f.key || ms - cur.t > 30000){ flush(); cur = { t: ms, blocks: [] }; }
+      const rel = ms - cur.t, hdr = new Uint8Array([0x81, (rel >> 8) & 255, rel & 255, f.key ? 0x80 : 0]);
+      cur.blocks.push(ebml(0xA3, hdr, f.data));
+    }
+    flush();
+    // SeekHead 은 고정 크기로 만들어 위치 계산을 단순하게 한다
+    const seek = (id, pos) => ebml(0x4DBB, ebml(0x53AB, ebUint(id)), ebml(0x53AC, ebUint(pos, 8)));
+    const seekLen = ebml(0x114D9B74, seek(0x1549A966, 0), seek(0x1654AE6B, 0), seek(0x1C53BB6B, 0)).length;
+    let pos = seekLen + info.length + tracks.length;
+    clusters.forEach(c => { cueList.push(ebml(0xBB, ebml(0xB3, ebUint(c.t)), ebml(0xB7, ebml(0xF7, ebUint(1)), ebml(0xF1, ebUint(pos))))); pos += c.bytes.length; });
+    const cues = ebml(0x1C53BB6B, ...cueList);
+    const seekHead = ebml(0x114D9B74, seek(0x1549A966, seekLen), seek(0x1654AE6B, seekLen + info.length), seek(0x1C53BB6B, pos));
+    const head = ebml(0x1A45DFA3, ebml(0x4286, ebUint(1)), ebml(0x42F7, ebUint(1)), ebml(0x42F2, ebUint(4)), ebml(0x42F3, ebUint(8)), ebml(0x4282, "webm"), ebml(0x4287, ebUint(4)), ebml(0x4285, ebUint(2)));
+    return new Blob([head, ebml(0x18538067, seekHead, info, tracks, ...clusters.map(c => c.bytes), cues)], { type: "video/webm" });
+  }
+  async function pickEncoder(w, h, fps, bitrate, pref){
+    if(typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") return null;
+    const lvl = w * h <= 1280 * 720 ? "31" : w * h <= 1920 * 1080 ? "41" : "51";
+    const p = String(pref || "").toLowerCase();
+    const list = (p === "vp8" ? [] : p === "av1" ? [["av01.0." + (w * h > 1920 * 1080 ? "12" : "08") + "M.08", "V_AV1", "av1"]] : []).concat(p === "vp8" ? [] : [["vp09.00." + lvl + ".08", "V_VP9", "vp9"]]).concat([["vp8", "V_VP8", "vp8"]]);
+    for(const [codec, id, name] of list){
+      for(const hw of ["prefer-hardware", "no-preference"]){
+        const config = { codec, width: w, height: h, bitrate, framerate: fps, bitrateMode: "variable", latencyMode: "quality", hardwareAcceleration: hw };
+        try{ const s = await VideoEncoder.isConfigSupported(config); if(s && s.supported) return { config: s.config || config, id, name }; }catch(_){}
+      }
+    }
+    return null;
+  }
+  async function encodeOffline(canvas, w, h, fps, total, bitrate, codecPref, draw){
+    const pick = await pickEncoder(w, h, fps, bitrate, codecPref);
+    if(!pick) return null;
+    const frames = []; let err = null;
+    const enc = new VideoEncoder({ output: ch => { const b = new Uint8Array(ch.byteLength); ch.copyTo(b); frames.push({ t: ch.timestamp, key: ch.type === "key", data: b }); }, error: e => { err = e; } });
+    enc.configure(pick.config);
+    const n = Math.max(1, Math.round(total * fps)), gop = Math.max(1, Math.round(fps * 2));
+    try{
+      for(let i = 0; i < n; i++){
+        if(err) throw err;
+        draw(i / fps);
+        const vf = new VideoFrame(canvas, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
+        enc.encode(vf, { keyFrame: i % gop === 0 }); vf.close();
+        while(enc.encodeQueueSize > 4) await new Promise(r => setTimeout(r, 1));
+        if(i % 20 === 19) await new Promise(r => setTimeout(r, 0)); // 화면이 멈추지 않게 가끔 양보
+      }
+      await enc.flush();
+      if(err) throw err;
+    }finally{ try{ enc.close(); }catch(_){} }
+    frames.sort((a, b) => a.t - b.t);
+    const blob = muxWebM(frames, pick.id, w, h, n * 1000 / fps);
+    const data = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error("영상 저장 실패")); r.readAsDataURL(blob); });
+    return { data, frames: frames.length, codec: pick.name, hw: /hardware/.test(pick.config.hardwareAcceleration || "") };
+  }
+
   /* ---- 장면 전환 ---- */
   const TRANSITIONS = ["none","fade","slide-left","slide-right","slide-up","slide-down","zoom","wipe-left","wipe-right","circle","blur","flash"];
   // create_video: 이미지·영상 클립을 이어 붙이고 전환·켄 번스·레이어 애니메이션·배경음
@@ -1800,6 +1873,15 @@
         letterbox(ctx, w, h, opt(call, "letterbox"));
         fadeOverlay(ctx, w, h, t, total, fin, fout);
       };
+      const clipAt = t => { let i = clips.length - 1; while(i > 0 && t < starts[i]) i--; return i; };
+      // 사진만 있고 소리가 없으면 프레임 단위 오프라인 인코딩(빠짐없는 고화질). 아니면 실시간 녹화.
+      if(!(mix && mix.used) && clips.every(c => c.kind === "image") && opt(call, "realtime") !== true){
+        const off = await encodeOffline(canvas, w, h, fps, total, bitrate, opt(call, "codec"), t => drawFrame(Math.min(t, total - 1e-6), clipAt(t)));
+        if(off){
+          const out = writeFile(call.out, off.data, "video/webm");
+          return `${out} (${w}×${h}, ${total.toFixed(1)}초, 장면 ${clips.length}개, ${fps}fps · ${off.frames}프레임, ${(bitrate / 1e6).toFixed(1)}Mbps ${off.codec}${off.hw ? " 하드웨어" : ""} 인코딩, 무음)` + (notes.length ? "\n참고: " + notes.join(" / ") : "");
+        }
+      }
       const res = await record(canvas, fps, mix, bitrate, opt(call, "codec"), async (due, emit) => {
         if(music){ music.currentTime = 0; music.play().catch(() => notes.push("배경음 재생 실패")); }
         let cur = -1;
