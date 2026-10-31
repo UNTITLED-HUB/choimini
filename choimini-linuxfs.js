@@ -966,7 +966,7 @@
     if(opt(L, "y") != null) y = len(opt(L, "y"), H, y);
     if(opt(L, "center_x", "cx") != null) x = len(opt(L, "center_x", "cx"), W, x + w / 2) - w / 2;
     if(opt(L, "center_y", "cy") != null) y = len(opt(L, "center_y", "cy"), H, y + h / 2) - h / 2;
-    return { x, y };
+    return { x, y: y + (L._oy || 0) };
   }
   function shadowOf(v){
     if(!v) return null;
@@ -1077,6 +1077,7 @@
   }
   /* ---- 레이어 그리기 (이미지·동영상 공용) ---- */
   function drawLayers(ctx, W, H, layers, images, t, total){
+    autoStack(ctx, layers || [], W, H, t, total);
     for(const L of layers || []){
       if(!L || typeof L !== "object") continue;
       const A = animState(L, t, W, H, total);
@@ -1188,7 +1189,8 @@
     if(t === "sticker" || t === "emoji") return "text";
     return t;
   }
-  function drawText(ctx, L, W, H, A, sh, xf, t, total){
+  // 글자 레이어의 크기 계산 (그리기와 자동 쌓기에서 같이 쓴다). ctx.font 를 설정한다.
+  function textLayout(ctx, L, W, H, t, total){
     const size = len(opt(L, "size", "font_size"), Math.min(W, H), Math.round(Math.min(W, H) * (L.type === "emoji" || L.type === "sticker" ? 0.18 : 0.07)));
     const fam = fontFamilyOf(opt(L, "font", "font_family"));
     const famCss = fam ? `"${fam}",${DEFAULT_FONT}` : DEFAULT_FONT;
@@ -1207,6 +1209,32 @@
     const tw = Math.max(1, ...lines.map(l => ctx.measureText(l).width)), th = lh * lines.length;
     const pad = len(opt(L, "padding"), size, opt(L, "background") ? Math.round(size * 0.35) : 0);
     const bw0 = curve ? Math.abs(curve) * 2 : tw + pad * 2, bh0 = curve ? Math.abs(curve) + size : th + pad * 2;
+    return { size, lines, lh, tw, th, pad, bw0, bh0, curve, pos0 };
+  }
+  // 같은 position 에 놓인 글자들이 서로 겹치면 위아래로 차례대로 쌓는다 (stack:false 로 끌 수 있음)
+  function autoStack(ctx, layers, W, H, t, total){
+    const groups = {};
+    for(const L of layers){
+      if(!L || typeof L !== "object") continue;
+      L._oy = 0;
+      if(layerType(L) !== "text" || opt(L, "stack") === false || !opt(L, "position") || ["x","y","cx","cy","center_x","center_y"].some(k => opt(L, k) != null)) continue;
+      if(animState(L, t, W, H, total).a <= 0) continue; // 지금 안 보이는 글자는 자리를 차지하지 않는다
+      const pos = String(opt(L, "position")).toLowerCase().replace(/[_\s]+/g, "-");
+      (groups[pos] = groups[pos] || []).push(L);
+    }
+    for(const pos in groups){
+      const g = groups[pos]; if(g.length < 2) continue;
+      const boxes = g.map(L => { ctx.save(); const m = textLayout(ctx, L, W, H, t, total); ctx.restore(); const b = place(L, W, H, m.bw0, m.bh0); return { L, h: m.bh0, y: b.y }; });
+      const overlap = boxes.some((a, i) => boxes.some((b, j) => i < j && a.y < b.y + b.h && b.y < a.y + a.h));
+      if(!overlap) continue;
+      const gap = Math.min(W, H) * 0.02, sum = boxes.reduce((s, b) => s + b.h, 0) + gap * (boxes.length - 1);
+      const m0 = len(opt(g[0], "margin"), Math.min(W, H), Math.round(Math.min(W, H) * 0.04));
+      let y = /top/.test(pos) ? m0 : /bottom/.test(pos) ? H - m0 - sum : (H - sum) / 2;
+      boxes.forEach(b => { b.L._oy = y - b.y; y += b.h + gap; });
+    }
+  }
+  function drawText(ctx, L, W, H, A, sh, xf, t, total){
+    const { size, lines, lh, tw, th, pad, bw0, bh0, curve, pos0 } = textLayout(ctx, L, W, H, t, total);
     const box = place(L, W, H, bw0, bh0);
     const align = String(opt(L, "align") || (/(^|-)left/.test(pos0) ? "left" : /right/.test(pos0) ? "right" : pos0 ? "center" : "left")).toLowerCase();
     const total_chars = lines.reduce((s, l) => s + [...l].length, 0);

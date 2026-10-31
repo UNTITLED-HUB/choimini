@@ -1699,7 +1699,7 @@ function fsToolPrompt(mode){
     + "  · 동영상 레이어 시간·움직임: start,end(초),fade, animation_in(fade|slide-up|slide-down|slide-left|slide-right|zoom-in|zoom-out|pop|bounce|drop|spin|typewriter|wipe), animation_out, animation_duration, loop(pulse|float|wiggle|sway|blink|spin|shake), text 에 {time}/{remaining} 쓰면 시계. particles 는 영상에서 실제로 움직인다.\n"
     + "  · edit_video(path,out,start,end,width,height) + 선택: speed(0.25~4), rotate(90단위), flipX, fit, preset, filters, layers, fade_in, fade_out, letterbox, keep_audio(원본 소리), music(오디오 경로), music_volume, fps(1~60, 기본 30), quality(standard|high|max) 또는 bitrate(Mbps), codec(vp9|vp8|av1). 최대 3840×2160, 결과 최대 120초 WebM.\n"
     + "  · create_video(paths,out,seconds_per_image,width,height) + 선택: paths 에 영상 클립도 가능, durations:[장면별 초], transition(fade|slide-left|slide-right|slide-up|slide-down|zoom|wipe-left|wipe-right|circle|blur|flash) 또는 transitions:[장면마다], transition_seconds, ken_burns(true|in|out|left|right|up|down), fit, background, preset, filters, layers, fade_in, fade_out, letterbox, keep_audio, music, fps, quality, bitrate. 고화질은 1920×1080·60fps·quality:\"max\" 를 쓴다(브라우저에서 실시간으로 녹화되므로 결과 길이만큼 시간이 걸린다).\n"
-    + "  · generate_image(prompt,out,width,height,aspect_ratio,seed,model,negative,path?): API 키 없이도 된다(무료 생성 서비스, 최대 2048px, 약 45초에 1장 제한이라 꼭 필요한 장수만 만든다). prompt 는 영어로 주제·구도·조명·화풍을 구체적으로. 개인 Gemini 키가 있으면 Gemini 를 먼저 쓰고, path(기존 사진 AI 편집)는 개인 키가 있을 때만. 생성 이미지 위 글자는 edit_image 의 text 레이어로 정확하게 넣는다. 사실적인 생성형 동영상은 지원하지 않는다(생성 이미지 + create_video 로 만든다).\n"
+    + "  · generate_image(prompt,out,width,height,aspect_ratio,seed,model,negative,path?): API 키 없이도 된다(무료 생성 서비스, 최대 2048px, 약 45초에 1장 제한이라 꼭 필요한 장수만 만든다. 오른쪽 아래에 작은 서비스 표시가 들어갈 수 있다). prompt 는 영어로 주제·구도·조명·화풍을 구체적으로. 개인 Gemini 키가 있으면 Gemini 를 먼저 쓰고, path(기존 사진 AI 편집)는 개인 키가 있을 때만. 생성 이미지 위 글자는 edit_image 의 text 레이어로 정확하게 넣는다. 사실적인 생성형 동영상은 지원하지 않는다(생성 이미지 + create_video 로 만든다).\n"
     + "  예시(필요한 호출만 쓴다):\n"
     + F + "tool\n" + [
       {tool:"media_info",path:"/user/download/photo.jpg"},
@@ -6064,6 +6064,18 @@ async function sandboxGenerateImage(call, signal, onStatus){
     if(call.path) throw new Error((note ? note + " / " : "") + "기존 사진을 AI로 고치는 기능(path)은 설정에 개인 Gemini 키가 있어야 해요. 키 없이 하려면 generate_image 로 새 이미지를 만들고 edit_image 의 layers·filters 로 합성·보정하세요.");
     r = await freeImage(call, prompt, signal, onStatus);
     if(note) note = "Gemini 실패로 무료 서비스 사용: " + note;
+  }
+  // 무료 서비스는 요청보다 작게(약 0.6~1MP) 주는 경우가 있다 → 요청한 크기로 고품질 확대하고 사실대로 알린다
+  const want = Number(call.width) || 0, wantH = Number(call.height) || 0;
+  if(want || wantH){
+    const src = await imageInfoOf(r.url), sw = src.naturalWidth, sh = src.naturalHeight;
+    const tw = want || Math.round(wantH * sw / sh), th = wantH || Math.round(want * sh / sw);
+    if(tw > sw + 2 || th > sh + 2){
+      const c = document.createElement("canvas"); c.width = Math.min(4096, tw); c.height = Math.min(4096, th);
+      const x = c.getContext("2d"); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high";
+      const sc = Math.max(c.width / sw, c.height / sh), dw = sw * sc, dh = sh * sc; x.drawImage(src, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
+      r.url = c.toDataURL("image/png"); note = (note ? note + " / " : "") + `서비스가 ${sw}×${sh} 로 만들어 ${c.width}×${c.height} 로 확대했어요`;
+    }
   }
   const data = await convertDataUrl(r.url, mime), info = await imageInfoOf(data);
   const path = LinuxFS.asAI(()=>LinuxFS.writeFile(out, data, mime));
