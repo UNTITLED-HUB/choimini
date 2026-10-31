@@ -5394,44 +5394,14 @@ function nbStayActive(){
 }
 
 /* ---------------- send flow ---------------- */
-/* 첫 질문을 받으면 가벼운(lite) 모델이 짧은 채팅 제목을 자동으로 정한다. 실패하거나 사용자가 그 사이에 이름을 바꿨으면 그대로 둔다. */
-/* 첫 답변까지 받은 뒤 제목을 짓는다. 사용자가 이미 이름을 바꿨거나 제목이 필요 없으면 건너뛴다. */
+/* 제목은 첫 입력/첨부파일 이름으로 sendMessage에서 정한다. 답변 뒤 제목용 AI를 재호출하지 않는다. */
 function maybeAutoTitle(chat){
   try{
     if(!chat || !chat.needsTitle) return;
-    const msgs = (chat.messages || []).filter(m=>m.role === "user" || m.role === "ai");
-    const firstUser = msgs.find(m=>m.role === "user" && !m.auto);
-    const firstAi = msgs.find(m=>m.role === "ai");
-    if(!firstUser || !firstAi) return;          // 답변이 아직이면 다음 기회에
+    if(!(chat.messages || []).some(m=>m.role === "ai")) return;
     delete chat.needsTitle;
-    let ansText = "";
-    try{ ansText = parseAiDisplay(firstAi.content || "").text || ""; }catch(_){ ansText = firstAi.content || ""; }
-    autoTitle(chat, String(firstUser.content || "").trim(), ansText);
+    saveChats();
   }catch(e){ console.warn("[제목]", e); }
-}
-async function autoTitle(chat, text, answer){
-  try{
-    text = String(text || "").trim(); if(!text) return;
-    const provider = settings.provider, apiKey = resolveApiKey(provider);
-    if(!(apiKey || hasDefaultProxy(provider))) return;
-    const model = settings.models[provider] && settings.models[provider]["lite"]; if(!model) return;
-    const prov = chat.title;
-    const sys = "너는 채팅방 제목 생성기다. 아래 대화를 보고 무엇에 대한 대화인지 핵심을 담은 짧은 제목 하나만 출력한다. "
-      + "한국어면 8~14자, 다른 언어면 2~5단어. 따옴표·마침표·이모지·설명·접두어 없이 제목 글자만.";
-    // v2.2.0: 질문만 보면 "안녕" 같은 첫 마디로 제목이 정해져 버린다. 첫 답변까지 보고 요약한다.
-    const ans = String(answer || "").trim();
-    const convo = ans ? ("[질문] " + text.slice(0, 500) + "\n[답변] " + ans.slice(0, 700)) : text.slice(0, 600);
-    const hist = [{ role:"user", content: convo }];
-    let out;
-    if(provider === "gemini") out = (await callGemini(model, apiKey, sys, hist, "lite", 200)).text;
-    else if(provider === "openai") out = (await callOpenAI(model, apiKey, sys, hist, 40)).text;
-    else if(provider === "anthropic") out = (await callAnthropic(model, apiKey, sys, hist, 40)).text;
-    let t = String(out || "").split("\n")[0].replace(/^[\s"'“”‘’「」#*\-–:：]+|[\s"'“”‘’「」.。!?]+$/g, "").trim();
-    if(!t || t.length < 2) return;
-    t = t.slice(0, 30);
-    if(chat.title !== prov) return; // 그 사이 사용자가 직접 이름을 바꿨다
-    chat.title = t; saveChats(); renderChatList(); renderTopbar();
-  }catch(_){}
 }
 async function sendMessage(){
   if(activeGenerating()) return; // 이 채팅이 답변을 만드는 중이면 새 메시지를 못 보낸다 (다른 채팅은 동시에 가능)
@@ -5461,7 +5431,7 @@ async function sendMessage(){
   chat.messages.push(userMsg);
   if(chat.title === "새 채팅" && (raw.trim() || pendingFiles.length)){
     chat.title = (raw.trim() || (pendingFiles[0] && pendingFiles[0].name) || "새 채팅").slice(0, 24);
-    chat.needsTitle = true;   // 제목은 첫 답변이 끝난 뒤에 "질문+답변"을 요약해서 짓는다 (아래 maybeAutoTitle)
+    chat.needsTitle = true;   // 첫 답변 뒤에는 이 로컬 제목을 확정만 한다 (추가 AI 호출 없음)
   }
   input.value = "";
   autoGrow(input);
@@ -5529,7 +5499,7 @@ async function runGenerationTurn(chat, preset, depth){
   delete chat.pendingReply;
   setChatGenerating(chat, false);
   setLiveProvider(null);
-  maybeAutoTitle(chat);   // 첫 답변이 끝났으니 "질문+답변"을 요약해 제목을 짓는다
+  maybeAutoTitle(chat);   // 로컬 제목 확정 · 추가 AI 호출 없음
   try{ if(window.AndroidBridge && AndroidBridge.notifyDone){ const lm=(chat.messages||[]).slice(-1)[0]; AndroidBridge.notifyDone('최미나이', lm && lm.role==='ai' ? String(lm.content||'').replace(/\s+/g,' ').slice(0,80) : '답변이 준비됐어요'); } }catch(_){}
   if(chat.id === activeChatId) renderMessages(); // 잠금 해제 후 다시 그려서 수정(✏️)/다시요청 버튼이 정상적으로 보이게 함
   else { chat.unread = true; saveChats(); renderChatList(); }
